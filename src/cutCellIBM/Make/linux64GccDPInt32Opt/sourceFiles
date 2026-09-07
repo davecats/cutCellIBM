@@ -1,0 +1,7 @@
+SOURCE = \
+ibmBody/ibmBody.C \
+ibmBody/ibmBodies.C \
+cutCellGeometry/cutCellGeometry.C \
+ibmMeanVelocityForce/ibmMeanVelocityForce.C \
+
+# sources

@@ -1,0 +1,20 @@
+FoamFile { version 2.0; format ascii; class dictionary; object ibmProperties; }
+
+// Cut-cell immersed boundary (see src/cutCellIBM/cutCellGeometry)
+alphaMin      0.02;    // slivers with less fluid are absorbed into the body
+nSubSamples   32;      // samples per direction for the cell fluid fraction
+nBisect       40;      // bisection steps for the wall position on cut edges
+writeFields   true;
+writeForces   true;
+
+bodies
+{
+    cylinder
+    {
+        type      cylinder;
+        centre    (5 5 0);
+        axis      (0 0 1);
+        radius    1;
+        wallType  freeSlip;
+    }
+}

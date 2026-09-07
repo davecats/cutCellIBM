@@ -1,0 +1,15 @@
+# Source after OpenFOAM-v2106:
+#   module load cae/openfoam+/v2106_prf && foamInit && source etc/bashrc
+# Installs the cutCellIBM library and solvers into this project tree.
+CUTCELL_IBM_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
+export CUTCELL_IBM_DIR
+
+if [ "$WM_PROJECT_VERSION" != "v2106" ]; then
+    echo "Warning: OpenFOAM-v2106 is not sourced (WM_PROJECT_VERSION=$WM_PROJECT_VERSION)"
+fi
+
+export FOAM_USER_APPBIN=$CUTCELL_IBM_DIR/platforms/$WM_OPTIONS/bin
+export FOAM_USER_LIBBIN=$CUTCELL_IBM_DIR/platforms/$WM_OPTIONS/lib
+mkdir -p $FOAM_USER_APPBIN $FOAM_USER_LIBBIN
+export PATH=$FOAM_USER_APPBIN:$PATH
+export LD_LIBRARY_PATH=$FOAM_USER_LIBBIN:$LD_LIBRARY_PATH

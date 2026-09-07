@@ -1,0 +1,16 @@
+FoamFile { version 2.0; format ascii; class dictionary; object ibmProperties; }
+alphaMin      0.02;
+writeFields   true;
+bodies
+{
+    cylinder
+    {
+        // fluid volume fraction read from 0/alpha.body (here: the field written
+        // by ibmSetGeometry for the analytical cylinder); the face fractions are
+        // reconstructed from its 0.5 iso-surface
+        type          alphaField;
+        field         alpha.body;
+        solidFraction false;
+        wallType      noSlip;
+    }
+}

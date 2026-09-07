@@ -1,0 +1,23 @@
+FoamFile { version 2.0; format ascii; class dictionary; object ibmProperties; }
+alphaMin      0.02;
+writeFields   true;
+writeForces   true;
+bodies
+{
+    bigNoSlip
+    {
+        type      cylinder;
+        centre    (3 5 0);
+        axis      (0 0 1);
+        radius    1;
+        wallType  noSlip;
+    }
+    smallFreeSlip
+    {
+        type      cylinder;
+        centre    (7 4 0);
+        axis      (0 0 1);
+        radius    0.7;
+        wallType  freeSlip;
+    }
+}

@@ -1,0 +1,8 @@
+#!/bin/bash
+cd "${0%/*}" || exit 1
+if [ -z "$CUTCELL_IBM_DIR" ]; then source etc/bashrc; fi
+set -e
+wmake libso src/cutCellIBM
+wmake applications/utilities/ibmSetGeometry
+wmake applications/solvers/ibmSimpleFoam
+wmake applications/solvers/ibmPimpleFoam
