@@ -26,3 +26,12 @@ validation/__pycache__/
 .asset/fvm/.ipynb_checkpoints/
 # local symlink to the notebook working directory (assets are copied to .asset/fvm)
 /fvm
+# LaTeX build products
+doc/*.aux
+doc/*.log
+doc/*.out
+doc/*.toc
+doc/*.fls
+doc/*.fdb_latexmk
+doc/page-*.png
+doc/montage.png
