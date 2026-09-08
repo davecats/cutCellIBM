@@ -1,0 +1,23 @@
+FoamFile { version 2.0; format ascii; class dictionary; object ibmProperties; }
+
+alphaMin      0.02;
+nSubSamples   32;
+nBisect       40;
+writeFields   true;
+writeForces   true;
+
+// the body may cross the cyclic boundaries: minimum image in x and y
+periodicLengths (10 10 0);
+
+bodies
+{
+    cylinder
+    {
+        type      cylinder;
+        centre    (5 5 0);
+        axis      (0 0 1);
+        radius    1;
+        wallType  noSlip;
+        motion    { type translating; velocity (0.5 0 0); }
+    }
+}

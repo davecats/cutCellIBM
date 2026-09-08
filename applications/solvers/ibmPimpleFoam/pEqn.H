@@ -42,6 +42,13 @@ while (pimple.correctNonOrthogonal())
         fvc::div(phiHbyA)
     );
 
+    if (ibm.moving())
+    {
+        // The moving wall enters the algorithm here and nowhere else: the
+        // corrected flux is made to satisfy div(phi) = -S, S = u_b . Sw
+        pEqn -= ibm.massSource();
+    }
+
     ibm.constrainPressure(pEqn);
     pEqn.setReference(pRefCell, pRefValue);
 
@@ -53,7 +60,7 @@ while (pimple.correctNonOrthogonal())
     }
 }
 
-#include "continuityErrs.H"
+#include "ibmContinuityErrs.H"
 
 // Explicitly relax pressure for momentum corrector
 p.relax();

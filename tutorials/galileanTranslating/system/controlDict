@@ -1,0 +1,19 @@
+FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }
+
+application     ibmPimpleFoam;
+startFrom       startTime;
+startTime       0;
+stopAt          endTime;
+endTime         30;
+// dt = 65 h^2/nu, the final pseudo-time step of the reference notebook
+deltaT          0.025;
+writeControl    runTime;
+writeInterval   2.5;
+purgeWrite      0;
+writeFormat     ascii;
+writePrecision  12;
+writeCompression off;
+timeFormat      general;
+timePrecision   6;
+runTimeModifiable true;
+adjustTimeStep  no;

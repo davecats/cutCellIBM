@@ -181,6 +181,12 @@ Foam::searchableSurfaceBody::searchableSurfaceBody
 }
 
 
+Foam::point Foam::searchableSurfaceBody::centre() const
+{
+    return surfPtr_().bounds().centre();
+}
+
+
 void Foam::searchableSurfaceBody::levelSet
 (
     const pointField& pts,
@@ -212,31 +218,104 @@ Foam::alphaFieldBody::alphaFieldBody
 :
     ibmBody(name, mesh, dict),
     fieldName_(dict.get<word>("field")),
-    solidFraction_(dict.getOrDefault<bool>("solidFraction", false))
-{}
+    solidFraction_(dict.getOrDefault<bool>("solidFraction", false)),
+    moving_(dict.getOrDefault<bool>("moving", false)),
+    velocity_(dict.getOrDefault<vector>("velocity", Zero)),
+    velocityFieldName_(dict.getOrDefault<word>("velocityField", word::null))
+{
+    if (moving_)
+    {
+        Info<< "    body " << name_ << ": alpha field re-fetched every step, "
+            << "body velocity "
+            << (velocityFieldName_.size() ? "from field " + velocityFieldName_
+                                          : "uniform")
+            << endl;
+    }
+}
+
+
+Foam::point Foam::alphaFieldBody::centre() const
+{
+    return mesh_.bounds().centre();
+}
+
+
+void Foam::alphaFieldBody::velocity
+(
+    const pointField& pts,
+    vectorField& U
+) const
+{
+    U.setSize(pts.size());
+    if (velocityFieldName_.size())
+    {
+        const volVectorField& Ub =
+            mesh_.lookupObject<volVectorField>(velocityFieldName_);
+        if (pts.size() != mesh_.nCells())
+        {
+            FatalErrorInFunction
+                << "velocityField of an alphaField body can only be evaluated"
+                << " at the cell centres" << exit(FatalError);
+        }
+        U = Ub.primitiveField();
+    }
+    else
+    {
+        U = velocity_;
+    }
+}
 
 
 Foam::tmp<Foam::volScalarField> Foam::alphaFieldBody::alpha() const
 {
-    Info<< "    body " << name_ << ": reading fluid fraction from field "
-        << fieldName_ << (solidFraction_ ? " (stored as solid fraction)" : "")
-        << endl;
+    tmp<volScalarField> talpha;
 
-    tmp<volScalarField> talpha
-    (
-        new volScalarField
+    const volScalarField* fieldPtr =
+        mesh_.cfindObject<volScalarField>(fieldName_);
+
+    if (fieldPtr)
+    {
+        Info<< "    body " << name_ << ": fluid fraction from registered field "
+            << fieldName_ << endl;
+        talpha = tmp<volScalarField>
         (
-            IOobject
+            new volScalarField
             (
-                fieldName_,
-                mesh_.time().timeName(),
-                mesh_,
-                IOobject::MUST_READ,
-                IOobject::NO_WRITE
-            ),
-            mesh_
-        )
-    );
+                IOobject
+                (
+                    name_ + ":alpha",
+                    mesh_.time().timeName(),
+                    mesh_,
+                    IOobject::NO_READ,
+                    IOobject::NO_WRITE,
+                    false
+                ),
+                *fieldPtr
+            )
+        );
+    }
+    else
+    {
+        Info<< "    body " << name_ << ": reading fluid fraction from field "
+            << fieldName_
+            << (solidFraction_ ? " (stored as solid fraction)" : "") << endl;
+
+        talpha = tmp<volScalarField>
+        (
+            new volScalarField
+            (
+                IOobject
+                (
+                    fieldName_,
+                    mesh_.time().timeName(),
+                    mesh_,
+                    IOobject::MUST_READ,
+                    IOobject::NO_WRITE
+                ),
+                mesh_
+            )
+        );
+    }
 
     volScalarField& a = talpha.ref();
     if (solidFraction_)

@@ -1,0 +1,12 @@
+FoamFile { version 2.0; format ascii; class dictionary; object fvOptions; }
+
+// Constant flow rate: bulk velocity over the fluid volume held at Ubar
+momentumSource
+{
+    type            ibmMeanVelocityForce;
+    selectionMode   all;
+    fields          (U);
+    Ubar            (0.37 0 0);
+    flowDir         (1 0 0);
+    relaxation      1.0;
+}

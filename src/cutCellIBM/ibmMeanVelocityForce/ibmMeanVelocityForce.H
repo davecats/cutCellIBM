@@ -5,18 +5,25 @@ Class
     Foam::fv::ibmMeanVelocityForce
 
 Description
-    meanVelocityForce (constant flow rate forcing) for the cut-cell immersed
-    boundary: the bulk velocity is averaged over the fluid volume alpha V
-    and the body force acts on the fluid volume of each cell only, so that
-    solid and cut cells receive no spurious momentum. The fluid fraction is
-    the field ibmAlpha registered by cutCellGeometry.
+    Constant flow rate forcing for the cut-cell immersed boundary, after
+    meanVelocityForce: a uniform body force along flowDir is adjusted so
+    that the bulk velocity of the fluid sits on Ubar.
 
-    The force increment is computed with the mobility of a *uniform* velocity
-    change, 1/(A - H1) (the SIMPLEC coefficient), instead of 1/A. For a
-    uniform force the neighbour couplings of the momentum matrix cancel, so
-    this is the exact response of the bulk velocity to the force; 1/A
-    underestimates it by the diffusion number nu dt/h^2 when the viscous
-    term is implicit, which makes the standard controller overshoot.
+    Differences from meanVelocityForce:
+    - the bulk velocity is averaged over the fluid volume alpha V, and the
+      force acts on the fluid volume of each cell only, so that solid and
+      cut cells receive no spurious momentum (alpha is the field ibmAlpha
+      registered by cutCellGeometry);
+    - the force increment is computed with the mobility of a uniform
+      velocity change, 1/(A - H1) (the SIMPLEC coefficient), instead of 1/A.
+      For a uniform force the neighbour couplings of the momentum matrix
+      cancel, so this is the exact bulk response; 1/A underestimates it by
+      the diffusion number nu dt/h^2 with implicit viscosity, which makes
+      the standard controller overshoot;
+    - the increments of the predictor and of every corrector call are
+      accumulated within a time step instead of overwritten;
+    - a zero target is allowed ("Ubar (0 0 0); flowDir (1 0 0);"), the
+      natural choice for a body moving through an otherwise quiescent fluid.
 
     Usage, in constant/fvOptions:
     \verbatim
@@ -26,6 +33,7 @@ Description
         selectionMode   all;
         fields          (U);
         Ubar            (0.5 0 0);
+        flowDir         (1 0 0);    // required when Ubar is zero
         relaxation      1.0;
     }
     \endverbatim
@@ -35,7 +43,7 @@ Description
 #ifndef ibmMeanVelocityForce_H
 #define ibmMeanVelocityForce_H
 
-#include "meanVelocityForce.H"
+#include "cellSetOption.H"
 
 namespace Foam
 {
@@ -44,23 +52,35 @@ namespace fv
 
 class ibmMeanVelocityForce
 :
-    public meanVelocityForce
+    public cellSetOption
 {
     // Private data
 
+        vector Ubar_;
+        vector flowDir_;
+        scalar relaxation_;
+
+        //- Accumulated force, and increment of the current step
+        scalar gradP0_;
+        scalar dGradP_;
+
+        //- Mobility of a uniform velocity change, 1/(A - H1)
+        autoPtr<volScalarField> rAPtr_;
+
         //- Fluid volume of the selected cells
         scalar Vfluid_;
+
+        //- True for a steady-state time scheme (no alpha/deltaT floor)
+        bool steady_;
 
 
     // Private member functions
 
         const volScalarField& alpha() const;
 
+        scalar magUbarAve(const volVectorField& U) const;
 
-protected:
-
-    //- Fluid-volume average of the velocity along the flow direction
-    virtual scalar magUbarAve(const volVectorField& U) const;
+        void writeProps(const scalar gradP) const;
 
 
 public:
@@ -80,6 +100,9 @@ public:
 
     // Member Functions
 
+        //- Current force per unit density
+        scalar gradP() const { return gradP0_ + dGradP_; }
+
         virtual void correct(volVectorField& U);
 
         virtual void addSup(fvMatrix<vector>& eqn, const label fieldi);
@@ -91,8 +114,9 @@ public:
             const label fieldi
         );
 
-        //- Store the mobility of a uniform velocity change, 1/(A - H1)
         virtual void constrain(fvMatrix<vector>& eqn, const label fieldi);
+
+        virtual bool read(const dictionary& dict);
 };
 
 } // End namespace fv

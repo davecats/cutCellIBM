@@ -1,7 +1,7 @@
 # build products
 platforms/
 lnInclude/
-Make/linux*/
+**/Make/linux*/
 # external reference code (not part of this project)
 ibm_secondOrder
 # tutorial cases: keep only mesh dictionaries, initial conditions and settings
@@ -24,3 +24,5 @@ validation/*.log
 validation/__pycache__/
 # notebook clutter
 .asset/fvm/.ipynb_checkpoints/
+# local symlink to the notebook working directory (assets are copied to .asset/fvm)
+/fvm

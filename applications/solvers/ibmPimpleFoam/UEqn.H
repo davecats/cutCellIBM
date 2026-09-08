@@ -16,6 +16,13 @@ tmp<fvVectorMatrix> tUEqn
 );
 fvVectorMatrix& UEqn = tUEqn.ref();
 
+if (ibm.moving())
+{
+    // u_b half of the no-slip wall traction nu (u_b - u_P) Awall/d, and
+    // the blanking source driving the solid interior to u_b
+    UEqn -= ibm.movingWallSource(nuEff);
+}
+
 UEqn.relax();
 
 fvOptions.constrain(UEqn);

@@ -29,6 +29,13 @@ volVectorField U
 // Immersed boundary geometry (constant/ibmProperties)
 cutCellGeometry ibm(mesh);
 
+if (ibm.moving())
+{
+    FatalErrorInFunction
+        << "ibmSimpleFoam is a steady solver: moving bodies need ibmPimpleFoam"
+        << exit(FatalError);
+}
+
 // The solid carries neither velocity nor pressure
 ibm.zeroSolid(U);
 ibm.zeroSolid(p);

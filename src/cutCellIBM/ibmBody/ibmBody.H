@@ -20,6 +20,11 @@ Description
     selects whether the viscous traction of the wall segment is added to the
     momentum diagonal (see cutCellGeometry).
 
+    A body may move rigidly (see bodyMotion). The level set of a moving
+    body is evaluated by transforming the query points into the body frame:
+    minimum-image wrap in the periodic directions about the current centre,
+    then the inverse translation and rotation. Static bodies skip all of it.
+
     Dictionary entries common to all bodies:
     \verbatim
     <name>
@@ -28,6 +33,7 @@ Description
                     | alphaField;
         wallType    noSlip;      // or freeSlip (optional)
         invert      false;       // true: fluid *inside* the surface (optional)
+        motion      { type translating; velocity (0.5 0 0); }   // optional
         ...type-specific entries
     }
     \endverbatim
@@ -43,6 +49,7 @@ Description
 #include "runTimeSelectionTables.H"
 #include "Enum.H"
 #include "autoPtr.H"
+#include "bodyMotion.H"
 
 namespace Foam
 {
@@ -69,6 +76,19 @@ protected:
     const dictionary dict_;
     wallType wallType_;
     bool invert_;
+
+    //- Rigid motion (none by default)
+    autoPtr<bodyMotion> motion_;
+
+    //- Periodic lengths of the domain (0: not periodic), set by the geometry
+    vector periodicLengths_;
+
+    // Current motion state, set by moveTo()
+    scalar t_;
+    vector displacement_;
+    vector velocity_;
+    scalar angle_;
+    vector axis_;
 
 
 public:
@@ -111,8 +131,45 @@ public:
         //  the body. Implemented by level-set bodies.
         virtual void levelSet(const pointField& pts, scalarField& phi) const;
 
-        //- Level set including the invert switch: positive in the fluid
+        //- Level set including the invert switch and the body motion:
+        //  positive in the fluid
         void evaluate(const pointField& pts, scalarField& phi) const;
+
+        //- Reference point of the body at rest (centre of rotation, and
+        //  centre of the periodic image); as given by the body definition
+        virtual point centre() const = 0;
+
+
+    // Motion
+
+        //- True if the body moves
+        virtual bool moving() const { return motion_->moving(); }
+
+        bodyMotion& motion() { return motion_(); }
+        const bodyMotion& motion() const { return motion_(); }
+
+        //- Set the periodic lengths of the domain (0: not periodic)
+        void setPeriodicLengths(const vector& L) { periodicLengths_ = L; }
+
+        //- Update the motion state to time t
+        virtual void moveTo(const scalar t);
+
+        //- Current centre, initial centre plus displacement
+        point currentCentre() const { return centre() + displacement_; }
+
+        const vector& displacement() const { return displacement_; }
+
+        //- Translational velocity of the body
+        const vector& velocityOfCentre() const { return velocity_; }
+
+        //- Body velocity at the given points (rigid: U + omega x r)
+        virtual void velocity(const pointField& pts, vectorField& U) const;
+
+        //- Query points transformed into the body frame at rest
+        void toBodyFrame(const pointField& pts, pointField& out) const;
+
+        //- True if the points must be transformed before evaluation
+        bool needsTransform() const;
 };
 
 } // End namespace Foam

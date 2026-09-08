@@ -1,6 +1,8 @@
+ibmBody/bodyMotion.C
 ibmBody/ibmBody.C
 ibmBody/ibmBodies.C
 cutCellGeometry/cutCellGeometry.C
+cutCellGeometry/cutCellGeometryMoving.C
 ibmMeanVelocityForce/ibmMeanVelocityForce.C
 
 LIB = $(FOAM_USER_LIBBIN)/libcutCellIBM

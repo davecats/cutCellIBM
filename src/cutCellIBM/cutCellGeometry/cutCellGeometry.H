@@ -39,7 +39,22 @@ Description
 
     Registered fields (on the mesh registry, available to fvOptions and
     function objects): ibmAlpha, ibmTheta, ibmSw, ibmWallDistance,
-    ibmNoSlipCoeff, ibmBlankCoeff, ibmBodyIndex.
+    ibmNoSlipCoeff, ibmBlankCoeff, ibmBodyIndex; for moving bodies also
+    ibmUb (body velocity at the cell centres) and ibmMassSource.
+
+    Moving bodies (doc/moving_ibm.pdf): the mesh never moves, the fractions
+    do. update(), called at the start of every time step, moves the bodies
+    to the current time, recomputes the geometry and forms
+        S = u_b . Sw                  (wall flux, volume-integrated),
+        alpha^n V = alpha^{n+1} V - dt S   (swept volume, stored as
+                                            alpha.oldTime()),
+        u_b at the cell centres.
+    Continuity then reads sum_f theta_f phi_f = -S, i.e. the pressure
+    equation gains massSource() = S/V on its right-hand side; the no-slip
+    wall traction and the blanking get the source nu c u_b through
+    movingWallSource(); fvm::ddt(alpha, U) picks up alpha.oldTime()
+    automatically. For static bodies update() returns at once and none of
+    the moving-body fields exist.
 
     The operators are used by the solvers as
     \verbatim
@@ -114,6 +129,9 @@ class cutCellGeometry
 
         labelList cellBody_;
 
+        //- Nearest level-set body of every cell (-1 if none)
+        mutable labelList nearestBody_;
+
         bitSet solidCells_;
         bitSet cutCells_;
         bitSet wallCells_;
@@ -121,6 +139,32 @@ class cutCellGeometry
         scalar fluidVolume_;
 
         mutable autoPtr<OFstream> forcesFilePtr_;
+
+
+    // Moving bodies only
+
+        //- True if any body moves
+        bool moving_;
+
+        //- Periodic lengths of the domain (0: not periodic)
+        vector periodicLengths_;
+
+        //- Union level set at the cell centres (pressure reference choice)
+        scalarField cellLevelSet_;
+
+        //- Body velocity at the cell centres
+        autoPtr<volVectorField> UbPtr_;
+
+        //- Mass source per unit volume, S/V = u_b . Sw / V  [1/s]
+        autoPtr<volScalarField> massSourcePtr_;
+
+        //- Face fractions of the previous geometry (for ddtCorr)
+        autoPtr<surfaceScalarField> thetaOldPtr_;
+
+        //- Diagnostics of the last update: smallest old fluid fraction and
+        //  number of cells swept through by more than they hold
+        scalar alphaOldMin_;
+        label nSwept_;
 
 
     // Private member functions
@@ -158,6 +202,14 @@ class cutCellGeometry
 
         //- Everything that follows from alpha and theta
         void calcDerived();
+
+        //- The whole geometry: fractions of all bodies, slivers, sync,
+        //  derived quantities. Called at construction and at every update
+        //  of a moving body.
+        void calcGeometry();
+
+        //- Mass source, swept old volume and body velocity (moving only)
+        void calcMovingTerms();
 
         void report() const;
 
@@ -201,6 +253,40 @@ public:
 
             //- Total fluid volume, sum(alpha V), global
             scalar fluidVolume() const { return fluidVolume_; }
+
+
+        // Moving bodies
+
+            //- True if any body moves
+            bool moving() const { return moving_; }
+
+            //- Move the bodies to the current time and rebuild the
+            //  geometry and the moving-wall terms. No-op for static bodies.
+            void update();
+
+            //- Body velocity at the cell centres
+            const volVectorField& Ub() const;
+
+            //- Mass source per unit volume S/V, to be added to the
+            //  right-hand side of the pressure equation
+            const volScalarField& massSource() const;
+
+            //- Momentum source of the moving no-slip wall and of the
+            //  blanking, nu (noSlipCoeff + blankCoeff) u_b
+            tmp<volVectorField> movingWallSource
+            (
+                const volScalarField& nu
+            ) const;
+
+            //- Pressure reference cell: the user's cell if it is fluid,
+            //  otherwise the fluid cell farthest from the bodies
+            label pressureRefCell(const label userRefCell) const;
+
+            //- Smallest old fluid fraction of the last update
+            scalar alphaOldMin() const { return alphaOldMin_; }
+
+            //- Cells swept through by more than they hold in the last update
+            label nSwept() const { return nSwept_; }
 
 
         // Operators

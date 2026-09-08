@@ -101,11 +101,20 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
         mesh, dimensionedScalar(dimless, -1), "zeroGradient"
     ),
     cellBody_(mesh.nCells(), -1),
+    nearestBody_(mesh.nCells(), -1),
     solidCells_(mesh.nCells()),
     cutCells_(mesh.nCells()),
     wallCells_(mesh.nCells()),
     fluidVolume_(0),
-    forcesFilePtr_(nullptr)
+    forcesFilePtr_(nullptr),
+    moving_(false),
+    periodicLengths_(getOrDefault<vector>("periodicLengths", Zero)),
+    cellLevelSet_(),
+    UbPtr_(nullptr),
+    massSourcePtr_(nullptr),
+    thetaOldPtr_(nullptr),
+    alphaOldMin_(1),
+    nSwept_(0)
 {
     Info<< "Cut-cell immersed boundary: reading " << name() << nl
         << "    alphaMin " << alphaMin_
@@ -136,6 +145,66 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
         WarningInFunction << "No immersed bodies defined" << endl;
     }
 
+    // Periodicity of the domain, for bodies crossing cyclic boundaries
+    forAll(bodies_, bodyi)
+    {
+        bodies_[bodyi].setPeriodicLengths(periodicLengths_);
+        if (bodies_[bodyi].moving()) moving_ = true;
+    }
+    reduce(moving_, orOp<bool>());
+
+    if (moving_)
+    {
+        Info<< "    moving bodies: geometry rebuilt every time step"
+            << (cmptMax(periodicLengths_) > 0
+                ? ", periodic lengths " + Foam::name(periodicLengths_) : "")
+            << endl;
+        forAll(bodies_, bodyi)
+        {
+            bodies_[bodyi].moveTo(mesh_.time().value());
+        }
+        UbPtr_.reset
+        (
+            new volVectorField
+            (
+                IOobject("ibmUb", mesh.time().timeName(), mesh,
+                         IOobject::NO_READ, IOobject::AUTO_WRITE),
+                mesh, dimensionedVector(dimVelocity, Zero), "zeroGradient"
+            )
+        );
+        massSourcePtr_.reset
+        (
+            new volScalarField
+            (
+                IOobject("ibmMassSource", mesh.time().timeName(), mesh,
+                         IOobject::NO_READ, IOobject::NO_WRITE),
+                mesh, dimensionedScalar(dimless/dimTime, Zero), "zeroGradient"
+            )
+        );
+        // geometry written with the solution
+        alpha_.writeOpt(IOobject::AUTO_WRITE);
+        theta_.writeOpt(IOobject::AUTO_WRITE);
+        Sw_.writeOpt(IOobject::AUTO_WRITE);
+        bodyIndex_.writeOpt(IOobject::AUTO_WRITE);
+    }
+
+    calcGeometry();
+    report();
+
+    if (moving_)
+    {
+        calcMovingTerms();
+    }
+
+    if (writeFields_)
+    {
+        writeGeometryFields();
+    }
+}
+
+
+void Foam::cutCellGeometry::calcGeometry()
+{
     // Fluid fractions: union of all bodies. Level-set bodies are combined
     // exactly through the minimum of their level sets; alpha-field bodies
     // and the level-set group are combined through the minimum of their
@@ -143,6 +212,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     scalarField alpha(mesh_.nCells(), 1.0);
     scalarField theta(mesh_.nFaces(), 1.0);
     cellBody_ = -1;
+    nearestBody_ = -1;
 
     auto merge = [&](const scalarField& a, const scalarField& t,
                      const labelList& body)
@@ -161,12 +231,19 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
         }
     };
 
+    label nLevelSet = 0;
+    forAll(bodies_, bodyi)
+    {
+        if (bodies_[bodyi].hasLevelSet()) ++nLevelSet;
+    }
+
     if (nLevelSet > 0)
     {
         scalarField a, t;
         labelList body;
         calcFromLevelSet(a, t, body);
         merge(a, t, body);
+        unionLevelSet(mesh_.cellCentres(), cellLevelSet_);
     }
 
     forAll(bodies_, bodyi)
@@ -199,6 +276,11 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
         }
     }
     reduce(nAbsorbed, sumOp<label>());
+    if (nAbsorbed > 0 || !moving_)
+    {
+        Info<< "    absorbed " << nAbsorbed << " sliver cells with alpha < "
+            << alphaMin_ << endl;
+    }
 
     // Coupled faces (C2): the two sides of a cyclic or processor face are the
     // same face and must carry the same fraction. Take the minimum, which
@@ -244,15 +326,6 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     }
 
     calcDerived();
-
-    Info<< "    absorbed " << nAbsorbed << " sliver cells with alpha < "
-        << alphaMin_ << endl;
-    report();
-
-    if (writeFields_)
-    {
-        writeGeometryFields();
-    }
 }
 
 
@@ -546,21 +619,24 @@ void Foam::cutCellGeometry::calcFromLevelSet
     }
     forAll(cells, celli)
     {
+        scalar phiMin = GREAT;
+        label nearest = -1;
+        forAll(bodies_, bodyi)
+        {
+            if
+            (
+                bodies_[bodyi].hasLevelSet()
+             && bodyPhi[bodyi][celli] < phiMin
+            )
+            {
+                phiMin = bodyPhi[bodyi][celli];
+                nearest = bodyi;
+            }
+        }
+        nearestBody_[celli] = nearest;
         if (alpha[celli] < 1.0)
         {
-            scalar phiMin = GREAT;
-            forAll(bodies_, bodyi)
-            {
-                if
-                (
-                    bodies_[bodyi].hasLevelSet()
-                 && bodyPhi[bodyi][celli] < phiMin
-                )
-                {
-                    phiMin = bodyPhi[bodyi][celli];
-                    cellBody[celli] = bodyi;
-                }
-            }
+            cellBody[celli] = nearest;
         }
     }
 
@@ -724,6 +800,19 @@ void Foam::cutCellGeometry::calcDerived()
             }
         }
     }
+    // Wall cells still without a body (a cell whose fluid fraction rounds
+    // to one while one of its faces is partly cut): the nearest body, or
+    // the only body if there is no level set
+    for (const label celli : wallCells_)
+    {
+        if (cellBody_[celli] < 0)
+        {
+            cellBody_[celli] =
+                (nearestBody_[celli] >= 0) ? nearestBody_[celli]
+              : (bodies_.size() == 1 ? 0 : -1);
+        }
+    }
+
     forAll(cellBody_, celli)
     {
         bodyIndex_[celli] = cellBody_[celli];
@@ -888,8 +977,33 @@ Foam::tmp<Foam::surfaceScalarField> Foam::cutCellGeometry::ddtCorr
     }
 
     const dimensionedScalar rDeltaT(1.0/mesh_.time().deltaT());
-    const surfaceScalarField& phi0 = phi.oldTime();
     const surfaceScalarField phiU0(flux(U.oldTime()));
+    surfaceScalarField phi0(phi.oldTime());
+
+    if (moving_ && thetaOldPtr_)
+    {
+        // The old flux lives on the faces of the previous cut mesh: scale it
+        // to the new wet area, and give faces that have just opened the
+        // interpolated old velocity (no correction there)
+        const surfaceScalarField& thetaOld = thetaOldPtr_();
+        forAll(phi0, facei)
+        {
+            phi0[facei] = (thetaOld[facei] > 0)
+              ? phi0[facei]*theta_[facei]/thetaOld[facei]
+              : phiU0[facei];
+        }
+        forAll(phi0.boundaryField(), patchi)
+        {
+            fvsPatchScalarField& p0 = phi0.boundaryFieldRef()[patchi];
+            const fvsPatchScalarField& t0 = thetaOld.boundaryField()[patchi];
+            const fvsPatchScalarField& t1 = theta_.boundaryField()[patchi];
+            const fvsPatchScalarField& pU = phiU0.boundaryField()[patchi];
+            forAll(p0, i)
+            {
+                p0[i] = (t0[i] > 0) ? p0[i]*t1[i]/t0[i] : pU[i];
+            }
+        }
+    }
 
     // Same coupling coefficient as ddtScheme::fvcDdtPhiCoeff
     const surfaceScalarField coeff
@@ -974,8 +1088,16 @@ void Foam::cutCellGeometry::forces
         if (bodyi >= bodies_.size()) continue;
         // pressure on the wall segment, p_P Sw (Sw points into the body)
         Fp[bodyi] += p[celli]*Sw_[celli];
-        // viscous traction, nu (u_P - 0)/d Awall
-        Fv[bodyi] += nu[celli]*noSlipCoeff_[celli]*V[celli]*U[celli];
+        // viscous traction, nu (u_P - u_b)/d Awall
+        if (moving_)
+        {
+            Fv[bodyi] += nu[celli]*noSlipCoeff_[celli]*V[celli]
+                        *(U[celli] - UbPtr_()[celli]);
+        }
+        else
+        {
+            Fv[bodyi] += nu[celli]*noSlipCoeff_[celli]*V[celli]*U[celli];
+        }
     }
     forAll(Fp, i)
     {
