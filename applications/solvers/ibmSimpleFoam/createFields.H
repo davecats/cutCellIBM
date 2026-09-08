@@ -82,3 +82,5 @@ if
 }
 
 #include "createFvOptions.H"
+
+autoPtr<ibmScalarTransport> scalarPtr(ibmScalarTransport::New(ibm, phi, fvOptions));

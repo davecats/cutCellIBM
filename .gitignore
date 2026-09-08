@@ -5,19 +5,19 @@ lnInclude/
 # external reference code (not part of this project)
 ibm_secondOrder
 # tutorial cases: keep only mesh dictionaries, initial conditions and settings
-tutorials/*/constant/polyMesh/
-tutorials/*/log.*
-tutorials/*/[1-9]*/
-tutorials/*/0/ibm*
-tutorials/*/0/C
-tutorials/*/0/Cf
-tutorials/*/0/Cx
-tutorials/*/0/Cy
-tutorials/*/0/Cz
-tutorials/*/0/phi
-tutorials/*/0/uniform/
-tutorials/*/postProcessing/
-tutorials/*/processor*/
+tutorials/**/constant/polyMesh/
+tutorials/**/log.*
+tutorials/**/[1-9]*/
+tutorials/**/0/ibm*
+tutorials/**/0/C
+tutorials/**/0/Cf
+tutorials/**/0/Cx
+tutorials/**/0/Cy
+tutorials/**/0/Cz
+tutorials/**/0/phi
+tutorials/**/0/uniform/
+tutorials/**/postProcessing/
+tutorials/**/processor*/
 # validation results
 validation/*.npz
 validation/*.log

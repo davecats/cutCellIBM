@@ -22,7 +22,8 @@ Contents
 4. [Case setup reference](#4-case-setup-reference)
 5. [Coupling to an external body dynamics or an α transport equation](#5-driving-the-bodies-from-outside)
 6. [Validation against the notebooks](#6-validation-against-the-notebooks)
-7. [Limitations and possible improvements](#7-limitations-and-possible-improvements)
+7. [Passive scalar transport](#7-passive-scalar-transport)
+8. [Limitations and possible improvements](#8-limitations-and-possible-improvements)
 
 ## 1. Layout, build and run
 
@@ -367,7 +368,84 @@ applies the same rule to the notebook; with it the histories agree to 1.3e-3 at 
 
 A 4-rank run of the oscillating cylinder reproduces the serial force history to 2e-12.
 
-## 7. Limitations and possible improvements
+## 7. Passive scalar transport
+
+`ibmScalarTransport` (library) solves a passive scalar T with the cut-cell operators and
+is switched on by the presence of `constant/scalarTransportProperties`; both solvers call
+`scalarPtr->solve()` once per time step (ibmPimpleFoam, after the PIMPLE loop) or per
+iteration (ibmSimpleFoam). The immersed wall is seen, per body, either as a fixed-value
+wall (the analogue of no slip) or as a zero-flux wall (the analogue of free slip):
+
+```c++
+fvm::ddt(ibm.alpha(), T) + fvm::div(phi, T) - fvm::laplacian(DT*ibm.theta(), T)
++ fvm::Sp(DT*wallCoeff, T) + fvm::Sp(DT*ibm.blankCoeff(), T)
+== DT*(wallCoeff + ibm.blankCoeff())*Twall + q*ibm.alpha()
+```
+
+* `wallCoeff` is the geometric Dirichlet coefficient A_wall/(d_wall V) (`ibm.wallCoeff()`,
+  the same quantity that becomes `noSlipCoeff` for the velocity) masked to the wall cells
+  of bodies with `scalarWall fixedValue`; for `scalarWall zeroGradient` there is no term at
+  all, because the wall segment simply carries no flux. The masks of velocity and scalar are
+  independent, so a free-slip body may hold a fixed scalar and vice versa.
+* The blanking term drives the solid interior to `scalarWallValue` (0 for zero-flux
+  bodies), so a cell released by a moving body starts from a defined value.
+* Cells containing the wall are fluid cells: T is transported into their fluid part
+  through the wet fraction of their faces (the same `phi` the pressure equation returns),
+  and never across the wall segment. This is what "the scalar is not lost into the solid"
+  means discretely.
+* For a moving body no mass-source term is added: Reynolds transport over the fluid part
+  of a cell gives exactly this form, and a uniform T is preserved because
+  (α^{n+1} − α^n)V/Δt = S and Σθφ = −S cancel.
+* `q` is a prescribed source per unit fluid volume in a circular (2-D) or spherical region;
+  it multiplies α, so it never injects into the solid.
+
+Setup: `0/T`, and
+
+```
+// constant/scalarTransportProperties
+field   T;
+DT      0.1;
+source  { centre (5 8.5 0); radius 0.5; rate 1; }
+// per body, in constant/ibmProperties
+scalarWall fixedValue; scalarWallValue 0;      // or: scalarWall zeroGradient;
+```
+
+with `div(phi,T) Gauss linear` in `fvSchemes`, a `"T.*"` solver in `fvSolution`, and
+`T 1.0` in the equation relaxation factors for ibmSimpleFoam (the steady T equation is
+linear at fixed flux; under-relaxing it only slows the adjustment of the global level,
+which is set by the weak wall sink).
+
+### Budget check
+
+Every step the solver prints the fluid content Σ αVT, the injected amount Σ qαV dt, the
+amount that left through fixed-value walls Σ D_T·wallCoeff·V·(T − T_wall) dt, the
+swept-volume defect Σ (α_prev − α^n_swept) V Tⁿ, and their balance. The defect exists only
+for moving bodies: the old fluid volume used by the momentum and scalar equations is
+integrated from the wall flux (section 3.1) and is first-order consistent with the previous
+geometry, and a cell absorbed into the body hands over no content. The balance must close
+to round-off in all cases. `validation/scalar_budget.py` collects the last line of every
+case in `tutorials/scalar` (Δt and durations as in the flow cases; source at (5, 8.5),
+radius 0.5, rate 1, D_T = 0.1; T = 0 initially):
+
+| case | steps | content | injected | through walls | swept defect | budget error | max |T − T_wall| in the solid |
+|---|---|---|---|---|---|---|---|
+| staticCylinder_zeroFlux (PIMPLE, Δt = 0.99) | 202 | 19.581366 | 19.581366 | 0 | 0 | −3.9e-12 | 0 |
+| staticCylinder_fixedValue | 202 | 11.904949 | 19.581366 | 7.676417 | 0 | −5.7e-11 | 0 |
+| steadyCylinder_fixedValue (SIMPLE) | 1834 | 16.323010 | rate 0.097847 | rate 0.097847 | – | −1.0e-11 | 0 |
+| oscillating_zeroFlux | 400 | 0.978439 | 0.978472 | 0 | 3.3e-5 | −8.0e-11 | 1e-50 |
+| oscillating_fixedValue | 400 | 0.968143 | 0.978472 | 0.010344 | −1.5e-5 | −6.1e-11 | 3e-56 |
+| galilean_zeroFlux (seam crossings) | 1200 | 2.935650 | 2.935415 | 0 | −2.3e-4 | −7.5e-10 | 5e-13 |
+
+With zero-flux walls and a static body the content equals the injected amount to 4e-12
+after 200 steps, with the solid exactly at zero: no scalar is lost into the solid. With a
+moving body the content differs from the injected amount by the swept-volume defect only
+(3e-5 of the content for the oscillating cylinder, 8e-5 for the translating one), and the
+solid stays at the wall value; the budget errors of 1e-10 are the accumulated linear-solver
+tolerance. The flow is unaffected by the scalar (the forces of `oscillating_zeroFlux` equal
+those of `oscillatingCylinder` to the last digit). `validation/fig_scalar.png` shows the
+fields.
+
+## 8. Limitations and possible improvements
 
 * Laminar only; a turbulence model would need θ-aware transport equations and wall
   treatment.

@@ -1,0 +1,13 @@
+FoamFile { version 2.0; format ascii; class dictionary; object scalarTransportProperties; }
+
+// Passive scalar transported by the cut-cell flux (see ibmScalarTransport)
+field   T;
+DT      0.1;
+
+// circular source in the fluid, away from the path of the body
+source
+{
+    centre  (5 8.5 0);
+    radius  0.5;
+    rate    1;
+}

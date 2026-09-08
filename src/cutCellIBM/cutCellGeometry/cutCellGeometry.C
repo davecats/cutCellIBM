@@ -82,6 +82,12 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
                  IOobject::NO_READ, IOobject::NO_WRITE),
         mesh, dimensionedScalar(dimLength, GREAT), "zeroGradient"
     ),
+    wallCoeff_
+    (
+        IOobject("ibmWallCoeff", mesh.time().timeName(), mesh,
+                 IOobject::NO_READ, IOobject::NO_WRITE),
+        mesh, dimensionedScalar(dimless/dimArea, Zero), "zeroGradient"
+    ),
     noSlipCoeff_
     (
         IOobject("ibmNoSlipCoeff", mesh.time().timeName(), mesh,
@@ -819,22 +825,27 @@ void Foam::cutCellGeometry::calcDerived()
     }
     bodyIndex_.correctBoundaryConditions();
 
-    // No-slip wall traction coefficient, Awall/(dWall V) = 2 Awall^2/(alpha V^2)
+    // Dirichlet wall coefficient, Awall/(dWall V) = 2 Awall^2/(alpha V^2), and
+    // its no-slip mask
+    scalarField& wallCoeff = wallCoeff_.primitiveFieldRef();
+    wallCoeff = 0;
     noSlip = 0;
     for (const label celli : wallCells_)
     {
+        wallCoeff[celli] = Awall[celli]/(dWall[celli]*V[celli]);
         const label bodyi = cellBody_[celli];
         const bool isNoSlip =
             (bodyi < 0) || (bodies_[bodyi].wall() == ibmBody::NOSLIP);
         if (isNoSlip)
         {
-            noSlip[celli] = Awall[celli]/(dWall[celli]*V[celli]);
+            noSlip[celli] = wallCoeff[celli];
         }
     }
 
     Sw_.correctBoundaryConditions();
     Awall_.correctBoundaryConditions();
     dWall_.correctBoundaryConditions();
+    wallCoeff_.correctBoundaryConditions();
     noSlipCoeff_.correctBoundaryConditions();
     blankCoeff_.correctBoundaryConditions();
 }

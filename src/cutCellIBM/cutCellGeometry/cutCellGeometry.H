@@ -118,7 +118,11 @@ class cutCellGeometry
         //- Wall-normal distance of the cell average, alpha V/(2 Awall)
         volScalarField dWall_;
 
-        //- Awall/(dWall V) on no-slip wall cells, 0 elsewhere [1/m^2]
+        //- Awall/(dWall V) on every wall cell, 0 elsewhere [1/m^2]: the
+        //  coefficient of a Dirichlet wall condition, before any masking
+        volScalarField wallCoeff_;
+
+        //- wallCoeff_ on no-slip wall cells, 0 elsewhere [1/m^2]
         volScalarField noSlipCoeff_;
 
         //- sum_f |Sf| deltaCoeff_f / V in solid cells, 0 elsewhere [1/m^2]
@@ -243,6 +247,7 @@ public:
             const volVectorField& Sw() const { return Sw_; }
             const volScalarField& Awall() const { return Awall_; }
             const volScalarField& dWall() const { return dWall_; }
+            const volScalarField& wallCoeff() const { return wallCoeff_; }
             const volScalarField& noSlipCoeff() const { return noSlipCoeff_; }
             const volScalarField& blankCoeff() const { return blankCoeff_; }
             const labelList& cellBody() const { return cellBody_; }

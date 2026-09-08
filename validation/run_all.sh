@@ -19,7 +19,7 @@ echo "== reference solutions (notebook numerics; 40 s each for the static cases,
 run() {   # run <case> <solver> [mpi ranks]
     local c=$1 app=$2 np=${3:-1}
     echo "== $c ($app)"
-    ( cd $T/$c && ./Allclean > /dev/null 2>&1; rm -rf processor* log.*
+    ( cd $T/$c && ./Allclean > /dev/null 2>&1
       blockMesh > log.blockMesh 2>&1
       postProcess -func writeCellCentres -time 0 > log.postProcess 2>&1
       ibmSetGeometry -writeFaceCentres > log.ibmSetGeometry 2>&1
@@ -56,6 +56,13 @@ $PY compare_moving.py $T/galileanTranslating  --ref ref_gal_seamFix.npz --tail 4
 $PY compare_moving.py $T/galileanTranslating  --ref ref_gal.npz --tail 400 | grep -E "excluding|mean F_x"
 echo "free stream (notebook table in ref_freeStream.log):"; cat ref_freeStream.log
 $PY freestream_check.py $T/freeStreamTranslating 0.37
+echo; echo "== passive scalar budgets (tutorials/scalar)"
+for c in staticCylinder_zeroFlux staticCylinder_fixedValue steadyCylinder_fixedValue oscillating_zeroFlux oscillating_fixedValue galilean_zeroFlux; do
+    app=$(grep -m1 application $T/scalar/$c/system/controlDict | awk '{print $2}' | tr -d ';')
+    ( cd $T/scalar/$c && blockMesh > log.blockMesh 2>&1 && ibmSetGeometry > log.ibmSetGeometry 2>&1 && $app > log.solver 2>&1 )
+done
+$PY scalar_budget.py
+$PY plot_scalar.py $T/scalar/oscillating_zeroFlux $T/scalar/oscillating_fixedValue $T/scalar/galilean_zeroFlux fig_scalar.png
 echo; echo "== two bodies: forces must sum to gradP * fluid volume"
 grep -E "IBM force|pressure gradient" $T/twoCylinders/log.ibmSimpleFoam | tail -3
 grep "fluid volume" $T/twoCylinders/log.ibmSimpleFoam | head -1
