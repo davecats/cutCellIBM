@@ -1,0 +1,34 @@
+#!/bin/bash
+# Order study: runs the four problems on N = 20 40 80 160 with and without the
+# second-order treatment, in scratch copies; prints the errors and orders.
+cd "${0%/*}" || exit 1
+. $WM_PROJECT_DIR/bin/tools/RunFunctions
+W=${1:-runs}
+for so in false true; do for prob in LD LN CD CN; do for N in 20 40 80 160; do
+    d=$W/${prob}_so${so}_N$N; mkdir -p $d/0 $d/constant $d/system
+    cp 0/T $d/0/; cp constant/ibmProperties $d/constant/; cp system/* $d/system/
+    sed -i "s/^N 40;/N $N;/; s/^L 3; N 40;/L 3; N $N;/" $d/system/blockMeshDict
+    sed -i "s/^problem .*/problem   $prob;/" $d/system/orderTestDict
+    sed -i "s/^secondOrder .*/secondOrder   $so;/" $d/constant/ibmProperties
+    ( cd $d && blockMesh > log.blockMesh 2>&1 && ibmOrderTest > log.ibmOrderTest 2>&1 ) &
+done; done; done
+wait
+python3 - "$W" <<'PY'
+import sys, re, glob, math, os
+W = sys.argv[1]
+res = {}
+for f in glob.glob(os.path.join(W, '*', 'log.ibmOrderTest')):
+    m = re.search(r'orderTest (\w+) secondOrder=(\d) nCells=(\d+) iterations=(\d+) L2=(\S+) Linf=(\S+)', open(f).read())
+    if m:
+        res[(m.group(1), m.group(2), int(round(math.sqrt(int(m.group(3))))))] = (float(m.group(5)), float(m.group(6)), int(m.group(4)))
+for prob in ('LD', 'LN', 'CD', 'CN'):
+    for so in ('0', '1'):
+        Ns = sorted(N for (p, s, N) in res if p == prob and s == so)
+        row = []
+        for i, N in enumerate(Ns):
+            L2, Li, it = res[(prob, so, N)]
+            o = '' if i == 0 else f'({math.log(res[(prob, so, Ns[i-1])][0]/L2)/math.log(N/Ns[i-1]):.2f})'
+            oi = '' if i == 0 else f'({math.log(res[(prob, so, Ns[i-1])][1]/Li)/math.log(N/Ns[i-1]):.2f})'
+            row.append(f'{L2:.2e}{o:7s} {Li:.2e}{oi:7s}')
+        print(f'{prob} secondOrder={so}: ' + ' | '.join(row))
+PY

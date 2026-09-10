@@ -1,0 +1,11 @@
+FoamFile { version 2.0; format ascii; class dictionary; object ibmProperties; }
+alphaMin      0.02;
+nSubSamples   32;
+nBisect       40;
+writeFields   false;
+writeForces   false;
+secondOrder   true;
+bodies
+{
+    disk { type cylinder; centre (1.5 1.5 0); axis (0 0 1); radius 1; invert true; }
+}

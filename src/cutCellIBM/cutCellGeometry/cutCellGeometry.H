@@ -131,6 +131,29 @@ class cutCellGeometry
         //- Index of the body owning each cut/solid/wall cell (-1: fluid)
         volScalarField bodyIndex_;
 
+
+    // Second-order wall treatment (secondOrder true), see doc/secondOrderStudy.md
+
+        bool secondOrder_;
+
+        //- Fluid centroid minus cell centre
+        volVectorField centroidOffset_;
+
+        //- Wet-face centroid minus face centre
+        surfaceVectorField wetFaceOffset_;
+
+        //- Centroid-to-centroid vector across each face (owner to neighbour)
+        surfaceVectorField dCentroid_;
+
+        //- 1/(n.d) on faces between two fluid cells, mesh value elsewhere
+        surfaceScalarField cutDeltaCoeffs_;
+
+        //- Union level set at the fluid centroids (level-set bodies)
+        scalarField centroidLevelSet_;
+
+        //- Work arrays filled by faceFractions/calcFromLevelSet
+        mutable vectorField wetOffsetAll_;
+
         labelList cellBody_;
 
         //- Nearest level-set body of every cell (-1 if none)
@@ -190,7 +213,8 @@ class cutCellGeometry
         (
             scalarField& alpha,
             scalarField& theta,
-            labelList& cellBody
+            labelList& cellBody,
+            vectorField& centroidOffset
         ) const;
 
         //- Fluid fractions from an alpha-field body
@@ -201,8 +225,12 @@ class cutCellGeometry
             scalarField& theta
         ) const;
 
-        //- Fluid fraction of one cell by sub-sampling the level set
-        scalar sampleCellFraction(const label celli) const;
+        //- Fluid fraction of one cell by sub-sampling the level set, and the
+        //  centroid of its fluid part
+        scalar sampleCellFraction(const label celli, point& centroid) const;
+
+        //- Centroid vectors and cut delta coefficients of every face
+        void calcCentroidGeometry();
 
         //- Everything that follows from alpha and theta
         void calcDerived();
@@ -258,6 +286,30 @@ public:
 
             //- Total fluid volume, sum(alpha V), global
             scalar fluidVolume() const { return fluidVolume_; }
+
+
+        // Second-order wall treatment
+
+            bool secondOrder() const { return secondOrder_; }
+
+            const volVectorField& centroidOffset() const { return centroidOffset_; }
+            const surfaceVectorField& wetFaceOffset() const { return wetFaceOffset_; }
+            const surfaceVectorField& dCentroid() const { return dCentroid_; }
+            const surfaceScalarField& cutDeltaCoeffs() const { return cutDeltaCoeffs_; }
+
+            //- Least-squares gradient about the fluid centroids, over the
+            //  open faces to fluid neighbours (exact for a linear field)
+            tmp<volVectorField> lsqGrad(const volScalarField& f) const;
+
+            //- Explicit remainder of the centroid-consistent face gradient:
+            //  n.grad f = (f_N - f_P)/(n.d) + [g_f.n - (g_f.d)/(n.d)],
+            //  the bracket, with g_f the interpolated least-squares gradient
+            template<class Type>
+            tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
+            snGradCorrection
+            (
+                const GeometricField<Type, fvPatchField, volMesh>& vf
+            ) const;
 
 
         // Moving bodies

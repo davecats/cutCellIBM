@@ -746,14 +746,60 @@ blanked.}
 \label{fig:scalar}
 \end{figure}
 
+\section{Second-order wall treatment}
+\label{sec:secondorder}
+
+The no-slip treatment of Section~\ref{sec:static} is first order. An order study on
+manufactured solutions (Poisson and convection--diffusion problems on the interior of a disk
+with Dirichlet and Neumann walls, \code{doc/secondOrderStudy.md}) shows that the limiting
+error is not the two-point wall gradient but the diffusive flux across the faces of a cut cell,
+$\theta_f\Gamma_f(u_N-u_P)/h$, which assumes the two cell values to sit $h$ apart along the
+face normal whereas they represent fluid parts whose centroids are neither. Two ingredients
+restore second order: (i) the wall distance $d_c$ of the fluid centroid to the wall instead of
+\eqref{eq:dwall}, and (ii) a face flux consistent with the centroids,
+\begin{equation}
+\nn\!\cdot\!\nabla u\big|_f=\frac{u_N-u_P}{\nn\!\cdot\!\bm d}
++\Big[\bm g_f\!\cdot\!\nn-\frac{\bm g_f\!\cdot\!\bm d}{\nn\!\cdot\!\bm d}\Big],
+\label{eq:f1}
+\end{equation}
+with $\bm d$ the centroid-to-centroid vector and $\bm g_f$ the interpolated least-squares
+gradient on the centroids; the first term is implicit, the bracket explicit (the over-relaxed
+non-orthogonal form, exact for a linear field and zero on uncut cells). No probe into the
+fluid, no ghost value and no stencil growth are needed, and the free-slip wall is already
+second order. In OpenFOAM, \eqref{eq:f1} is one \code{snGradScheme} (\code{cutCellCorrected})
+supplying the delta coefficients $1/(\nn\cdot\bm d)$ and the explicit remainder, which the
+Gauss Laplacian, its flux and \code{fvc::snGrad} then use consistently; the cut-cell gradient
+\eqref{eq:grad} evaluates $p_f$ at the wet-face centroid and $p_{\rm wall}$ by extrapolation
+from the centroid. The treatment is a run-time switch and leaves the first-order path
+bit-identical.
+
+On the manufactured problems ($N=20\ldots160$) the $L_2$ orders become $1.92,2.06,2.09$
+(Dirichlet Laplacian) and $1.76,1.94,1.99$ (Dirichlet convection--diffusion) against
+$0.65,1.22,1.04$ and $0.55,1.04,1.21$ before, with errors two orders of magnitude smaller at
+$N=160$; the Neumann problems stay at $1.8$--$2.5$. In the coupled problem, Taylor--Couette
+flow between two immersed cylinders (inner rotating, no slip; $N=40,80,160$), the velocity
+error drops by $5$--$16$ times and converges at order $1.7$ in the bulk ($1.8$ then $1.4$
+overall), while the pressure of the cut cells does not converge: the mobility of a cut cell
+scales with $\alpha_P\theta_f$ because the wall term dominates its diagonal, so its pressure is
+set by tiny flux residuals --- the small-cell problem of the pressure. It pollutes the
+near-wall pressure and the forces at first order: the cylinder drag of Section~\ref{sec:verif}
+converges with order $1.7$ (no slip) and $0.8$ (free slip) by Richardson extrapolation on
+$N=41,81,161$, against $0.3$ and $0.8$ before, and the no-slip sequence does not keep its rate
+on a fourth mesh. Second-order forces need a cut-cell pressure that is not determined by the
+cut cell alone (cell merging, or a wall pressure formed from the full cells), which is the
+natural next step. The same test exposed and fixed a defect of the moving-body path: the wall
+velocity of a rotating body must be evaluated at the wall segment, not at the cell centre,
+or $\ub\cdot\Sw$ does not vanish for a tangential motion.
+
 \section{Limitations}
 \label{sec:limits}
 
 \begin{itemize}\itemsep2pt
 \item \emph{Order.} First order in time (implicit Euler, inherited by the swept-volume
-      integration) and first order in space for no slip, because of the wall-normal distance
-      estimate \eqref{eq:dwall}; free slip is second order. A second-order extension in time
-      would need $\alpha$ at three levels and a three-level form of \eqref{eq:candB}.
+      integration); first order in space for no slip with the treatment of
+      Section~\ref{sec:static}, second order for the operators and the bulk velocity with that
+      of Section~\ref{sec:secondorder}, forces first order in both. A second-order extension in
+      time would need $\alpha$ at three levels and a three-level form of \eqref{eq:candB}.
 \item \emph{Slivers.} Absorption below $\alpha_{\min}$ displaces the boundary by
       $O(\alpha_{\min}h)$, and a cell crossing the threshold hands over no momentum or scalar
       content; mass conservation is unaffected. Cell merging is the clean remedy and would

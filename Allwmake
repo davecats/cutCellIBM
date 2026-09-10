@@ -4,5 +4,6 @@ if [ -z "$CUTCELL_IBM_DIR" ]; then source etc/bashrc; fi
 set -e
 wmake libso src/cutCellIBM
 wmake applications/utilities/ibmSetGeometry
+wmake applications/utilities/ibmOrderTest
 wmake applications/solvers/ibmSimpleFoam
 wmake applications/solvers/ibmPimpleFoam

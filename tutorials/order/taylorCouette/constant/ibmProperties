@@ -1,0 +1,17 @@
+FoamFile { version 2.0; format ascii; class dictionary; object ibmProperties; }
+// Taylor-Couette flow between two immersed cylinders: the inner one rotates at
+// Omega = 1 (no slip), the outer one is at rest (no slip, fluid inside).
+// Exact solution u_theta = A r + B/r, A = -Omega Ri^2/(Ro^2 - Ri^2),
+// B = Omega Ri^2 Ro^2/(Ro^2 - Ri^2).
+alphaMin      0.02;
+nSubSamples   32;
+nBisect       40;
+writeFields   true;
+writeForces   true;
+secondOrder   true;
+bodies
+{
+    inner { type cylinder; centre (1.6 1.6 0); axis (0 0 1); radius 0.5;
+            motion { type none; angularVelocity (0 0 1); } }
+    outer { type cylinder; centre (1.6 1.6 0); axis (0 0 1); radius 1.5; invert true; }
+}

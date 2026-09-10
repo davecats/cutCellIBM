@@ -445,13 +445,65 @@ tolerance. The flow is unaffected by the scalar (the forces of `oscillating_zero
 those of `oscillatingCylinder` to the last digit). `validation/fig_scalar.png` shows the
 fields.
 
-## 8. Limitations and possible improvements
+## 8. Second-order wall treatment (`secondOrder true`)
 
-`doc/secondOrderStudy.md` reports an order-of-accuracy study (Python, no code change):
-the no-slip wall becomes second order once the diffusive fluxes across the faces of cut
-cells are made consistent with the fluid centroids and the wall distance is taken from the
-centroid; the wall gradient itself needs no probe, and the free-slip wall is already second
-order.
+`doc/secondOrderStudy.md` identifies what limits the order of the no-slip wall and tests the
+remedy; this branch implements it. Switch it on per case with
+
+```
+// constant/ibmProperties
+secondOrder   true;
+// system/fvSchemes
+laplacianSchemes { default Gauss linear cutCellCorrected; }
+snGradSchemes    { default cutCellCorrected; }
+```
+
+With `secondOrder false` (the default) everything is bit-identical to before, and the
+`cutCellCorrected` scheme then reduces to the plain corrected one.
+
+What it does:
+
+* the fluid centroid of every cut cell (from the sub-sampling) and the wet-face centroid
+  of every cut face (from the polygon clipping) are stored (`ibmCentroidOffset`);
+* the wall distance `d_wall` is the level set at the fluid centroid instead of
+  `αV/(2A_wall)`;
+* the `cutCellCorrected` snGrad scheme makes the diffusive fluxes across the faces of cut
+  cells consistent with the centroids: implicit coefficient θA/(n·d) with d the
+  centroid-to-centroid vector, explicit remainder `g_f·n − (g_f·d)/(n·d)` with least-squares
+  gradients on the centroids. Through OpenFOAM's Gauss Laplacian this covers the momentum and
+  pressure Laplacians, `pEqn.flux()` and `fvc::snGrad`, so the Rhie–Chow coupling stays
+  consistent; the stencil does not grow and the implicit part keeps its diagonal dominance;
+* the cut-cell gradient uses face values at the wet-face centroids and the wall pressure
+  extrapolated to the wall segment, both from the least-squares gradient; the force uses the
+  same wall pressure.
+
+Verification (`tutorials/order`, `validation/richardson_drag.sh`, N = 20…160 for the operator
+tests, α_min = 0.02):
+
+| test | current | second order |
+|---|---|---|
+| Laplacian, Dirichlet (`ibmOrderTest LD`), L2 orders | 0.65, 1.22, 1.04 | 1.92, 2.06, 2.09 |
+| convection–diffusion, Dirichlet (`CD`) | 0.55, 1.04, 1.21 | 1.76, 1.94, 1.99 |
+| Laplacian, Neumann (`LN`) | 2.27, 2.43, 2.96 | 2.08, 2.33, 2.47 |
+| convection–diffusion, Neumann (`CN`) | 1.94, 1.90, 1.82 | 1.91, 1.90, 1.83 |
+| Taylor–Couette (exact NS), L2(U), N = 40/80/160 | 6.5e-3, 4.5e-3 (0.5), 2.1e-3 (1.1) | 1.2e-3, 3.4e-4 (1.8), 1.3e-4 (1.4) |
+| Taylor–Couette, bulk cells, U rms, N = 80→160 | order 1.0 | order 1.7 |
+| cylinder drag, no slip, Richardson N = 41/81/161 | 5.5431, 5.6604, 5.7577 (p = 0.3) | 5.7834, 5.8205, 5.8322 (p = 1.7) |
+| cylinder drag, free slip | 2.8377, 2.9421, 3.0004 (p = 0.8) | 2.9161, 2.9848, 3.0237 (p = 0.8) |
+
+The operators are second order for both wall conditions. In the coupled Navier–Stokes problem
+the velocity is second order in the bulk and 5–16 times more accurate everywhere, but the
+pressure of the cut cells does not converge (its mobility scales with αθ, so it is set by tiny
+flux residuals: the small-cell problem of the pressure) and pollutes the near-wall pressure and
+the forces at first order. A second-order force needs a cut-cell pressure treatment (cell
+merging, or a wall pressure formed from the full cells); see the study document.
+
+The Taylor–Couette test also exposed a defect of the moving-body path, fixed here: the body
+velocity of a rotating wall was evaluated at the cell centre instead of the wall segment,
+which created an O(h) spurious mass source alternating in sign around the body. Translating
+bodies are unaffected (the moving-body tutorials reproduce their results to the last digit).
+
+## 9. Limitations and possible improvements
 
 * Laminar only; a turbulence model would need θ-aware transport equations and wall
   treatment.

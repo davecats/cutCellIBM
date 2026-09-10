@@ -106,6 +106,33 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
                  IOobject::NO_READ, IOobject::NO_WRITE),
         mesh, dimensionedScalar(dimless, -1), "zeroGradient"
     ),
+    secondOrder_(getOrDefault<bool>("secondOrder", false)),
+    centroidOffset_
+    (
+        IOobject("ibmCentroidOffset", mesh.time().timeName(), mesh,
+                 IOobject::NO_READ, IOobject::NO_WRITE),
+        mesh, dimensionedVector(dimLength, Zero), "zeroGradient"
+    ),
+    wetFaceOffset_
+    (
+        IOobject("ibmWetFaceOffset", mesh.time().timeName(), mesh,
+                 IOobject::NO_READ, IOobject::NO_WRITE),
+        mesh, dimensionedVector(dimLength, Zero)
+    ),
+    dCentroid_
+    (
+        IOobject("ibmCentroidDelta", mesh.time().timeName(), mesh,
+                 IOobject::NO_READ, IOobject::NO_WRITE),
+        mesh.delta()
+    ),
+    cutDeltaCoeffs_
+    (
+        IOobject("ibmDeltaCoeffs", mesh.time().timeName(), mesh,
+                 IOobject::NO_READ, IOobject::NO_WRITE),
+        mesh.nonOrthDeltaCoeffs()
+    ),
+    centroidLevelSet_(),
+    wetOffsetAll_(),
     cellBody_(mesh.nCells(), -1),
     nearestBody_(mesh.nCells(), -1),
     solidCells_(mesh.nCells()),
@@ -125,7 +152,12 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     Info<< "Cut-cell immersed boundary: reading " << name() << nl
         << "    alphaMin " << alphaMin_
         << ", nSubSamples " << nSubSamples_
-        << ", nBisect " << nBisect_ << endl;
+        << ", nBisect " << nBisect_
+        << (secondOrder_ ? ", second-order wall treatment" : "") << endl;
+    if (secondOrder_)
+    {
+        centroidOffset_.writeOpt(IOobject::AUTO_WRITE);
+    }
 
     // Bodies
     const dictionary& bdict = subDict("bodies");
@@ -219,6 +251,9 @@ void Foam::cutCellGeometry::calcGeometry()
     scalarField theta(mesh_.nFaces(), 1.0);
     cellBody_ = -1;
     nearestBody_ = -1;
+    vectorField centroidOffset(mesh_.nCells(), Zero);
+    wetOffsetAll_.setSize(mesh_.nFaces());
+    wetOffsetAll_ = Zero;
 
     auto merge = [&](const scalarField& a, const scalarField& t,
                      const labelList& body)
@@ -247,7 +282,7 @@ void Foam::cutCellGeometry::calcGeometry()
     {
         scalarField a, t;
         labelList body;
-        calcFromLevelSet(a, t, body);
+        calcFromLevelSet(a, t, body, centroidOffset);
         merge(a, t, body);
         unionLevelSet(mesh_.cellCentres(), cellLevelSet_);
     }
@@ -323,6 +358,22 @@ void Foam::cutCellGeometry::calcGeometry()
     alpha_.primitiveFieldRef() = alpha;
     alpha_.correctBoundaryConditions();
 
+    // Fluid centroids (cell centre in fluid cells); solid cells keep zero
+    forAll(alpha, celli)
+    {
+        if (alpha[celli] <= 0) centroidOffset[celli] = Zero;
+    }
+    centroidOffset_.primitiveFieldRef() = centroidOffset;
+    centroidOffset_.correctBoundaryConditions();
+    wetFaceOffset_.primitiveFieldRef() =
+        SubField<vector>(wetOffsetAll_, mesh_.nInternalFaces());
+    forAll(wetFaceOffset_.boundaryField(), patchi)
+    {
+        const fvPatch& fvp = mesh_.boundary()[patchi];
+        wetFaceOffset_.boundaryFieldRef()[patchi] =
+            SubField<vector>(wetOffsetAll_, fvp.size(), fvp.start());
+    }
+
     theta_.primitiveFieldRef() = SubField<scalar>(theta, mesh_.nInternalFaces());
     forAll(theta_.boundaryField(), patchi)
     {
@@ -332,6 +383,10 @@ void Foam::cutCellGeometry::calcGeometry()
     }
 
     calcDerived();
+    if (secondOrder_)
+    {
+        calcCentroidGeometry();
+    }
 }
 
 
@@ -423,20 +478,31 @@ void Foam::cutCellGeometry::faceFractions
         }
 
         vector area(Zero);
+        vector moment(Zero);
         const point& p0 = poly[0];
         for (label i = 1; i + 1 < poly.size(); ++i)
         {
-            area += 0.5*((poly[i] - p0) ^ (poly[i+1] - p0));
+            const vector a(0.5*((poly[i] - p0) ^ (poly[i+1] - p0)));
+            area += a;
+            moment += mag(a)*(p0 + poly[i] + poly[i+1])/3.0;
         }
 
         const scalar magSf = mag(Sf[facei]);
         theta[facei] =
             (magSf > VSMALL) ? min(max(mag(area)/magSf, 0.0), 1.0) : 0.0;
+        if (mag(area) > VSMALL && wetOffsetAll_.size() == faces.size())
+        {
+            wetOffsetAll_[facei] = moment/mag(area) - mesh_.faceCentres()[facei];
+        }
     }
 }
 
 
-Foam::scalar Foam::cutCellGeometry::sampleCellFraction(const label celli) const
+Foam::scalar Foam::cutCellGeometry::sampleCellFraction
+(
+    const label celli,
+    point& centroid
+) const
 {
     const pointField cellPts
     (
@@ -488,6 +554,7 @@ Foam::scalar Foam::cutCellGeometry::sampleCellFraction(const label celli) const
         }
     }
 
+    centroid = C;
     if (samples.empty())
     {
         return 1.0;
@@ -497,9 +564,18 @@ Foam::scalar Foam::cutCellGeometry::sampleCellFraction(const label celli) const
     unionLevelSet(pointField(samples), phi);
 
     label nFluid = 0;
+    vector sum(Zero);
     forAll(phi, i)
     {
-        if (phi[i] > 0) ++nFluid;
+        if (phi[i] > 0)
+        {
+            ++nFluid;
+            sum += samples[i];
+        }
+    }
+    if (nFluid > 0)
+    {
+        centroid = sum/nFluid;
     }
     return scalar(nFluid)/samples.size();
 }
@@ -509,7 +585,8 @@ void Foam::cutCellGeometry::calcFromLevelSet
 (
     scalarField& alpha,
     scalarField& theta,
-    labelList& cellBody
+    labelList& cellBody,
+    vectorField& centroidOffset
 ) const
 {
     const pointField& points = mesh_.points();
@@ -605,7 +682,9 @@ void Foam::cutCellGeometry::calcFromLevelSet
 
         if (nPos > 0 && nNeg > 0)
         {
-            alpha[celli] = sampleCellFraction(celli);
+            point c;
+            alpha[celli] = sampleCellFraction(celli, c);
+            centroidOffset[celli] = c - mesh_.cellCentres()[celli];
             ++nCandidates;
         }
         else
@@ -738,6 +817,27 @@ void Foam::cutCellGeometry::calcDerived()
     scalarField& dWall = dWall_.primitiveFieldRef();
     scalarField& noSlip = noSlipCoeff_.primitiveFieldRef();
 
+    // Level set at the fluid centroids: the wall distance of the second-order
+    // treatment (level-set bodies only; alpha-field bodies keep the estimate)
+    bool haveCentroidLevelSet = false;
+    if (secondOrder_)
+    {
+        label nLevelSet = 0;
+        forAll(bodies_, bodyi)
+        {
+            if (bodies_[bodyi].hasLevelSet()) ++nLevelSet;
+        }
+        if (nLevelSet > 0)
+        {
+            unionLevelSet
+            (
+                mesh_.cellCentres() + centroidOffset_.primitiveField(),
+                centroidLevelSet_
+            );
+            haveCentroidLevelSet = true;
+        }
+    }
+
     fluidVolume_ = 0;
     forAll(alpha, celli)
     {
@@ -762,6 +862,13 @@ void Foam::cutCellGeometry::calcDerived()
         {
             wallCells_.set(celli);
             dWall[celli] = alpha[celli]*V[celli]/(2*Awall[celli]);
+            if (haveCentroidLevelSet)
+            {
+                // distance of the fluid centroid to the wall, floored at a
+                // small fraction of the cell size
+                dWall[celli] =
+                    max(centroidLevelSet_[celli], 1e-3*cbrt(V[celli]));
+            }
         }
         else
         {
@@ -851,6 +958,148 @@ void Foam::cutCellGeometry::calcDerived()
 }
 
 
+void Foam::cutCellGeometry::calcCentroidGeometry()
+{
+    const labelUList& own = mesh_.owner();
+    const labelUList& nei = mesh_.neighbour();
+    const surfaceVectorField& Sf = mesh_.Sf();
+    const surfaceScalarField& magSf = mesh_.magSf();
+    const surfaceVectorField delta(mesh_.delta());
+    const surfaceScalarField& meshDC = mesh_.nonOrthDeltaCoeffs();
+    const vectorField& off = centroidOffset_.primitiveField();
+
+    dCentroid_ = delta;
+    cutDeltaCoeffs_ = meshDC;
+
+    forAll(own, facei)
+    {
+        const label o = own[facei], n = nei[facei];
+        if (theta_[facei] <= 0 || solidCells_.test(o) || solidCells_.test(n))
+        {
+            continue;
+        }
+        const vector d(delta[facei] + off[n] - off[o]);
+        const scalar nd = (Sf[facei] & d)/magSf[facei];
+        dCentroid_[facei] = d;
+        cutDeltaCoeffs_[facei] = 1.0/max(nd, 0.1/meshDC[facei]);
+    }
+    forAll(mesh_.boundary(), patchi)
+    {
+        const fvPatch& fvp = mesh_.boundary()[patchi];
+        if (!fvp.coupled()) continue;
+        const labelUList& fc = fvp.faceCells();
+        const vectorField offN
+        (
+            centroidOffset_.boundaryField()[patchi].patchNeighbourField()
+        );
+        const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
+        const fvsPatchVectorField& deltap = delta.boundaryField()[patchi];
+        const fvsPatchVectorField& Sfp = Sf.boundaryField()[patchi];
+        const fvsPatchScalarField& magSfp = magSf.boundaryField()[patchi];
+        const fvsPatchScalarField& dcp = meshDC.boundaryField()[patchi];
+        fvsPatchVectorField& dp = dCentroid_.boundaryFieldRef()[patchi];
+        fvsPatchScalarField& cp = cutDeltaCoeffs_.boundaryFieldRef()[patchi];
+        forAll(fvp, i)
+        {
+            if (tp[i] <= 0 || solidCells_.test(fc[i])) continue;
+            const vector d(deltap[i] + offN[i] - off[fc[i]]);
+            const scalar nd = (Sfp[i] & d)/magSfp[i];
+            dp[i] = d;
+            cp[i] = 1.0/max(nd, 0.1/dcp[i]);
+        }
+    }
+}
+
+
+Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::lsqGrad
+(
+    const volScalarField& f
+) const
+{
+    tmp<volVectorField> tg
+    (
+        volVectorField::New
+        (
+            "lsqGrad(" + f.name() + ')',
+            mesh_,
+            f.dimensions()/dimLength,
+            extrapolatedCalculatedFvPatchField<vector>::typeName
+        )
+    );
+    volVectorField& g = tg.ref();
+    vectorField& gI = g.primitiveFieldRef();
+    gI = Zero;
+
+    const labelUList& own = mesh_.owner();
+    const labelUList& nei = mesh_.neighbour();
+    const scalarField& fI = f.primitiveField();
+
+    symmTensorField A(mesh_.nCells(), Zero);
+    vectorField r(mesh_.nCells(), Zero);
+    labelList nUsed(mesh_.nCells(), 0);
+
+    auto accumulate = [&](const label celli, const vector& d, const scalar df)
+    {
+        const scalar w = 1.0/max(magSqr(d), VSMALL);
+        A[celli] += w*symm(d*d);
+        r[celli] += w*d*df;
+        ++nUsed[celli];
+    };
+
+    forAll(own, facei)
+    {
+        const label o = own[facei], n = nei[facei];
+        if (theta_[facei] <= 0 || solidCells_.test(o) || solidCells_.test(n))
+        {
+            continue;
+        }
+        const vector& d = dCentroid_[facei];
+        const scalar df = fI[n] - fI[o];
+        accumulate(o, d, df);
+        accumulate(n, d, df);       // (-d)(-df) = d df
+    }
+    forAll(mesh_.boundary(), patchi)
+    {
+        const fvPatch& fvp = mesh_.boundary()[patchi];
+        if (!fvp.coupled()) continue;
+        const labelUList& fc = fvp.faceCells();
+        const scalarField fN(f.boundaryField()[patchi].patchNeighbourField());
+        const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
+        const fvsPatchVectorField& dp = dCentroid_.boundaryField()[patchi];
+        forAll(fvp, i)
+        {
+            if (tp[i] <= 0 || solidCells_.test(fc[i])) continue;
+            accumulate(fc[i], dp[i], fN[i] - fI[fc[i]]);
+        }
+    }
+
+    // Regularise the empty directions, then invert
+    const Vector<label>& solD = mesh_.solutionD();
+    label nD = 0;
+    for (direction d = 0; d < 3; ++d) if (solD[d] > 0) ++nD;
+
+    forAll(gI, celli)
+    {
+        if (nUsed[celli] < nD || solidCells_.test(celli)) continue;
+        symmTensor Ai(A[celli]);
+        for (direction d = 0; d < 3; ++d)
+        {
+            if (solD[d] < 0)
+            {
+                Ai[symmTensor::XX + 3*d - (d*(d - 1))/2] += 1.0;   // diagonal: XX, YY, ZZ
+            }
+        }
+        if (det(Ai) > SMALL*pow3(tr(Ai)/3))
+        {
+            gI[celli] = inv(Ai) & r[celli];
+        }
+    }
+
+    g.correctBoundaryConditions();
+    return tg;
+}
+
+
 void Foam::cutCellGeometry::report() const
 {
     const label nSolid = returnReduce(solidCells_.count(), sumOp<label>());
@@ -927,6 +1176,47 @@ Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::grad
     // Wall pressure force, p_P Sw, through closure; the sum is then
     // sum_f theta_f (p_f - p_P) Sf and vanishes for a uniform pressure
     gI += p.primitiveField()*Sw_.primitiveField();
+
+    if (secondOrder_)
+    {
+        // Face values at the wet-face centroids and the wall pressure at the
+        // wall segment, both from the least-squares gradient: exact for a
+        // linear pressure
+        const tmp<volVectorField> tgp(lsqGrad(p));
+        const volVectorField& gp = tgp();
+        forAll(own, facei)
+        {
+            if (theta_[facei] <= 0 || theta_[facei] >= 1) continue;
+            const vector gf(0.5*(gp[own[facei]] + gp[nei[facei]]));
+            const vector v(theta_[facei]*(gf & wetFaceOffset_[facei])*Sf[facei]);
+            gI[own[facei]] += v;
+            gI[nei[facei]] -= v;
+        }
+        forAll(mesh_.boundary(), patchi)
+        {
+            const fvPatch& fvp = mesh_.boundary()[patchi];
+            if (!fvp.coupled()) continue;
+            const labelUList& fc = fvp.faceCells();
+            const vectorField gN(gp.boundaryField()[patchi].patchNeighbourField());
+            const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
+            const fvsPatchVectorField& wp = wetFaceOffset_.boundaryField()[patchi];
+            const fvsPatchVectorField& Sfp = Sf.boundaryField()[patchi];
+            forAll(fvp, i)
+            {
+                if (tp[i] <= 0 || tp[i] >= 1) continue;
+                const vector gf(0.5*(gp[fc[i]] + gN[i]));
+                gI[fc[i]] += tp[i]*(gf & wp[i])*Sfp[i];
+            }
+        }
+        for (const label celli : wallCells_)
+        {
+            // p_wall - p_c = grad p . (x_wall - x_c), x_wall - x_c = dWall n_wall
+            gI[celli] +=
+                (gp[celli] & Sw_[celli])*dWall_[celli]/max(Awall_[celli], VSMALL)
+               *Sw_[celli];
+        }
+    }
+
     gI /= mesh_.V();
 
     g.correctBoundaryConditions();
@@ -1093,12 +1383,20 @@ void Foam::cutCellGeometry::forces
     Fv = Zero;
     const scalarField& V = mesh_.V();
 
+    tmp<volVectorField> tgp;
+    if (secondOrder_) tgp = lsqGrad(p);
+
     for (const label celli : wallCells_)
     {
         const label bodyi = max(cellBody_[celli], 0);
         if (bodyi >= bodies_.size()) continue;
-        // pressure on the wall segment, p_P Sw (Sw points into the body)
-        Fp[bodyi] += p[celli]*Sw_[celli];
+        // pressure on the wall segment, p_wall Sw (Sw points into the body)
+        scalar pw = p[celli];
+        if (secondOrder_)
+        {
+            pw += (tgp()[celli] & Sw_[celli])*dWall_[celli]/max(Awall_[celli], VSMALL);
+        }
+        Fp[bodyi] += pw*Sw_[celli];
         // viscous traction, nu (u_P - u_b)/d Awall
         if (moving_)
         {

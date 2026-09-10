@@ -164,3 +164,92 @@ sources above reproduces the CD and CN tests without any flow solve.
 Reproduce: `python validation/order_study.py --N 20 40 80 160 320` (about two minutes;
 `--noProject` shows the incompatibility artefact, `--alphaMin` its dependence on the
 sliver threshold, `--omega` the Péclet number).
+
+## Implementation in OpenFOAM (branch `scalar_secondOrder`) and results
+
+Implemented as recommended, behind `secondOrder true` in `ibmProperties` (default off,
+bit-identical results otherwise):
+
+* `cutCellGeometry`: fluid centroids from the sub-sampling, wet-face centroids from the
+  polygon clipping, per-face centroid vector and cut delta coefficient 1/(n·d), wall distance
+  from the level set at the centroid, a least-squares gradient on the centroids
+  (`lsqGrad`), the explicit face-gradient remainder (`snGradCorrection`), wet-centroid face
+  values and an extrapolated wall pressure in `grad()` and `forces()`.
+* one `snGradScheme`, `cutCellCorrected`, supplying those delta coefficients and the
+  remainder; selected for `laplacianSchemes` and `snGradSchemes`, it makes the momentum
+  Laplacian, the pressure Laplacian, `pEqn.flux()` and `fvc::snGrad` consistent without any
+  change to the solvers.
+* `ibmOrderTest`: the manufactured tests of this study on the library operators.
+
+### Operators (`tutorials/order/laplaceDisk/Allrun`)
+
+L2 errors and orders, N = 20/40/80/160, identical to the Python study to the printed digits:
+
+| test | secondOrder false | secondOrder true |
+|---|---|---|
+| LD | 1.79e-2, 1.14e-2 (0.65), 4.92e-3 (1.22), 2.40e-3 (1.04) | 1.55e-3, 4.09e-4 (1.92), 9.81e-5 (2.06), 2.31e-5 (2.09) |
+| LN | 4.09e-3, 8.45e-4 (2.27), 1.56e-4 (2.43), 2.01e-5 (2.96) | 3.14e-3, 7.41e-4 (2.08), 1.48e-4 (2.33), 2.66e-5 (2.47) |
+| CD | 1.13e-2, 7.71e-3 (0.55), 3.76e-3 (1.04), 1.62e-3 (1.21) | 4.06e-3, 1.19e-3 (1.76), 3.11e-4 (1.94), 7.84e-5 (1.99) |
+| CN | 3.28e-3, 8.53e-4 (1.94), 2.29e-4 (1.90), 6.45e-5 (1.82) | 3.33e-3, 8.85e-4 (1.91), 2.37e-4 (1.90), 6.67e-5 (1.83) |
+
+### Coupled Navier–Stokes with an exact solution (`tutorials/order/taylorCouette`)
+
+Taylor–Couette flow between an inner cylinder of radius 0.5 rotating at Ω = 1 (no slip) and
+an outer cylinder of radius 1.5 at rest (no slip, fluid inside), both immersed, ν = 1,
+transient to steady state (`ibmPimpleFoam`, Δt = 0.02, t = 6). Exact solution
+u_θ = A r + B/r, p = A²r²/2 + 2AB ln r − B²/(2r²). Errors at the fluid centroids
+(`validation/taylorCouette_error.py`):
+
+| N | L2(U), first order | L2(U), second order | bulk U rms, 1st / 2nd | bulk p rms, 1st / 2nd | cut-cell p rms, 1st / 2nd |
+|---|---|---|---|---|---|
+| 40 | 6.48e-3 | 1.16e-3 | | | |
+| 80 | 4.48e-3 (0.53) | 3.35e-4 (1.79) | 4.0e-3 / 2.7e-4 | 3.5e-3 / 1.9e-3 | 0.26 / 0.13 |
+| 160 | 2.10e-3 (1.09) | 1.27e-4 (1.40) | 2.0e-3 / 8.4e-5 (1.0 / 1.7) | 4.6e-3 / 1.0e-3 (– / 0.9) | 0.20 / 0.11 |
+
+("bulk" = full cells farther than 2h from a wall; the pressure range is 0.08.) The velocity
+is second order in the bulk and 5–16 times more accurate everywhere; the overall L2 order
+decays to 1.4 at N = 160 because the near-wall full cells stagnate at about 4e-4. The
+pressure is second order in the bulk but does not converge in the cut cells (rms 0.11–0.26,
+larger than the whole pressure range) and pollutes the near-wall full cells at first order.
+This is the small-cell problem of the pressure: the mobility of a cut cell, r_At θ, scales
+with αθ because the wall term dominates its momentum diagonal, so its pressure is set by
+tiny flux residuals. The velocity is barely affected (the wall term pins it), the forces are.
+
+This test also exposed a defect of the moving-body path: the body velocity of a rotating
+wall was evaluated at the cell centre, so u_b·Sw did not vanish for a tangential motion and
+an O(h) spurious mass source, alternating in sign around the body, checkerboarded the
+cut-cell pressures (errors ±0.4). It is now evaluated at the wall segment
+x_w = x_c + d_wall n_w; translating bodies are unaffected.
+
+### Forces by Richardson extrapolation (`validation/richardson_drag.sh`)
+
+Periodic cylinder at Re_D = 1 (`tutorials/cylinderRe1`), drag per unit depth from the
+solver's force, `ibmSimpleFoam` converged to 1e-9, N = 41/81/161; N = 321 in brackets was
+stopped before reaching that residual and is indicative only:
+
+| wall | treatment | N = 41 | 81 | 161 | [321] | order (41/81/161) |
+|---|---|---|---|---|---|---|
+| no slip | first | 5.5431 | 5.6604 | 5.7577 | [5.798] | 0.27 |
+| no slip | second | 5.7834 | 5.8205 | 5.8322 | [5.848] | 1.66 |
+| free slip | first | 2.8377 | 2.9421 | 3.0004 | [3.035] | 0.84 |
+| free slip | second | 2.9161 | 2.9848 | 3.0237 | [3.052] | 0.82 |
+
+The second-order treatment brings the no-slip drag much closer to its limit (the first-order
+sequence is still 1.5 % away at N = 161) and its increments shrink faster, but the free-slip
+drag, a pure pressure force, converges at first order with both treatments, and the N = 321
+no-slip value does not continue the second-order trend. Consistently with the Taylor–Couette
+diagnosis, the forces are limited by the cut-cell pressure and by the O(α_min h) boundary
+displacement of sliver absorption, not by the operators.
+
+### Conclusion and next step
+
+The recommended ingredients deliver second order for the Laplacian and the
+convection–diffusion operators with both wall conditions, and for the velocity of the coupled
+problem, at the cost of one snGrad scheme and a least-squares gradient per corrected field.
+Second-order pressure and forces need one more ingredient that this study did not cover: a
+cut-cell pressure that is not determined by the cut cell alone. Candidates, in order of
+simplicity: (i) evaluate the wall pressure force from a least-squares fit of the full cells
+next to the wall instead of the cut cell's own pressure (post-processing only, no change to
+the solution); (ii) cell merging or linking of cut cells with α below ~0.5 to a full
+neighbour, which removes the small-cell problem for pressure and momentum alike and would
+also relax the moving-wall step restriction.
