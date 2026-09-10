@@ -1,0 +1,78 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2106                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : _c15bfde3cb-20210624 OPENFOAM=2106
+Arch   : "LSB;label=32;scalar=64"
+Exec   : blockMesh
+Date   : Sep 08 2026
+Time   : 17:03:37
+Host   : ISTM-io2
+PID    : 2040117
+I/O    : uncollated
+Case   : /home/ws/xt8786/Codes/openFoam.ibm/tutorials/scalar/staticCylinder_zeroFlux
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Creating block mesh from "system/blockMeshDict"
+No non-linear block edges defined
+No non-planar block faces defined
+Creating topology blocks
+Creating topology patches
+
+Creating block mesh topology
+
+Check topology
+
+	Basic statistics
+		Number of internal faces : 0
+		Number of boundary faces : 6
+		Number of defined boundary faces : 6
+		Number of undefined boundary faces : 0
+	Checking patch -> block consistency
+
+Creating block offsets
+Creating merge list (topological search)...
+
+Creating polyMesh from blockMesh
+Creating patches
+Creating cells
+Creating points with scale 1
+    Block 0 cell size :
+        i : 0.123456790123 .. 0.123456790123
+        j : 0.123456790123 .. 0.123456790123
+        k : 0.123456790123 .. 0.123456790123
+
+
+There are no merge patch pairs
+
+Detected cyclic patches; ordering boundary faces
+
+Writing polyMesh with 0 cellZones
+----------------
+Mesh Information
+----------------
+  boundingBox: (0 0 0) (10 10 0.123456790123)
+  nPoints: 13448
+  nCells: 6561
+  nFaces: 26406
+  nInternalFaces: 12960
+----------------
+Patches
+----------------
+  patch 0 (start: 12960 size: 81) name: left
+  patch 1 (start: 13041 size: 81) name: right
+  patch 2 (start: 13122 size: 81) name: bottom
+  patch 3 (start: 13203 size: 81) name: top
+  patch 4 (start: 13284 size: 13122) name: frontAndBack
+
+End
+

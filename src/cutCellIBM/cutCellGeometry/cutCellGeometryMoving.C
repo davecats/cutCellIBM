@@ -64,17 +64,27 @@ void Foam::cutCellGeometry::calcMovingTerms()
     const scalarField& V = mesh_.V();
     const vectorField& Sw = Sw_.primitiveField();
 
-    // Body velocity at the cell centres, for the cells a body owns (cut,
-    // solid and wall cells); zero elsewhere
+    // Body velocity for the cells a body owns (cut, solid and wall cells),
+    // zero elsewhere. For a wall cell it is evaluated at its wall segment,
+    // x_w = x_P + dWall n_w: the wall flux u_b.Sw of a rotating body must
+    // vanish for a tangential motion, which the cell-centre value does not
+    // give (an O(h) spurious mass source alternating in sign around the
+    // body). Solid cells use their centre.
     vectorField& Ub = UbPtr_().primitiveFieldRef();
     Ub = Zero;
+
+    pointField wallPoints(mesh_.cellCentres());
+    for (const label celli : wallCells_)
+    {
+        wallPoints[celli] += dWall_[celli]*Sw[celli]/max(Awall_[celli], VSMALL);
+    }
 
     List<vectorField> bodyU(bodies_.size());
     forAll(bodies_, bodyi)
     {
         if (bodies_[bodyi].moving())
         {
-            bodies_[bodyi].velocity(mesh_.cellCentres(), bodyU[bodyi]);
+            bodies_[bodyi].velocity(wallPoints, bodyU[bodyi]);
         }
     }
     forAll(cellBody_, celli)

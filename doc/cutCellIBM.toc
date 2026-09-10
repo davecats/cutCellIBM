@@ -1,0 +1,27 @@
+\contentsline {section}{\numberline {1}Introduction}{2}{section.1}%
+\contentsline {section}{\numberline {2}Governing equations}{2}{section.2}%
+\contentsline {section}{\numberline {3}Geometric description of the body}{3}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Fluid fractions and the closure identity}{3}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Computation}{4}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Multiple bodies}{5}{subsection.3.3}%
+\contentsline {section}{\numberline {4}Discretisation for a body at rest}{5}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Properties}{5}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Solid cells and the pressure--velocity coupling}{6}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Force on the body}{6}{subsection.4.3}%
+\contentsline {section}{\numberline {5}Moving bodies}{6}{section.5}%
+\contentsline {subsection}{\numberline {5.1}What the wall sweeps}{6}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Which quantity is primary}{7}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Algorithm}{8}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Step restriction}{9}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}Rigid body kinematics}{9}{subsection.5.5}%
+\contentsline {section}{\numberline {6}Passive scalar transport}{9}{section.6}%
+\contentsline {section}{\numberline {7}Implementation in OpenFOAM}{10}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Explicit operators on an unmodified mesh}{10}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Structure}{10}{subsection.7.2}%
+\contentsline {section}{\numberline {8}Verification}{11}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Body at rest}{11}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Moving body: free stream, oscillation, Galilean invariance}{11}{subsection.8.2}%
+\contentsline {subsection}{\numberline {8.3}Passive scalar}{13}{subsection.8.3}%
+\contentsline {section}{\numberline {9}Second-order wall treatment}{14}{section.9}%
+\contentsline {section}{\numberline {10}Limitations}{15}{section.10}%
+\contentsline {section}{\numberline {11}Conclusions}{15}{section.11}%

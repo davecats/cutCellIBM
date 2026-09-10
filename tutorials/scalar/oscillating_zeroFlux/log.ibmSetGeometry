@@ -1,0 +1,43 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  v2106                                 |
+|   \\  /    A nd           | Website:  www.openfoam.com                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : _c15bfde3cb-20210624 OPENFOAM=2106
+Arch   : "LSB;label=32;scalar=64"
+Exec   : ibmSetGeometry
+Date   : Sep 08 2026
+Time   : 17:03:37
+Host   : ISTM-io2
+PID    : 2040125
+I/O    : uncollated
+Case   : /home/ws/xt8786/Codes/openFoam.ibm/tutorials/scalar/oscillating_zeroFlux
+nProcs : 1
+trapFpe: Floating point exception trapping enabled (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster (fileModificationSkew 5, maxFileModificationPolls 20)
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Create mesh for time = 0
+
+Cut-cell immersed boundary: reading ibmProperties
+    alphaMin 0.02, nSubSamples 32, nBisect 40
+    body cylinder: type cylinder
+    body cylinder: moving, motion type oscillating
+    moving bodies: geometry rebuilt every time step", periodic lengths (10,10,0)"
+    level-set bodies: 128 cut edges, 64 sub-sampled cells
+    cells: 6561 total, 177 solid, 64 cut, 64 with a wall segment
+    fluid volume 11.9577817081 (domain 12.3456790123)
+    total wall area 0.775289594512, net wall area vector (6.93889390391e-18 -6.93889390391e-18 0) (zero for closed bodies inside the domain)
+    smallest retained cell fraction 0.0419921875
+
+    mass source: sum over the domain -2.16840434497e-19 (zero to roundoff by closure)
+    writing geometry fields to time 0
+Cut-cell gradient of a uniform field, max magnitude: 0 (zero by closure)
+
+End
+
