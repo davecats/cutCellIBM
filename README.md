@@ -447,6 +447,12 @@ fields.
 
 ## 8. Limitations and possible improvements
 
+`doc/secondOrderStudy.md` reports an order-of-accuracy study (Python, no code change):
+the no-slip wall becomes second order once the diffusive fluxes across the faces of cut
+cells are made consistent with the fluid centroids and the wall distance is taken from the
+centroid; the wall gradient itself needs no probe, and the free-slip wall is already second
+order.
+
 * Laminar only; a turbulence model would need θ-aware transport equations and wall
   treatment.
 * First order in time (implicit Euler, and the swept-volume integration inherits it) and,
