@@ -27,7 +27,7 @@ Description
 #include "pimpleControl.H"
 #include "fvOptions.H"
 #include "cutCellGeometry.H"
-#include "ibmScalarTransport.H"
+#include "ibmScalarTransportList.H"
 
 int main(int argc, char *argv[])
 {
@@ -99,11 +99,8 @@ int main(int argc, char *argv[])
             }
         }
 
-        // Passive scalar, if constant/scalarTransportProperties exists
-        if (scalarPtr)
-        {
-            scalarPtr->solve();
-        }
+        // Passive scalars, if constant/scalarTransportProperties exists
+        scalars.solve();
 
         ibm.reportForces(p, U, turbulence->nuEff());
 

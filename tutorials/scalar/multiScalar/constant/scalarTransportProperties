@@ -1,0 +1,34 @@
+FoamFile { version 2.0; format ascii; class dictionary; object scalarTransportProperties; }
+
+// Several passive scalars transported by the cut-cell flux (see
+// ibmScalarTransportList); each needs its 0/<name> field, a div(phi,<name>)
+// scheme and a solver entry. The wall condition is chosen per scalar and per
+// body in "walls" (a body not listed there takes the scalarWall entry of
+// constant/ibmProperties, or zeroGradient).
+scalars
+{
+    // fixed value 0 at the cylinder: the setup of staticCylinder_fixedValue
+    T
+    {
+        DT      0.1;
+        source  { centre (5 8.5 0); radius 0.5; rate 1; }
+        walls   { cylinder { type fixedValue; value 0; } }
+    }
+
+    // zero flux at the cylinder: the setup of staticCylinder_zeroFlux
+    c
+    {
+        DT      0.1;
+        source  { centre (5 8.5 0); radius 0.5; rate 1; }
+        walls   { cylinder { type zeroGradient; } }
+    }
+
+    // zero flux at the cylinder, and a first-order decay through fvOptions
+    // (scalarSemiImplicitSource, fields (d)); "walls" omitted, so the body
+    // entry decides (none given: zeroGradient)
+    d
+    {
+        DT      0.1;
+        source  { centre (5 8.5 0); radius 0.5; rate 1; }
+    }
+}

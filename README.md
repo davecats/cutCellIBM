@@ -370,24 +370,26 @@ A 4-rank run of the oscillating cylinder reproduces the serial force history to 
 
 ## 7. Passive scalar transport
 
-`ibmScalarTransport` (library) solves a passive scalar T with the cut-cell operators and
-is switched on by the presence of `constant/scalarTransportProperties`; both solvers call
-`scalarPtr->solve()` once per time step (ibmPimpleFoam, after the PIMPLE loop) or per
-iteration (ibmSimpleFoam). The immersed wall is seen, per body, either as a fixed-value
-wall (the analogue of no slip) or as a zero-flux wall (the analogue of free slip):
+`ibmScalarTransport` (library) solves one passive scalar T with the cut-cell operators;
+`ibmScalarTransportList` reads `constant/scalarTransportProperties` (any number of scalars,
+nothing if the file is absent) and both solvers call `scalars.solve()` once per time step
+(ibmPimpleFoam, after the PIMPLE loop) or per iteration (ibmSimpleFoam). The immersed wall
+is seen, per scalar and per body, either as a fixed-value wall (the analogue of no slip)
+or as a zero-flux wall (the analogue of free slip):
 
 ```c++
 fvm::ddt(ibm.alpha(), T) + fvm::div(phi, T) - fvm::laplacian(DT*ibm.theta(), T)
 + fvm::Sp(DT*wallCoeff, T) + fvm::Sp(DT*ibm.blankCoeff(), T)
-== DT*(wallCoeff + ibm.blankCoeff())*Twall + q*ibm.alpha()
+== DT*(wallCoeff + ibm.blankCoeff())*Twall + q*ibm.alpha() + fvOptions(T)
 ```
 
 * `wallCoeff` is the geometric Dirichlet coefficient A_wall/(d_wall V) (`ibm.wallCoeff()`,
   the same quantity that becomes `noSlipCoeff` for the velocity) masked to the wall cells
-  of bodies with `scalarWall fixedValue`; for `scalarWall zeroGradient` there is no term at
-  all, because the wall segment simply carries no flux. The masks of velocity and scalar are
-  independent, so a free-slip body may hold a fixed scalar and vice versa.
-* The blanking term drives the solid interior to `scalarWallValue` (0 for zero-flux
+  of bodies seen as fixed-value walls; for zero-gradient walls there is no term at all,
+  because the wall segment simply carries no flux. The masks of velocity and scalar are
+  independent, so a free-slip body may hold a fixed scalar and vice versa, and each scalar
+  chooses its own wall type per body.
+* The blanking term drives the solid interior to the wall value (0 for zero-flux
   bodies), so a cell released by a moving body starts from a defined value.
 * Cells containing the wall are fluid cells: T is transported into their fluid part
   through the wet fraction of their faces (the same `phi` the pressure equation returns),
@@ -398,26 +400,45 @@ fvm::ddt(ibm.alpha(), T) + fvm::div(phi, T) - fvm::laplacian(DT*ibm.theta(), T)
   (α^{n+1} − α^n)V/Δt = S and Σθφ = −S cancel.
 * `q` is a prescribed source per unit fluid volume in a circular (2-D) or spherical region;
   it multiplies α, so it never injects into the solid.
+* `fvOptions(T)` is the standard OpenFOAM mechanism: any source in `constant/fvOptions`
+  whose `fields` list contains the scalar enters its equation (`scalarSemiImplicitSource`
+  for explicit/implicit rates, `scalarCodedSource` for arbitrary expressions, ...), with the
+  usual `constrain`/`correct` calls. Its contribution is counted in the budget. Two things
+  to keep in mind: stock fvOptions act per cell volume V, not per fluid volume αV, and also
+  in solid cells (where the blanking term wins), so a source that overlaps the body is
+  first-order inconsistent there unless it is made α-aware like `ibmMeanVelocityForce`; and
+  the coupling is one-way, the flow does not see the scalars.
 
-Setup: `0/T`, and
+Setup: one `0/<name>` field per scalar, and
 
 ```
 // constant/scalarTransportProperties
-field   T;
-DT      0.1;
-source  { centre (5 8.5 0); radius 0.5; rate 1; }
-// per body, in constant/ibmProperties
-scalarWall fixedValue; scalarWallValue 0;      // or: scalarWall zeroGradient;
+scalars
+{
+    T
+    {
+        DT      0.1;
+        source  { centre (5 8.5 0); radius 0.5; rate 1; }     // optional
+        walls   { cylinder { type fixedValue; value 0; } }    // per body, optional
+    }
+    c   { DT 0.01; walls { ".*" { type zeroGradient; } } }
+}
 ```
 
-with `div(phi,T) Gauss linear` in `fvSchemes`, a `"T.*"` solver in `fvSolution`, and
-`T 1.0` in the equation relaxation factors for ibmSimpleFoam (the steady T equation is
-linear at fixed flux; under-relaxing it only slows the adjustment of the global level,
-which is set by the weak wall sink).
+A body not matched in `walls` takes `scalarWall fixedValue|zeroGradient; scalarWallValue 0;`
+from its own entry in `constant/ibmProperties`, and zero gradient if neither is given. The
+single-scalar form `field T; DT 0.1; source {...};` at the top level of the file is still
+accepted. Each scalar needs `div(phi,<name>) Gauss linear` in `fvSchemes` (a regex such as
+`"div\(phi,(T|c)\)"` does), a solver entry in `fvSolution`, and `1.0` in the equation
+relaxation factors for ibmSimpleFoam (the steady equation is linear at fixed flux;
+under-relaxing it only slows the adjustment of the global level, which is set by the weak
+wall sink). The scalars are independent of each other; sources coupling them (reactions)
+go through fvOptions, or through a term added in `ibmScalarTransport::solve()`.
 
 ### Budget check
 
-Every step the solver prints the fluid content Σ αVT, the injected amount Σ qαV dt, the
+Every step the solver prints, per scalar, the fluid content Σ αVT, the injected amount
+Σ qαV dt (plus what fvOptions added or removed), the
 amount that left through fixed-value walls Σ D_T·wallCoeff·V·(T − T_wall) dt, the
 swept-volume defect Σ (α_prev − α^n_swept) V Tⁿ, and their balance. The defect exists only
 for moving bodies: the old fluid volume used by the momentum and scalar equations is
@@ -435,6 +456,9 @@ radius 0.5, rate 1, D_T = 0.1; T = 0 initially):
 | oscillating_zeroFlux | 400 | 0.978439 | 0.978472 | 0 | 3.3e-5 | −8.0e-11 | 1e-50 |
 | oscillating_fixedValue | 400 | 0.968143 | 0.978472 | 0.010344 | −1.5e-5 | −6.1e-11 | 3e-56 |
 | galilean_zeroFlux (seam crossings) | 1200 | 2.935650 | 2.935415 | 0 | −2.3e-4 | −7.5e-10 | 5e-13 |
+| multiScalar, T (fixed value) | 202 | 11.904949 | 19.581366 | 7.676417 | 0 | −5.7e-11 | 0 |
+| multiScalar, c (zero flux) | 202 | 19.581366 | 19.581366 | 0 | 0 | −3.9e-12 | 0 |
+| multiScalar, d (zero flux, fvOptions decay 0.05/s) | 202 | 1.953492 | 1.953492 | 0 | 0 | −1.9e-12 | 0 |
 
 With zero-flux walls and a static body the content equals the injected amount to 4e-12
 after 200 steps, with the solid exactly at zero: no scalar is lost into the solid. With a
@@ -443,7 +467,10 @@ moving body the content differs from the injected amount by the swept-volume def
 solid stays at the wall value; the budget errors of 1e-10 are the accumulated linear-solver
 tolerance. The flow is unaffected by the scalar (the forces of `oscillating_zeroFlux` equal
 those of `oscillatingCylinder` to the last digit). `validation/fig_scalar.png` shows the
-fields.
+fields. `multiScalar` carries three scalars in one run: T and c reproduce the budgets of
+`staticCylinder_fixedValue` and `staticCylinder_zeroFlux` to the last digit, and d adds a
+first-order decay through `scalarSemiImplicitSource` (`fields (d)` only), whose sink is
+accounted in the injected column so that the budget still closes.
 
 ## 8. Second-order wall treatment (`secondOrder true`)
 
