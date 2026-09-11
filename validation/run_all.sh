@@ -57,7 +57,7 @@ $PY compare_moving.py $T/galileanTranslating  --ref ref_gal.npz --tail 400 | gre
 echo "free stream (notebook table in ref_freeStream.log):"; cat ref_freeStream.log
 $PY freestream_check.py $T/freeStreamTranslating 0.37
 echo; echo "== passive scalar budgets (tutorials/scalar)"
-for c in staticCylinder_zeroFlux staticCylinder_fixedValue steadyCylinder_fixedValue oscillating_zeroFlux oscillating_fixedValue galilean_zeroFlux; do
+for c in staticCylinder_zeroFlux staticCylinder_fixedValue steadyCylinder_fixedValue oscillating_zeroFlux oscillating_fixedValue galilean_zeroFlux multiScalar; do
     app=$(grep -m1 application $T/scalar/$c/system/controlDict | awk '{print $2}' | tr -d ';')
     ( cd $T/scalar/$c && blockMesh > log.blockMesh 2>&1 && ibmSetGeometry > log.ibmSetGeometry 2>&1 && $app > log.solver 2>&1 )
 done

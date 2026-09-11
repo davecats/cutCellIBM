@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1789048364.76958 "cutCellIBM.tex" "cutCellIBM.pdf" "cutCellIBM" 1789048369.9229 0
+["pdflatex"] 1789130525.06422 "cutCellIBM.tex" "cutCellIBM.pdf" "cutCellIBM" 1789130526.00703 0
   "/etc/texmf/web2c/texmf.cnf" 1747605505.093 475 c0e671620eb5563b2130f56340a5fde8 ""
   "/usr/share/texlive/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/share/texlive/texmf-dist/fonts/tfm/jknappen/ec/tcrm1095.tfm" 1136768653 1536 02c06700a42be0f5a28664c7273f82e7 ""
@@ -142,16 +142,16 @@
   "/usr/share/texmf/web2c/texmf.cnf" 1707919699 40399 f2c302f7d2af602abb742093540a5834 ""
   "/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map" 1747605865.20383 5472669 54eaf61a88b6b7896ebd0dac973cb29c ""
   "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1747605879 8215436 a588b49dbaf97de0fd0cf5b36a43bf4d ""
-  "cutCellIBM.aux" 1789048364.73268 10037 13b620aa3e5704b1ea67a1410371f795 "pdflatex"
-  "cutCellIBM.out" 1789048364.75268 4490 79b76df545de1a04b71830673af6ec94 "pdflatex"
-  "cutCellIBM.tex" 1789048357.90968 48402 8c224095cc52350e4b70f55cf8349895 ""
-  "cutCellIBM.toc" 1789048364.82368 2271 378df8c4a31190c6f3768aa5d7008775 "pdflatex"
-  "figures/f1_cutcell.pdf" 1788881099.15264 17092 ddf07777b8faceb4d518d2f8cfbebd0b ""
-  "figures/f1_swept.pdf" 1788881099.15664 18758 ccb2da5bb78d3426c7ccfa4cce2feda4 ""
-  "figures/fig_galilean_vs_notebook.png" 1788881099.16364 96818 767892f3601ce1a393831e471fee0276 ""
-  "figures/fig_oscillating_vs_notebook.png" 1788881099.16264 97868 2f1eefd188004c6a3aabbcee6c26ce9e ""
-  "figures/fig_pimple_vs_notebook.png" 1788881099.16164 179129 363e601b107657c71fd2379cdbce262b ""
-  "figures/fig_scalar.png" 1788881099.16464 73110 e987154c9b31c687f7ee7d790e6790dc ""
+  "cutCellIBM.aux" 1789130521.80272 9757 d442689faa25034d53b9a038ac9058b1 "pdflatex"
+  "cutCellIBM.out" 1789130521.80472 4304 93f38f81512fb29871ba823537126a19 "pdflatex"
+  "cutCellIBM.tex" 1789130466.11272 45287 082ded31cdc4e1feb63b3e6f71a370b6 ""
+  "cutCellIBM.toc" 1789130521.80572 2185 19005ce5fe31f4cd5383af7d03230218 "pdflatex"
+  "figures/f1_cutcell.pdf" 1789050308.90467 17092 ddf07777b8faceb4d518d2f8cfbebd0b ""
+  "figures/f1_swept.pdf" 1789050308.90667 18758 ccb2da5bb78d3426c7ccfa4cce2feda4 ""
+  "figures/fig_galilean_vs_notebook.png" 1789050308.90967 96818 767892f3601ce1a393831e471fee0276 ""
+  "figures/fig_oscillating_vs_notebook.png" 1789050308.91167 97868 2f1eefd188004c6a3aabbcee6c26ce9e ""
+  "figures/fig_pimple_vs_notebook.png" 1789050308.91367 179129 363e601b107657c71fd2379cdbce262b ""
+  "figures/fig_scalar.png" 1789050308.91567 73110 e987154c9b31c687f7ee7d790e6790dc ""
   (generated)
   "cutCellIBM.aux"
   "cutCellIBM.log"

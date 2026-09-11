@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2025.5.19)  10 SEP 2026 15:52
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2025.5.19)  11 SEP 2026 14:42
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -505,13 +505,13 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 \openout4 = `cutCellIBM.toc'.
 
  [2]
-<figures/f1_cutcell.pdf, id=168, 224.97284pt x 214.78644pt>
+<figures/f1_cutcell.pdf, id=164, 224.97284pt x 214.78644pt>
 File: figures/f1_cutcell.pdf Graphic file (type pdf)
 <use figures/f1_cutcell.pdf>
 Package pdftex.def Info: figures/f1_cutcell.pdf  used on input line 144.
 (pdftex.def)             Requested size: 253.51564pt x 242.04053pt.
  [3 <./figures/f1_cutcell.pdf>] [4] [5] [6] [7]
-<figures/f1_swept.pdf, id=291, 361.35pt x 245.718pt>
+<figures/f1_swept.pdf, id=286, 361.35pt x 245.718pt>
 File: figures/f1_swept.pdf Graphic file (type pdf)
 <use figures/f1_swept.pdf>
 Package pdftex.def Info: figures/f1_swept.pdf  used on input line 470.
@@ -526,52 +526,59 @@ vingWallSource(nu) \OT1/cmr/m/n/10.95 adds $\OML/cmm/m/it/10.95 ^^W\OT1/cmr/m/n
 LaTeX Font Info:    Font shape `OT1/cmtt/bx/n' in size <10.95> not available
 (Font)              Font shape `OT1/cmtt/m/n' tried instead on input line 588.
 
-Overfull \hbox (1.49704pt too wide) in paragraph at lines 604--607
+Overfull \hbox (16.99045pt too wide) in paragraph at lines 602--607
+\OT1/cmr/m/n/10.95 sources and sinks of \OT1/cmtt/m/n/10.95 fvOptions \OT1/cmr/
+m/n/10.95 list-ing the field, and the bud-get []. \OT1/cmtt/m/n/10.95 ibmScalar
+TransportList
+ []
+
+[10]
+Overfull \hbox (1.49704pt too wide) in paragraph at lines 607--610
 []\OT1/cmtt/m/n/10.95 simpleFoam \OT1/cmr/m/n/10.95 and \OT1/cmtt/m/n/10.95 pim
 pleFoam \OT1/cmr/m/n/10.95 with the terms above; the moving-
  []
 
-[10]
-<figures/fig_pimple_vs_notebook.png, id=391, 1084.05pt x 650.43pt>
+<figures/fig_pimple_vs_notebook.png, id=386, 1084.05pt x 650.43pt>
 File: figures/fig_pimple_vs_notebook.png Graphic file (type png)
 <use figures/fig_pimple_vs_notebook.png>
 Package pdftex.def Info: figures/fig_pimple_vs_notebook.png  used on input line
- 651.
+ 654.
 (pdftex.def)             Requested size: 451.71432pt x 271.02505pt.
-<figures/fig_oscillating_vs_notebook.png, id=395, 650.43pt x 578.16pt>
+<figures/fig_oscillating_vs_notebook.png, id=390, 650.43pt x 578.16pt>
 File: figures/fig_oscillating_vs_notebook.png Graphic file (type png)
 <use figures/fig_oscillating_vs_notebook.png>
 Package pdftex.def Info: figures/fig_oscillating_vs_notebook.png  used on input
- line 676.
+ line 679.
 (pdftex.def)             Requested size: 368.74939pt x 327.7814pt.
- [11] [12 <./figures/fig_pimple_vs_notebook.png> <./figures/fig_oscillating_vs_
-notebook.png>]
-<figures/fig_galilean_vs_notebook.png, id=416, 650.43pt x 578.16pt>
+[11] [12 <./figures/fig_pimple_vs_notebook.png> <./figures/fig_oscillating_vs_n
+otebook.png>]
+<figures/fig_galilean_vs_notebook.png, id=411, 650.43pt x 578.16pt>
 File: figures/fig_galilean_vs_notebook.png Graphic file (type png)
 <use figures/fig_galilean_vs_notebook.png>
 Package pdftex.def Info: figures/fig_galilean_vs_notebook.png  used on input li
-ne 702.
+ne 705.
 (pdftex.def)             Requested size: 368.74939pt x 327.7814pt.
-<figures/fig_scalar.png, id=422, 1127.412pt x 332.442pt>
+ [13 <./figures/fig_galilean_vs_notebook.png>]
+<figures/fig_scalar.png, id=426, 1127.412pt x 332.442pt>
 File: figures/fig_scalar.png Graphic file (type png)
 <use figures/fig_scalar.png>
-Package pdftex.def Info: figures/fig_scalar.png  used on input line 742.
+Package pdftex.def Info: figures/fig_scalar.png  used on input line 745.
 (pdftex.def)             Requested size: 451.71432pt x 133.19763pt.
- [13 <./figures/fig_galilean_vs_notebook.png>] [14 <./figures/fig_scalar.png>] 
-[15{/usr/share/texmf/fonts/enc/dvips/cm-super/cm-super-ts1.enc}] (./cutCellIBM.
-aux)
+ [14{/usr/share/texmf/fonts/enc/dvips/cm-super/cm-super-ts1.enc} <./figures/fig
+_scalar.png>]
+[15] (./cutCellIBM.aux)
  ***********
 LaTeX2e <2023-11-01> patch level 1
 L3 programming layer <2024-01-22>
  ***********
 Package rerunfilecheck Info: File `cutCellIBM.out' has not changed.
-(rerunfilecheck)             Checksum: 79B76DF545DE1A04B71830673AF6EC94;4490.
+(rerunfilecheck)             Checksum: 93F38F81512FB29871BA823537126A19;4304.
  ) 
 Here is how much of TeX's memory you used:
- 14012 strings out of 474222
- 214375 string characters out of 5748733
+ 14007 strings out of 474222
+ 214316 string characters out of 5748733
  1957975 words of memory out of 5000000
- 35996 multiletter control sequences out of 15000+600000
+ 35993 multiletter control sequences out of 15000+600000
  577621 words of font info for 108 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  75i,15n,79p,547b,1075s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -597,10 +604,10 @@ s/type1/public/amsfonts/cm/cmsy8.pfb></usr/share/texlive/texmf-dist/fonts/type1
 nts/cm/cmtt10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm
 /cmtt9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/symbols/m
 sam10.pfb></usr/share/texmf/fonts/type1/public/cm-super/sfrm1095.pfb>
-Output written on cutCellIBM.pdf (15 pages, 766836 bytes).
+Output written on cutCellIBM.pdf (15 pages, 761564 bytes).
 PDF statistics:
- 575 PDF objects out of 1000 (max. 8388607)
- 432 compressed objects within 5 object streams
- 94 named destinations out of 1000 (max. 500000)
- 247 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 563 PDF objects out of 1000 (max. 8388607)
+ 420 compressed objects within 5 object streams
+ 92 named destinations out of 1000 (max. 500000)
+ 239 words of extra memory for PDF output out of 10000 (max. 10000000)
 

@@ -1,0 +1,26 @@
+FoamFile { version 2.0; format ascii; class dictionary; object fvOptions; }
+
+// Constant flow rate: bulk velocity over the fluid volume held at Ubar
+momentumSource
+{
+    type            ibmMeanVelocityForce;
+    selectionMode   all;
+    fields          (U);
+    Ubar            (0.5 0 0);
+    relaxation      1.0;
+}
+
+// First-order decay of the scalar d, rate 0.05/s, through the standard
+// fvOptions mechanism: the term enters the d equation as Sp(-0.05, d) and
+// is counted in the budget of d. Note that fvOptions act per cell volume,
+// not per fluid volume alpha V, in cells cut by the body.
+decay
+{
+    type            scalarSemiImplicitSource;
+    selectionMode   all;
+    volumeMode      specific;
+    injectionRateSuSp
+    {
+        d           (0 -0.05);
+    }
+}

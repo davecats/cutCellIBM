@@ -599,8 +599,11 @@ the old flux rescaled to the new wet area.
       controller gain is the SIMPLEC mobility $1/(A-H_1)$, the exact bulk response to a
       uniform force, floored at $\alpha/\dt$; $1/A$ underestimates the response by the
       diffusion number $\nu\dt/h^2$ with implicit viscosity. A zero target is allowed.
-\item[\code{ibmScalarTransport}] equation \eqref{eq:scalard}, the per-body wall masks, a
-      circular source, and the budget \eqref{eq:budget}.
+\item[\code{ibmScalarTransport}] equation \eqref{eq:scalard} for one scalar: the per-body
+      wall masks, a circular source, the sources and sinks of \code{fvOptions} listing the
+      field, and the budget \eqref{eq:budget}. \code{ibmScalarTransportList} holds the
+      scalars of \code{scalarTransportProperties}, each with its own diffusivity, source and
+      wall conditions, and solves them in turn after the pressure correction.
 \item[\code{ibmSimpleFoam}, \code{ibmPimpleFoam}] \code{simpleFoam} and \code{pimpleFoam}
       with the terms above; the moving-body operations sit behind three
       \code{if (ibm.moving())} guards in the transient solver.

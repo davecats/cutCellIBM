@@ -9,51 +9,15 @@ namespace Foam
 }
 
 
-Foam::autoPtr<Foam::ibmScalarTransport> Foam::ibmScalarTransport::New
-(
-    const cutCellGeometry& ibm,
-    const surfaceScalarField& phi,
-    fv::options& fvOptions
-)
-{
-    IOobject io
-    (
-        "scalarTransportProperties",
-        ibm.mesh().time().constant(),
-        ibm.mesh(),
-        IOobject::MUST_READ,
-        IOobject::NO_WRITE
-    );
-
-    if (io.typeHeaderOk<IOdictionary>(true))
-    {
-        return autoPtr<ibmScalarTransport>
-        (
-            new ibmScalarTransport(ibm, phi, fvOptions)
-        );
-    }
-    return nullptr;
-}
-
-
 Foam::ibmScalarTransport::ibmScalarTransport
 (
     const cutCellGeometry& ibm,
     const surfaceScalarField& phi,
-    fv::options& fvOptions
+    fv::options& fvOptions,
+    const word& name,
+    const dictionary& dict
 )
 :
-    IOdictionary
-    (
-        IOobject
-        (
-            "scalarTransportProperties",
-            ibm.mesh().time().constant(),
-            ibm.mesh(),
-            IOobject::MUST_READ,
-            IOobject::NO_WRITE
-        )
-    ),
     ibm_(ibm),
     mesh_(ibm.mesh()),
     phi_(phi),
@@ -62,7 +26,7 @@ Foam::ibmScalarTransport::ibmScalarTransport
     (
         IOobject
         (
-            getOrDefault<word>("field", "T"),
+            name,
             mesh_.time().timeName(),
             mesh_,
             IOobject::MUST_READ,
@@ -70,10 +34,10 @@ Foam::ibmScalarTransport::ibmScalarTransport
         ),
         mesh_
     ),
-    DT_("DT", dimViscosity, *this),
+    DT_("DT", dimViscosity, dict),
     q_
     (
-        IOobject("ibmScalarSource", mesh_.time().timeName(), mesh_),
+        IOobject("ibmScalarSource:" + name, mesh_.time().timeName(), mesh_),
         mesh_,
         dimensionedScalar(T_.dimensions()/dimTime, Zero),
         "zeroGradient"
@@ -82,14 +46,14 @@ Foam::ibmScalarTransport::ibmScalarTransport
     bodyValue_(ibm.bodies().size(), Zero),
     wallCoeff_
     (
-        IOobject("ibmScalarWallCoeff", mesh_.time().timeName(), mesh_),
+        IOobject("ibmScalarWallCoeff:" + name, mesh_.time().timeName(), mesh_),
         mesh_,
         dimensionedScalar(dimless/dimArea, Zero),
         "zeroGradient"
     ),
     Twall_
     (
-        IOobject("ibmScalarWallValue", mesh_.time().timeName(), mesh_),
+        IOobject("ibmScalarWallValue:" + name, mesh_.time().timeName(), mesh_),
         mesh_,
         dimensionedScalar(T_.dimensions(), Zero),
         "zeroGradient"
@@ -103,31 +67,42 @@ Foam::ibmScalarTransport::ibmScalarTransport
 {
     Info<< "Passive scalar " << T_.name() << ": DT = " << DT_.value() << endl;
 
-    // Wall condition per body
+    // Wall condition per body: from "walls" of this scalar, else from the
+    // body's own scalarWall entry, else zero gradient
+    const dictionary* walls = dict.findDict("walls");
     forAll(ibm_.bodies(), bodyi)
     {
         const dictionary& bd = ibm_.bodies()[bodyi].dict();
-        const word type(bd.getOrDefault<word>("scalarWall", "zeroGradient"));
+        const dictionary* wd =
+            walls ? walls->findDict(ibm_.bodies()[bodyi].name()) : nullptr;
+        const word type
+        (
+            wd
+          ? wd->get<word>("type")
+          : bd.getOrDefault<word>("scalarWall", "zeroGradient")
+        );
         if (type == "fixedValue")
         {
             bodyFixed_[bodyi] = true;
-            bodyValue_[bodyi] = bd.get<scalar>("scalarWallValue");
+            bodyValue_[bodyi] =
+                wd ? wd->get<scalar>("value") : bd.get<scalar>("scalarWallValue");
         }
         else if (type != "zeroGradient")
         {
-            FatalIOErrorInFunction(bd)
-                << "scalarWall must be fixedValue or zeroGradient"
+            FatalIOErrorInFunction(wd ? *wd : bd)
+                << "wall type of scalar " << T_.name()
+                << " must be fixedValue or zeroGradient"
                 << exit(FatalIOError);
         }
-        Info<< "    body " << ibm_.bodies()[bodyi].name() << ": " << type
-            << (bodyFixed_[bodyi] ? " " + Foam::name(bodyValue_[bodyi]) : "")
-            << endl;
+        Info<< "    body " << ibm_.bodies()[bodyi].name() << ": " << type;
+        if (bodyFixed_[bodyi]) Info<< " " << bodyValue_[bodyi];
+        Info<< endl;
     }
 
     // Circular (2-D) or spherical source region
-    if (found("source"))
+    if (dict.found("source"))
     {
-        const dictionary& sd = subDict("source");
+        const dictionary& sd = dict.subDict("source");
         const point c(sd.get<point>("centre"));
         const scalar r(sd.get<scalar>("radius"));
         const scalar rate(sd.get<scalar>("rate"));
@@ -212,6 +187,10 @@ void Foam::ibmScalarTransport::solve()
             gSum((alphaPrev_ - alphaSwept)*V*T_.primitiveField());
     }
 
+    // Sources and sinks of constant/fvOptions listing this field, kept
+    // for the budget (they are diagonal: Su in the source, Sp in the diag)
+    fvScalarMatrix srcEqn(fvOptions_(T_));
+
     fvScalarMatrix TEqn
     (
         fvm::ddt(ibm_.alpha(), T_)
@@ -222,7 +201,7 @@ void Foam::ibmScalarTransport::solve()
      ==
         DT_*(wallCoeff_ + ibm_.blankCoeff())*Twall_
       + q_*ibm_.alpha()
-      + fvOptions_(T_)
+      + srcEqn
     );
 
     TEqn.relax();
@@ -231,7 +210,12 @@ void Foam::ibmScalarTransport::solve()
     fvOptions_.correct(T_);
 
     // Budget
-    const scalar sourceRate = gSum(q_.primitiveField()*alpha*V);
+    scalar sourceRate = gSum(q_.primitiveField()*alpha*V);
+    if (srcEqn.hasDiag())
+    {
+        sourceRate += gSum(srcEqn.diag()*T_.primitiveField());
+    }
+    sourceRate -= gSum(srcEqn.source());
     const scalar wallRate =
         DT_.value()
        *gSum

@@ -5,5 +5,6 @@ cutCellGeometry/cutCellGeometry.C
 cutCellGeometry/cutCellGeometryMoving.C
 ibmMeanVelocityForce/ibmMeanVelocityForce.C
 ibmScalarTransport/ibmScalarTransport.C
+ibmScalarTransport/ibmScalarTransportList.C
 
 LIB = $(FOAM_USER_LIBBIN)/libcutCellIBM

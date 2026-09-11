@@ -83,4 +83,5 @@ if
 
 #include "createFvOptions.H"
 
-autoPtr<ibmScalarTransport> scalarPtr(ibmScalarTransport::New(ibm, phi, fvOptions));
+// Passive scalars of constant/scalarTransportProperties (empty if absent)
+ibmScalarTransportList scalars(ibm, phi, fvOptions);
