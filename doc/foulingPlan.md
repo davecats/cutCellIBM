@@ -147,6 +147,32 @@ which replaces the 1-D ū(z) surrogate; the reference law can be reproduced by a
 Cells below `alphaMin` are absorbed by the geometry as usual: a filled cell becomes
 solid, its neighbours become wall cells, growth continues. Effort: one to two days.
 
+**Requirement (user, 2026-09-25): all species must be conserved when small-α cells are
+absorbed as the body grows.** Today the geometry absorbs a sliver by setting α = 0 and
+closing its faces; the fluid content α V c of that cell is then simply lost, and the
+blanking term drives c to the wall value. On the moving-body branches this shows up as
+the "swept-volume defect" of the scalar budget (first order, tolerated for rigid
+bodies); for a growing deposit it is a systematic mass leak at every absorption, so it is
+not tolerable. Mechanism, applied to every scalar of the list in the same step as the
+geometry update (`ibm.update()` reports the absorbed cells):
+
+* before the cell is closed, its content α_old V c (and, for a conjugate scalar, its
+  capacity-weighted content) is handed over to the face-neighbour fluid cells in
+  proportion to the wet face area θ_f |S_f| they share with it (the same weights the
+  fluxes use, so the transfer is local and parallel-safe: coupled faces exchange
+  through `syncTools`);
+* the receiving cells get `c_N += α_old V c /(Σ_f θ_f |S_f|) · θ_f |S_f| /(α_N V_N)`,
+  i.e. content is added, not concentration, so the budget line moves by exactly zero;
+* the same applies to the deposit mass: the deposit mass of the absorbed cell stays in
+  the cell (it is now solid) and the mass that made it full is counted once, so
+  `Σ m V` over all cells still equals `∫ Σ r_w A_wall dt`;
+* cells released by a shrinking body (not expected for fouling, but the moving path
+  allows it) start from the wall value as now.
+
+The check is the budget line: with the handover in place the swept-volume defect must be
+zero to round-off for the growing deposit, for every scalar, over the whole run, and
+the sum of all species plus the deposited mass must match the inflow minus outflow.
+
 ### 3.4 Solver `ibmFoulingFoam` (quasi-steady outer loop)
 
 New application rather than a modified ibmSimpleFoam. The OpenFOAM clock is the fouling
@@ -184,7 +210,8 @@ then `secondOrder true` runs but degrades to first order in the deposit cells.
    isoAlpha), faces cut at that value, shared faces averaged. One day; do first.
 2. Reactions between scalars (3.1).
 3. Conjugate scalar mode with per-body solid properties (3.2).
-4. Surface reaction / deposition class with local shear and overflow handling (3.3).
+4. Surface reaction / deposition class with local shear, overflow handling and the
+   conservative handover of species content when slivers are absorbed (3.3).
 5. Quasi-steady solver with geometry update on demand (3.4).
 6. Pipe wall as a domain patch: wall patches are not IBM walls, so A_wall = 0 there and no
    deposition starts on them. Recommended: model the pipe as an IBM body (plane or
@@ -213,6 +240,10 @@ then `secondOrder true` runs but degrades to first order in the deposit cells.
   thickness.
 * Budgets: species chain and deposit mass close to solver tolerance over a full fouling
   run; the wall-flux, reaction and deposition lines are printed per scalar as now.
+* Absorption test: a deposit grown through several cell layers with a zero-flux, non-
+  reacting tracer of uniform concentration; the tracer content must stay constant to
+  round-off across every sliver absorption (no swept-volume defect), and the tracer must
+  stay uniform in the fluid.
 * Comparison with the reference: needs a case from the fouling repository (none is
   included); the deposit thickness history and the outlet concentrations are the
   quantities to compare, with `consumeSpecies false` and the mean-velocity shear model
