@@ -35,3 +35,6 @@ doc/*.fls
 doc/*.fdb_latexmk
 doc/page-*.png
 doc/montage.png
+
+# external reference code (its own git repository)
+/foulingmodel_ibmdavide
