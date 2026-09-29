@@ -22,7 +22,9 @@ namespace Foam
 Foam::bodyMotion::bodyMotion(const dictionary& dict)
 :
     dict_(dict),
-    omega_(dict.getOrDefault<vector>("angularVelocity", Zero))
+    omega_(dict.getOrDefault<vector>("angularVelocity", Zero)),
+    hasCentreOfRotation_(dict.found("centreOfRotation")),
+    centreOfRotation_(dict.getOrDefault<point>("centreOfRotation", Zero))
 {}
 
 

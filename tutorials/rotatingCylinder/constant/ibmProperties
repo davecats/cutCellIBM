@@ -1,0 +1,27 @@
+FoamFile { version 2.0; format ascii; class dictionary; object ibmProperties; }
+
+// A cylinder turning about its own axis: the geometry does not change, and the
+// wall flux (mass source) vanishes to round-off in every wall cell except the
+// cells next to an absorbed sliver, whose closed face moves with the body
+// (log: max |S|, max |alpha^{n+1} - alpha^n|; sum S = 0 to round-off). The
+// centre is off the mesh symmetry lines on purpose.
+alphaMin      0.02;
+nSubSamples   32;
+nBisect       40;
+writeFields   true;
+writeForces   true;
+
+periodicLengths (10 10 0);
+
+bodies
+{
+    cylinder
+    {
+        type      cylinder;
+        centre    (5.037 4.951 0);
+        axis      (0 0 1);
+        radius    1;
+        wallType  noSlip;
+        motion    { type none; angularVelocity (0 0 1); }
+    }
+}

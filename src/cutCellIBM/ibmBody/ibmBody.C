@@ -179,12 +179,27 @@ void Foam::ibmBody::toBodyFrame
     if (angle_ != 0)
     {
         const quaternion q(axis_, -angle_);
-        const point c0(centre());
+        const point c0(referencePoint());
         forAll(out, i)
         {
             out[i] = c0 + q.transform(out[i] - c0);
         }
     }
+}
+
+
+Foam::vector Foam::ibmBody::relativePosition(const point& x) const
+{
+    vector r(x - currentCentre());
+    for (direction d = 0; d < 3; ++d)
+    {
+        const scalar L = periodicLengths_[d];
+        if (L > 0)
+        {
+            r[d] -= L*std::floor(r[d]/L + 0.5);
+        }
+    }
+    return r;
 }
 
 
@@ -194,19 +209,9 @@ void Foam::ibmBody::velocity(const pointField& pts, vectorField& U) const
     const vector& omega = motion_->omega();
     if (mag(omega) > 0)
     {
-        const point c(currentCentre());
         forAll(pts, i)
         {
-            vector r(pts[i] - c);
-            for (direction d = 0; d < 3; ++d)
-            {
-                const scalar L = periodicLengths_[d];
-                if (L > 0)
-                {
-                    r[d] -= L*std::floor(r[d]/L + 0.5);
-                }
-            }
-            U[i] = velocity_ + (omega ^ r);
+            U[i] = velocity_ + (omega ^ relativePosition(pts[i]));
         }
     }
     else
