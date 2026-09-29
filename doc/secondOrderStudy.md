@@ -225,8 +225,9 @@ tiny flux residuals. The velocity is barely affected (the wall term pins it), th
 This test also exposed a defect of the moving-body path: the body velocity of a rotating
 wall was evaluated at the cell centre, so u_b·Sw did not vanish for a tangential motion and
 an O(h) spurious mass source, alternating in sign around the body, checkerboarded the
-cut-cell pressures (errors ±0.4). It is now evaluated at the wall segment
-x_w = x_c + d_wall n_w; translating bodies are unaffected.
+cut-cell pressures (errors ±0.4). It was then evaluated at x_w = x_c + d_wall n_w, which only
+reduces the defect (no single point can remove it); the source is now computed from the faces,
+see "Fixes of 2026-09-29" below, and x_w is used for the wall traction only.
 
 ### Forces by Richardson extrapolation (`validation/richardson_drag.sh`)
 
@@ -264,3 +265,149 @@ next to the wall instead of the cut cell's own pressure (post-processing only, n
 the solution); (ii) cell merging or linking of cut cells with α below ~0.5 to a full
 neighbour, which removes the small-cell problem for pressure and momentum alike and would
 also relax the moving-wall step restriction.
+
+## Fixes of 2026-09-29: rotating-wall source and linearly exact pressure gradient
+
+The two open issues of `doc/openIssues/openIssues.pdf`, implemented and measured. Raw records in
+`validation/data/fixes`.
+
+### 1. Mass source of a rotating wall
+
+`S_P = u_b(x_e)·Sw` with one evaluation point per wall cell cannot give the flux of a rotation
+through the wall: `u_b(x_e)·Sw = ω·((x_e − x_m)×Sw)` depends on the offset of x_e across the
+normal, so the cell centre, `x_P + d n_w` and the centroid all leave O(|ω| h A_wall) sources.
+The source is now
+
+    S_P = U·Sw + S_rot,P,    S_rot,P = −Σ_{f open} θ_f (ω×(x'_f − c))·S_f,
+
+with x'_f the centroid of the geometric wet face (before absorption) and the minimum image
+about the current centre c on periodic faces: by the divergence theorem the exact flux of the
+rotation through the wall of the post-processed cell (the chord, plus the geometric wet parts of
+faces closed by sliver absorption, which move with the body like the rest of the wall). Σ S = 0
+by telescoping for any rigid motion and mesh; translating bodies are bit-identical.
+
+The handout proposed the purely geometric form (all geometrically wet faces, the flux of removed
+cells handed to their fluid neighbours ∝ θ^geo|S_f|). It is exact for a body turning in place,
+but a cell next to a removed one keeps the flux through its closed face, O(|ω| R θ h), which its
+continuity cannot carry, and an area-weighted share of the removed cell's flux does not cancel it
+face by face. Measured on the Taylor–Couette case: cut-cell pressure errors at the rotating wall three to six
+times larger,
+and with the second-order treatment the velocity lost its second order (L2(U) 1.3e-4 → 8.9e-4 at
+N = 160). An offline check with the exact TC field (face-centre fluxes, as the solver's
+interpolation gives for a linear field) located the whole difference in the cells next to
+removed ones; elsewhere the geometric and the open-face source are equally consistent. Two other
+variants were tried and rejected: a flux correction θ_f (ω×(x'_f − x_f))·S_f in `ibm.flux()`
+(worse), and a traction target whose normal component is taken from S (better than the
+handout form, worse than the old source).
+
+The price of the open-face form: a cylinder turning in place has S ≠ 0 in the cells next to a
+removed cell (5 of 63 wall cells on an 81² mesh, |α^{n+1} − α^n| ≤ 0.018), against all 63 with
+the point evaluation. A uniform field is still preserved exactly.
+
+| test | before | after |
+|---|---|---|
+| cylinder turning in place, 81², Σ S | −1.9e-4 (one cell with d_wall ≈ 5 wrapped by the minimum image) | −1.2e-18 |
+| cylinder turning in place, cells with S ≠ 0 | 63 of 63 | 5 of 63 |
+| eccentric rotation, max over steps of \|Σ S\| | — | 8.1e-17 (4 ranks: same max \|S\| every step) |
+| free stream, oscillating, Galilean cases | | byte-identical (movingBody, scalar, scalar_secondOrder) |
+
+Taylor–Couette, L2 errors at N = 40/80/160:
+
+| treatment | source | L2(U) | L2(p) |
+|---|---|---|---|
+| first order (movingBody) | point, x_P + d n_w | 1.11e-2, 7.61e-3, 3.83e-3 | 4.35e-2, 3.48e-2, 2.68e-2 |
+| first order (movingBody) | open faces | 1.13e-2, 7.65e-3, 3.89e-3 | 3.28e-2, 3.12e-2, 2.21e-2 |
+| first order (movingBody) | geometric + handover | 1.08e-2, 7.53e-3, 3.53e-3 | 1.22e-1, 5.22e-2, 1.48e-1 |
+| second order | point, x_c + d_c n_w | 1.16e-3, 3.35e-4, 1.27e-4 | 2.17e-2, 1.70e-2, 1.30e-2 |
+| second order | open faces | 1.17e-3, 3.04e-4, 8.09e-5 | 1.20e-2, 8.97e-3, 4.94e-3 |
+| second order | geometric + handover | 2.82e-3, 6.32e-4, 8.93e-4 | 9.87e-2, 4.02e-2, 1.24e-1 |
+
+The wall velocity of the no-slip traction is still a point value, x_P + d n_w or x_c + d_c n_w.
+For a nearly full cell with a tiny wall segment d = αV/(2A_wall) can be several units: the point
+then lies far outside the cell and may be wrapped by the minimum image (u_b = 4.5 instead of
+about 1 in one cell of the rotating cylinder). Its traction coefficient is small, but the point
+could be clipped to the cell.
+
+### 2. Second-order pressure gradient
+
+With `secondOrder true` the gradient is now
+
+    ∇_V p|_P = Σ_f θ_f [p̄_f + g_f·(x'_f − m_f)] S_f + Σ_k [p_P + g_P·(x_k − x_c)] S_k,
+
+m_f = w_f x_c,O + (1 − w_f) x_c,N the point the linear interpolate of centroid values belongs
+to, applied on every open face of a cell with a centroid offset and on every partially wet face;
+the wall pieces k are the wall polygon(s) of the geometric cut (the wall traces on the cut faces
+chained into loops, fan-triangulated; the chord times the depth in 2-D) and the geometric wet
+parts of faces closed by the post-processing. Σ_k S_k = Sw is checked (≤ 2e-11); only
+Σ_k (x_k − x_c) S_k is stored. `forces()` uses the same pieces. Cells with too few fluid
+neighbours for the least-squares fit (3-D slivers) take the mean gradient of their neighbours.
+
+`ibmOrderTest` problems GL (p = G·x) and GQ (quadratic p), relative error of ∇_V p/(αV) in the
+wall cells (L2), N = 20/40/80/160:
+
+| problem | previous form | new form | new form, against V_geo |
+|---|---|---|---|
+| GL | 0.79, 0.76, 0.74, 0.98 | 3.4e-2, 2.5e-2, 1.1e-2, 9.1e-3 | 5.6e-15, 1.6e-14, 2.2e-14, 6.8e-14 |
+| GQ | 0.29, 0.41, 0.34, 0.48 | 3.0e-2, 1.6e-2, 7.8e-3, 4.7e-3 | 2.2e-2, 1.2e-2, 6.0e-3, 3.7e-3 |
+
+V_geo is the volume of the geometric polyhedron, obtained from the operator itself as
+[∇_V x]_x = [∇_V y]_y. A linear pressure is exact to round-off, also in 3-D (sphere, both
+sides, 12³–36³ cells, ≤ 1.2e-13); the error against αV is the sub-sampling error of α, large in
+relative terms in the smallest cells. For a quadratic pressure the cut-cell gradient converges
+at first order: the least-squares gradient of a one-sided stencil is first-order accurate, the
+face values second order, and the cut cell divides them by its small volume. The handout
+expected second order here; that holds for the volume-integrated gradient relative to h^(d−1),
+not for the cell average. The Laplace/convection problems LD, LN, CD, CN are byte-identical.
+
+Taylor–Couette with each fix alone and with both (second order, L2 at N = 40/80/160):
+
+| | L2(U) | L2(p) |
+|---|---|---|
+| before | 1.16e-3, 3.35e-4, 1.27e-4 | 2.17e-2, 1.70e-2, 1.30e-2 |
+| source only | 1.17e-3, 3.04e-4, 8.09e-5 | 1.20e-2, 8.97e-3, 4.94e-3 |
+| gradient only | 1.15e-3, 3.60e-4, 1.43e-4 | 2.22e-2, 1.72e-2, 1.30e-2 |
+| both | 1.17e-3, 3.04e-4, 8.21e-5 | 1.23e-2, 9.58e-3, 5.13e-3 |
+
+With both, the velocity converges at order 1.9–2.0 in L2 and 1.8 in Linf (4.4e-4 at N = 160,
+against 1.7e-3 before), and the pressure error halves. All of it comes from the source; the
+linearly exact gradient changes the errors by at most 7 %. This answers the question of the
+handout: the non-convergence of the cut-cell pressure (order 0.4 then 0.9, largest error 0.19 at
+N = 160) is not a consistency defect of the gradient but the conditioning of the cut-cell
+pressure rows (small-cell problem). Cell merging remains the remedy.
+
+Hydrostatic balance (`tutorials/order/hydrostatic`): fluid at rest inside an immersed container
+(an inverted cylinder of radius 1.1) around an immersed obstacle (radius 0.4, off the mesh
+lines), g = (0, −1, 0) applied to the fluid volume αV (a coded fvOption), doubly periodic box
+whose boundaries all lie in the solid, steady state (t = 10). Exact: U = 0, p = −y + const.
+(A first version in a closed box with walls was dominated by the box walls: the same spurious
+velocity without any body.)
+
+| N | first order: max \|U\|, rms \|U\| | second order, before: max, rms | second order, after: max, rms | second order, cut-cell p error before / after |
+|---|---|---|---|---|
+| 40 | 4.0e-4, 5.8e-5 | 2.3e-4, 5.0e-5 | 1.1e-4, 2.8e-5 | 4.6e-3 / 6.9e-3 |
+| 80 | 9.9e-5, 1.2e-5 | 6.0e-5, 9.1e-6 | 2.6e-5, 5.2e-6 | 2.6e-3 / 3.7e-3 |
+| 160 | 2.5e-5, 2.5e-6 | 1.5e-5, 1.8e-6 | 6.4e-6, 9.3e-7 | 1.6e-3 / 2.2e-3 |
+
+The linearly exact gradient halves the spurious velocity (second order in all cases); the
+first-order treatment is unchanged. What remains is the imbalance between the pressure force of a
+cut cell, now V_geo g, and the body force αV g: the sub-sampling error of α, relatively large in
+small cells, which also makes the cut-cell pressure error slightly larger than with the previous
+gradient. Weighting the body force with V_geo (available from the operator, [∇_V x]_x V), or
+computing α from the polyhedron (exact in 2-D), would make the balance exact.
+
+Drag of the periodic cylinder (`validation/richardson_drag.sh`, second order, both fixes; the
+first-order runs are unchanged), per unit depth, N = 41/81/161/321 (the N = 321 and free-slip
+N = 161 runs stopped at 8000 iterations with residuals ≤ 3e-8):
+
+| wall | quantity | N = 41 | 81 | 161 | 321 | before the fixes (41 … 321) |
+|---|---|---|---|---|---|---|
+| no slip | total | 5.7847 | 5.8208 | 5.8324 | 5.8355 | 5.7834, 5.8205, 5.8322, 5.8354 |
+| no slip | pressure | 2.7830 | 2.8461 | 2.8816 | 2.9025 | 2.8017, 2.8599, 2.8903, 2.9065 |
+| no slip | viscous | 3.0018 | 2.9747 | 2.9507 | 2.9330 | 2.9817, 2.9606, 2.9418, 2.9288 |
+| free slip | total | 2.8981 | 2.9728 | 3.0191 | 3.0523 | 2.9161, 2.9848, 3.0237, 3.0511 |
+
+The gradient moves the components by up to 0.7 % and the no-slip total by less than 2e-4; the
+orders are unchanged (no-slip total 1.6 then 1.9, pressure drag 0.8, free slip 0.7 then 0.5).
+The forces, like the Taylor–Couette pressure, are limited by the conditioning of the cut-cell
+pressure and by the O(α_min h) displacement of sliver absorption, not by the consistency of the
+operators.

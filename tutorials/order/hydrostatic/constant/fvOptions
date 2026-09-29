@@ -1,0 +1,24 @@
+FoamFile { version 2.0; format ascii; class dictionary; object fvOptions; }
+// Uniform body force g on the fluid volume alpha V of every cell
+gravity
+{
+    type            vectorCodedSource;
+    selectionMode   all;
+    fields          (U);
+    name            ibmGravity;
+    codeInclude     #{ #};
+    codeCorrect     #{ #};
+    codeConstrain   #{ #};
+    codeAddSup
+    #{
+        const vector g(0, -1, 0);
+        const scalarField& alpha =
+            mesh_.lookupObject<volScalarField>("ibmAlpha").primitiveField();
+        const scalarField& V = mesh_.V();
+        vectorField& source = eqn.source();
+        forAll(source, celli)
+        {
+            source[celli] -= alpha[celli]*V[celli]*g;
+        }
+    #};
+}

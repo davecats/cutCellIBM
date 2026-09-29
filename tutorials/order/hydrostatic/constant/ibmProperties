@@ -1,0 +1,17 @@
+FoamFile { version 2.0; format ascii; class dictionary; object ibmProperties; }
+// Fluid at rest inside an immersed container (fluid inside the outer cylinder)
+// around an immersed obstacle, under the uniform body force g = (0 -1 0) acting on
+// the fluid volume alpha V (constant/fvOptions). No domain boundary touches the
+// fluid. Exact: U = 0, p = -y + const. With the second-order gradient the
+// pressure force of a cut cell is V_geo g against the body force alpha V g.
+alphaMin      0.02;
+nSubSamples   32;
+nBisect       40;
+writeFields   true;
+writeForces   true;
+secondOrder   true;
+bodies
+{
+    obstacle  { type cylinder; centre (1.03 1.17 0); axis (0 0 1); radius 0.4; }
+    container { type cylinder; centre (1.2 1.2 0); axis (0 0 1); radius 1.1; invert true; }
+}

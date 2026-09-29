@@ -263,6 +263,12 @@ as follows.
       \emph{fluid-connected}: the walk yields one polygon joining both fluid corners. The
       wet part of the face is thus approximated by the polygon whose edges are chords of the
       wall's trace on the face, a second-order approximation in the mesh spacing.
+      The centroid $\xx'_f$ of the polygon, by fan triangulation with the triangles weighted
+      by their area projected on the face normal, and the fraction are kept as computed,
+      before absorption and synchronisation (the geometric cut, $\theta^{\rm geo}_f$), for the
+      rotating-wall source of Section~\ref{sec:ubpoint}%
+      \ and the wall pieces of Section~\ref{sec:grad2}%
+      .
 \item \emph{Cell fractions.} A cell is a candidate for sub-sampling when the level set
       at its centre, its face centres and its vertices does not have one sign; the others
       have $\alpha_P=1$ or $0$. For a candidate, $\alpha_P$ is the fraction of fluid points
@@ -829,10 +835,12 @@ condition,
 \begin{equation}
 0=\oint_{\partial\Omega_P}\uu\cdot\nn\dd S=\sum_f\phi_f+\int_{\rm wall}\ub\cdot\nn_w\dd S
 \quad\Longrightarrow\quad
-\boxed{\;\sum_f\phi_f=-\,\ub\cdot\Sw\equiv-S_P ,\;}
+\boxed{\;\sum_f\phi_f=-\int_{\rm wall}\ub\cdot\nn_w\dd S\equiv-S_P ,\;}
 \label{eq:continuity}
 \end{equation}
-with $\phi_f=\theta_f\bar\uu_f\cdot\Sf$ the wet face flux as before. The sign is as it must be:
+with $\phi_f=\theta_f\bar\uu_f\cdot\Sf$ the wet face flux as before. For a translation $\ub$ is
+uniform and $S_P=\ub\cdot\Sw$ exactly; a rotation needs more care
+(Section~\ref{sec:ubpoint}). The sign is as it must be:
 a body advancing into the fluid has $\ub\cdot\nn_w<0$ ($\nn_w$ points into the body), the cell
 loses volume, $S_P<0$, and the net outflow through its faces is positive.
 
@@ -843,7 +851,7 @@ loses volume, $S_P<0$, and the net outflow through its faces is positive.
 \toprule
 term & body at rest & body moving\\
 \midrule
-continuity & $\sum_f\phi_f=0$ & $\sum_f\phi_f=-S_P$, $\;S_P=\ub\cdot\Sw$\\
+continuity & $\sum_f\phi_f=0$ & $\sum_f\phi_f=-S_P$, $\;S_P=\bm U\cdot\Sw+S^{\rm rot}_P$\\
 convective & no wall term & no wall term\\
 pressure & $p_P\Sw$, absorbed by closure & same\\
 viscous, free slip & no wall term & no wall term\\
@@ -891,29 +899,29 @@ it is a wrong fixed point, not a splitting error.
 
 \emph{Flux first.} Compute $\Sw$ from $\theta^{n+1}$, set
 \begin{equation}
-S_P=\ub\cdot\Sw ,\qquad\text{then}\qquad
-\alpha^n_PV_P:=\alpha^{n+1}_PV_P-\dt\,S_P .
+S_P=\bm U\cdot\Sw+S^{\rm rot}_P ,\qquad\text{then}\qquad
+\alpha^n_PV_P:=\alpha^{n+1}_PV_P-\dt\,S_P ,
 \label{eq:candB}
 \end{equation}
+with $\bm U$ the translational velocity of the body and $S^{\rm rot}_P$ the flux of its rotation
+through the wall faces, \eqref{eq:srot} below (zero for a translating body).
 Nothing is differentiated, and three properties follow.
 \begin{enumerate}\itemsep2pt
 \item \emph{Consistency with the flux.} For a uniform $\uu\equiv\ub$ the discrete divergence
       equals $-S_P$ \emph{identically} (Proposition~\ref{prop:uniformu}), because $\Sw$ is
       assembled from the same $\theta_f$ that the flux uses.
-\item \emph{Compatibility.} Extending $\ub$ to all cells (its value off the wall cells is
-      irrelevant since $\Sw=\bm 0$ there),
+\item \emph{Compatibility.} For the translational part, with $\bm U$ extended to all cells
+      (its value off the wall cells is irrelevant since $\Sw=\bm 0$ there),
       \begin{equation}
-      \sum_PS_P=\sum_P\uu_{b,P}\cdot\bm S_{w,P}=\sum_{f\,\rm internal}\theta_f\Sf\cdot(\uu_{b,N}-\uu_{b,O}),
+      \sum_P\bm U\cdot\bm S_{w,P}=\sum_{f\,\rm internal}\theta_f\Sf\cdot(\bm U_N-\bm U_O)=0,
       \label{eq:sumS}
       \end{equation}
-      with $O$ and $N$ the owner and neighbour of $f$. For a translating body $\ub$ is uniform
-      and every term vanishes: $\sum_PS_P$ is zero to round-off for every body position and
-      every pattern of absorbed slivers (an absorbed cell has $\Sw=\bm 0$, coupled faces carry
-      the same $\theta_f$ on both sides). For a rotation $\uu_{b,N}-\uu_{b,O}=\bm\omega\times(\xx^e_N-
-      \xx^e_O)$ with $\xx^e$ the evaluation points of $\ub$ (Section~\ref{sec:ubpoint}); with
-      cell centres the terms are $\theta_f\bm\omega\cdot(\bm d_f\times\Sf)$ and vanish on
-      orthogonal meshes. The sum is also not exact when two bodies with different velocities
-      share a cut cell, or when a moving body is cut by a non-periodic domain boundary.
+      with $O$ and $N$ the owner and neighbour of $f$: $\sum_PS_P$ is zero to round-off for
+      every body position and every pattern of absorbed slivers (an absorbed cell has
+      $\Sw=\bm 0$, coupled faces carry the same $\theta_f$ on both sides). The rotational part
+      is a sum of face fluxes and telescopes in the same way (Proposition~\ref{prop:srot}). The
+      sum is not exact when two bodies with different velocities share a cut cell or a face,
+      or when a moving body is cut by a non-periodic domain boundary.
 \item \emph{Geometric conservation law.} The second half of \eqref{eq:candB} is a backward
       Euler integration of \eqref{eq:volume}: the classical resolution of the discrete
       geometric conservation law, \emph{take the volume from the flux, not the flux from the
@@ -953,8 +961,8 @@ Rhie--Chow correction vanishes because the rescaled old flux is the free-stream 
 \end{proof}
 
 A rotating or accelerating body has no uniform exact solution, so the proposition does not
-apply to it; the construction still guarantees consistency (item~1) and, for translation,
-compatibility.
+apply to it; the construction still guarantees consistency (item~1) and compatibility
+(item~2).
 
 \begin{remark}
 With central differencing the diagonal contribution of the convective operator is
@@ -970,43 +978,97 @@ outer iteration on.
 \subsection{Where the body velocity is evaluated}
 \label{sec:ubpoint}
 
-For a translating body $\ub$ is uniform and the question does not arise. For a rotating one
-the evaluation point $\xx^e_P$ of $\ub$ in a wall cell matters, because the mass source
-should vanish for a motion tangential to the wall: for a circle rotating about its centre,
-$\int_{\rm wall}\ub\cdot\nn\dd S=0$ on every wall segment. Two observations settle what a
-point can achieve.
+For a translating body $\ub$ is uniform, $S_P=\bm U\cdot\Sw$ is exact and the question does not
+arise. For a rotating one, $\ub(\xx)=\bm U+\bm\omega\times(\xx-\bm c)$ with $\bm c(t)$ the current
+centre of rotation, no single evaluation point gives the flux through the wall.
 
 \begin{lemma}[Rigid motion along the normal]
-For $\ub(\xx)=\bm U+\bm\omega\times(\xx-\bm c)$ and any $s$,
-$\ub(\xx+s\nn_w)\cdot\nn_w=\ub(\xx)\cdot\nn_w$.
+\label{lem:rignormal}
+For any $\xx$ and $s$, $\ub(\xx+s\nn_w)\cdot\nn_w=\ub(\xx)\cdot\nn_w$.
 \end{lemma}
 \begin{proof}
 $(\bm\omega\times s\nn_w)\cdot\nn_w=0$.
 \end{proof}
 
-Hence the normal velocity, and with it $S_P$, depends only on the position of $\xx^e_P$
-\emph{across} the normal; shifting the point along $\nn_w$ changes only the tangential
-velocity, which enters the no-slip traction and the viscous force. For a circle $\Sw$ is
-normal to the chord joining the two edge crossings (Fig.~\ref{fig:geometry}c), and the line
-through the centre along $\Sw$ passes through the chord midpoint; any point on that line
-gives $S_P=0$ exactly. The cell centre does not lie on it in general, and the resulting
-spurious sources, of order $|\bm\omega|h\Aw$ and alternating in sign around the body,
-checkerboard the pressures of the cut cells.
+\begin{lemma}[Planar surfaces]
+\label{lem:planar}
+For a planar surface $\Gamma$ with area vector $\bm S_\Gamma$ and centroid $\xx_\Gamma$ and any
+field $q$ linear in $\xx$, $\int_\Gamma q\,\nn\dd S=q(\xx_\Gamma)\bm S_\Gamma$; in particular
+$\int_\Gamma\ub\cdot\nn\dd S=\ub(\xx_\Gamma)\cdot\bm S_\Gamma$.
+\end{lemma}
 
-In the implementation, solid cells use their centre and wall cells the point
+In two dimensions the wall of a cut cell is the chord between two edge crossings and $\Sw$ is
+normal to it (Fig.~\ref{fig:geometry}c). For a body of revolution turning about its axis the
+chord midpoint $\xx_m$ lies on the line through $\bm c$ along $\Sw$, so the exact flux through the
+chord vanishes, while a point evaluation gives
+$\ub(\xx^e)\cdot\Sw=\bm\omega\cdot\big((\xx^e-\xx_m)\times\Sw\big)$, which by
+Lemma~\ref{lem:rignormal} depends only on the offset of $\xx^e$ \emph{across} the normal. The
+cell centre, the centre moved along the normal and the fluid centroid all lie off that line in
+general: each leaves spurious local sources of order $|\bm\omega|h\Aw$, alternating in sign
+around the body, which checkerboard the cut-cell pressure. (An earlier version of the code
+evaluated $\ub$ at such a point; for a cylinder turning in place the source was non-zero in
+every wall cell.)
+
+The source is therefore split into the translational part, which is kept, and the flux of the
+rotation computed from the faces:
+\begin{equation}
+\boxed{\;S_P=\bm U\cdot\Sw+S^{\rm rot}_P,\qquad
+S^{\rm rot}_P=-\sum_{f\in P,\ \theta_f>0}\theta_f\,\big(\bm\omega\times(\xx'_f-\bm c)\big)\cdot\Sf ,\;}
+\label{eq:srot}
+\end{equation}
+with $\Sf$ pointing out of $P$, $\theta_f$ the fraction after post-processing, and $\xx'_f$ the
+centroid of the geometric wet part of the face (the fan-triangulated polygon of
+Section~\ref{sec:geomcomp}, before absorption); in periodic directions $\xx'_f-\bm c$ is the minimum
+image. Because $\bm\omega\times(\xx-\bm c)$ is linear and divergence-free, the divergence theorem
+over the fluid part of the cell and Lemma~\ref{lem:planar} give
+$S^{\rm rot}_P=\int_{\rm wall}\bm\omega\times(\xx-\bm c)\cdot\nn\dd S$ exactly, where the wall is
+that of the post-processed cell: the chord(s) of the geometric cut and the geometric wet parts of
+the faces closed by sliver absorption (Section~\ref{sec:absorb}). The translational part sees the
+same wall, since $\Sw$ is formed with the post-processed $\theta_f$.
+
+\begin{proposition}[Rotating-wall source]
+\label{prop:srot}
+The source \eqref{eq:srot}
+\begin{enumerate}\itemsep1pt
+\item reduces to $\bm U\cdot\Sw$ for $\bm\omega=\bm 0$, so free-stream preservation
+      (Proposition~\ref{prop:freestream}) and every translating case are unchanged;
+\item is compatible for every rigid motion and every mesh, $\sum_PS_P=0$: every open face
+      enters its two cells with opposite $\Sf$ and the same $\theta_f$ and $\xx'_f$, and the two
+      copies of a periodic face map to the same minimum image about $\bm c$;
+\item vanishes, for a body of revolution turning about its axis, in every wall cell not next to
+      a cell removed by the post-processing; next to one it is the flux of the rotation through
+      the closed face, which moves with the body like the rest of the wall.
+\end{enumerate}
+\end{proposition}
+
+\noindent Item~3 is a compromise. The purely geometric alternative (all geometrically wet faces,
+with the flux of every removed cell handed to its fluid neighbours in proportion to the shared
+wet area) vanishes in every cell of a body turning in place, but it leaves in a cell next to a
+removed one the rotation flux through the closed face, $O(|\bm\omega|R\,\theta^{\rm geo}_fh)$,
+which that cell's continuity, with no flux through a closed face, cannot carry; an area-weighted
+share of the removed cell's flux does not cancel it face by face. The pressure takes up the
+mismatch in cells of small mobility: in the Taylor--Couette case of
+Section~\ref{sec:tc}
+the cut-cell pressure errors at the rotating wall grew three- to sixfold%
+, and with the second-order treatment the velocity lost its second order%
+. With \eqref{eq:srot} the closed face is part of the moving wall, as in the translational part,
+and the continuity of a cell is consistent with a velocity that moves with the body near the
+wall. For a cylinder turning in place on an $81^2$ mesh, 5 of 63 wall cells carry a source.
+
+The body velocity at a point is still needed for the \emph{tangential} wall velocity of the
+no-slip traction $\nu(\ub-\uu_P)\Aw/\dw$, the viscous force and the blanking. Solid cells use their
+centre and wall cells the point
 \begin{equation}
 \xx^e_P=\xx_{c,P}+\dw\,\nn_w ,
 \label{eq:ubpoint}
 \end{equation}
-the fluid centroid $\xx_{c,P}$ (Section~\ref{sec:centroids}) moved by the wall distance towards
-the body; the centroid is computed whether or not the second-order treatment is switched on.
-By the lemma the mass source is that of the centroid. For a thin cut cell the centroid lies
-close to the perpendicular bisector of the wall chord, so the spurious source is reduced by
-far compared with the cell centre; it is not zero in general. On the Taylor--Couette case of
-Section~\ref{sec:tc} the cell-centre evaluation produced pressure errors of $\pm0.4$ in the
-cut cells (larger than the whole pressure range), and \eqref{eq:ubpoint} removed them; the
-domain sum \eqref{eq:sumS} stayed at $10^{-17}$, although with centroid evaluation points it is
-exact only by the symmetry of that case.
+the foot of the normal from the fluid centroid $\xx_{c,P}$ (Section~\ref{sec:centroids}), which
+is what the two-point wall gradient differences against; the centroid is computed whether or
+not the second-order treatment is switched on.
+For a nearly full cell with a very small wall segment, $\dw=\alpha_PV_P/(2\Aw)$ can exceed the
+cell size by orders of magnitude and the point lies far outside the cell, in a periodic domain
+possibly beyond the minimum image; the traction coefficient $\Aw/(\dw V_P)$ of such a cell is
+correspondingly small (Section~\ref{sec:limits}).
 
 \subsection{Algorithm}
 \label{sec:algo}
@@ -1077,14 +1139,16 @@ staircase wall $\alpha^n_P$ can exceed $1$ by the same mechanism; this is harmle
 A body is defined at rest and moved by a rigid motion: a translation $\bm d(t)$ with velocity
 $\bm U(t)$, and optionally a rotation with constant angular velocity $\bm\omega$ about the
 body's reference centre $\bm c_0$ (the centre of an analytical body, the bounding-box centre
-of a triangulated one), by the angle $|\bm\omega|t$ measured from $t=0$.
+of a triangulated one, or the point given as \code{centreOfRotation} in the motion
+dictionary), by the angle $|\bm\omega|t$ measured from $t=0$.
 Table~\ref{tab:motions} lists the motions. The velocity must be the exact derivative of the
 displacement: the first supplies the wall condition, the second, through the geometry, the
 mass source, and if they disagree the two halves of the boundary condition pull against each
 other (this is not checked for prescribed functions).
 
 \begin{table}[htbp]\centering\small
-\caption{Body motions; every type accepts in addition a constant \code{angularVelocity}.}
+\caption{Body motions; every type accepts in addition a constant \code{angularVelocity} and
+a \code{centreOfRotation}.}
 \label{tab:motions}
 \begin{tabular}{@{}lll@{}}
 \toprule
@@ -1447,26 +1511,64 @@ enters the viscous force%
 \subsection{Pressure gradient and forces}
 \label{sec:grad2}
 
-With the switch on, the cut-cell gradient \eqref{eq:grad} is modified in two places, with
-$\bm g$ the least-squares gradient \eqref{eq:lsq} of $p$:
+With the switch on, the cut-cell gradient \eqref{eq:grad} is made exact for a linear pressure.
+Let $\bm g$ be the least-squares gradient \eqref{eq:lsq} of $p$ on the centroids, $\bm g_f=
+w_f\bm g_O+(1-w_f)\bm g_N$ its face interpolate, and
+$\bm m_f=w_f\xx_{c,O}+(1-w_f)\xx_{c,N}$ the point the linear interpolate
+$\bar p_f=w_fp_O+(1-w_f)p_N$ of centroid values belongs to. Then
 \begin{equation}
-\gradV p\big|_P=\sum_f\theta_f\Big[p_f+\bm g_f\cdot(\xx'_f-\xx_f)\,[0<\theta_f<1]\Big]\Sf
-+\Big[p_P+d\,\bm g_P\cdot\nn_w\Big]\Sw ,
+\gradV p\big|_P=\sum_f\theta_f\Big[\bar p_f+\bm g_f\cdot(\xx'_f-\bm m_f)\Big]\Sf
++\sum_k\Big[p_P+\bm g_P\cdot(\xx_k-\xx_{c,P})\Big]\bm S_k .
 \label{eq:grad2}
 \end{equation}
-i.e.\ the face value of partially wet faces is moved from the face centre to the wet-face
-centroid, and the wall pressure is extrapolated from the centroid along the wall normal by the
-wall distance $d$ ($d_c$ when a level set exists), $p_w=p_c+d\,\partial_np$. The face
-corrections are antisymmetric, so Proposition~\ref{prop:conservation} still holds, and the
-force \eqref{eq:forces} uses the same wall pressure, $\bm F_p=\sum_Pp_{w,P}\bm S_{w,P}$, so the
-momentum-sum identity is kept. Two approximations remain: the linear interpolate $p_f$ is the
-value at the midpoint of the two \emph{centroids}, not at the face centre, so for a linear
-pressure the corrected face value is off by $\tfrac12\bm G\cdot(\bm o_P+\bm o_N)$ (and faces
-with $\theta_f=1$ next to a cut cell are not corrected at all); and $\xx_c+d\nn_w$ is the
-normal projection of the centroid, not the centroid of the wall segment. The operator is
-therefore \emph{not} exact for a linear pressure; a linearly exact form would use the face
-correction $\bm g_f\cdot(\xx'_f-\bm m_f)$ with $\bm m_f$ the centroid midpoint, on every open
-face of a cut cell.
+The face correction moves the face value from $\bm m_f$ to the wet-face centroid $\xx'_f$; it is
+applied on every open face of a cell with a centroid offset and on every partially wet face, and
+vanishes between two full cells of an orthogonal mesh ($\bm m_f=\xx'_f=\xx_f$). The wall of the cell
+is split into planar pieces $k$ with area vector $\bm S_k$ (out of the fluid) and centroid
+$\xx_k$:
+\begin{itemize}\itemsep1pt
+\item the wall polygon(s) of the geometric cut. On every cut face of the cell the wall trace runs
+      from the crossing where the face boundary leaves the fluid to the next crossing; oriented
+      by the face (reversed for the owner, whose $\Sf$ points out of the cell), the traces chain
+      into closed loops, which are fan-triangulated about their mean point. In two dimensions a
+      loop is the chord times the depth; in three dimensions it is the polygon of the cut-edge
+      crossings, not planar in general, and the triangles are summed individually;
+\item the geometric wet part of every face closed by the post-processing, area vector
+      $(\theta^{\rm geo}_f-\theta_f)\Sf$ at the wet-face centroid.
+\end{itemize}
+By the closure of the geometric fluid polyhedron $\sum_k\bm S_k=\Sw$, which the code checks
+(the mismatch is $10^{-11}$ or less; a cell whose traces do not close would fall back on the
+extrapolation to the normal foot of the centroid, which has not occurred). Only
+$\sum_k(\xx_k-\xx_{c,P})\bm S_k$ is stored, one tensor per wall cell, and the wall term is
+$p_P\Sw+\bm g_P\cdot\sum_k(\xx_k-\xx_{c,P})\bm S_k$.
+
+\begin{proposition}[Linearly exact gradient]
+\label{prop:grad2}
+If the least-squares gradient is exact for linear fields, \eqref{eq:grad2} gives
+$\gradV p|_P=V^{\rm geo}_P\bm G$ for every $p=p_0+\bm G\cdot\xx$ and every cell, with
+$V^{\rm geo}_P$ the volume of the geometric fluid polyhedron. It vanishes for a uniform $p$,
+conserves momentum, and the force $\bm F_p=\sum_P\sum_kp_k\bm S_k$ keeps the momentum-sum
+identity.
+\end{proposition}
+\begin{proof}
+Each face term is $p(\xx'_f)\theta_f\Sf$, the exact integral over the planar wet face
+(Lemma~\ref{lem:planar}); each wall term is $p(\xx_k)\bm S_k$, exact over a planar piece. The wet
+faces and the pieces bound the geometric polyhedron, and the divergence theorem gives
+$V^{\rm geo}_P\bm G$. A uniform $p$ gives $p(\sum_f\theta_f\Sf+\sum_k\bm S_k)=\bm 0$; the face
+corrections are antisymmetric because $\xx'_f$ and $\bm m_f$ are shared by both cells.
+\end{proof}
+
+The previous form corrected only partially wet faces, by $\bm g_f\cdot(\xx'_f-\xx_f)$, and took
+the wall value at the normal foot of the centroid, $p_c+d\,\bm g\cdot\nn_w$; for a linear pressure
+its relative error in the wall cells was of order one ($L_2$ $0.74$--$0.98$,
+Section~\ref{sec:verifsecond}). The
+least-squares fit needs as many fluid neighbours as dimensions; a cell with fewer (a sliver in
+three dimensions) takes the mean gradient of its fluid face neighbours, which keeps
+Proposition~\ref{prop:grad2}. The force \eqref{eq:forces} uses the same pieces. Since
+$\alpha_PV_P$ and $V^{\rm geo}_P$ differ by the sub-sampling error of $\alpha$
+(Section~\ref{sec:geomcomp}), a fluid at rest under a uniform body force $\alpha V\bm g$ is in
+balance up to that error only; weighting the body force with $V^{\rm geo}$, or computing $\alpha$
+from the polyhedron, would make it exact.
 
 \subsection{The small-cell problem of the pressure}
 \label{sec:smallcellp}
@@ -1483,10 +1585,12 @@ diagonal $\sum_f\theta_f(r_{At})_f|\Sf|c_f$, which scales with the wet fractions
 pressure is thus determined by small flux residuals divided by a small coefficient, and the
 cell's own velocity barely responds to it, being pinned by the wall term. Through the face
 values $p_f$ the error feeds back into the neighbours' momentum and pollutes the near-wall
-pressure, and with it the forces, at first order. The velocity is hardly affected. A cut-cell
-pressure that is not determined by the cut cell alone --- cell merging or linking of cut cells
-below $\alpha\approx0.5$ to a full neighbour, or a wall pressure formed from the full cells ---
-is the natural next step.
+pressure, and with it the forces, at first order. The velocity is hardly affected. The
+consistency of the gradient is not the cause: with the linearly exact gradient of
+Section~\ref{sec:grad2} the Taylor--Couette pressure errors change by at most $7\%$
+(Section~\ref{sec:tc}). A cut-cell pressure that is not determined by the cut cell alone ---
+cell merging or linking of cut cells below $\alpha\approx0.5$ to a full neighbour, or a wall
+pressure formed from the full cells --- is the natural next step.
 
 \subsection{Implementation and scope}
 
@@ -1501,19 +1605,19 @@ snGradSchemes    { default cutCellCorrected; }
       switch with \code{corrected} gives V1/F0, which is still first order.
 \item With the switch off, $\theta$, $\alpha$, $\dw$, the gradient, the forces and the schemes
       are bit-identical to the first-order treatment.
-      The only change on this branch that is not behind the switch is the evaluation
-      point \eqref{eq:ubpoint} of the wall velocity, which uses the centroid in
-      both cases (rotating bodies only; translating and static bodies are unaffected).
+      The changes on this branch that are not behind the switch concern rotating
+      bodies only: the evaluation point \eqref{eq:ubpoint} of the wall velocity, which
+      uses the centroid in both cases, and the rotational source \eqref{eq:srot}.
 \item The convective face value is not reconstructed at the wet-face centroid: in the order
       study this refinement (C1) changes the error by 10--30\% on coarse meshes and nothing
       asymptotically, and convection uses the scheme of the case.
-\item For moving bodies all centroid quantities are recomputed with the geometry at every
-      step. The combination has been exercised only with a body rotating in place
-      (Section~\ref{sec:tc}).
+\item For moving bodies all centroid quantities and wall pieces are recomputed with the
+      geometry at every step. The combination has been exercised only with a body rotating in
+      place (Section~\ref{sec:tc}).
 \item The scalars obtain \eqref{eq:f1} and \eqref{eq:dc} through the Laplacian scheme and the
       wall coefficient; the scalar tutorials still use the first-order schemes.
 \item Cost: one least-squares gradient per corrected field and component per assembly, the
-      centroids, and one coefficient per face. The utility \code{ibmOrderTest} solves the
+      centroids, one coefficient and one offset per face, and one tensor per wall cell. The utility \code{ibmOrderTest} solves the
       manufactured problems of Section~\ref{sec:verifsecond} with the library operators.
 \end{itemize}
 \section{Implementation in OpenFOAM}
@@ -1573,8 +1677,8 @@ uses the old-time value of the weight in its source, so the swept fraction $\alp
       , and \code{update()}, which returns immediately unless a body moves. The
       moving-only fields (body velocity, mass source, old face fractions) are allocated
       only then, so the static path carries no additional cost%
-      . It also holds the centroid geometry and the least-squares gradient of
-      Section~\ref{sec:secondorder}%
+      . It also holds the centroid geometry, the least-squares gradient and the wall
+      pieces of Section~\ref{sec:secondorder}%
       .
 \item[\code{cutCellCorrected}] the \code{snGradScheme} of \eqref{eq:f1}.
 \item[\code{ibmMeanVelocityForce}] the constant-flow-rate forcing of
@@ -1748,6 +1852,37 @@ reference (top) and their difference (bottom).}
 \label{fig:gal}
 \end{figure}
 
+\subsection{Rotating bodies}
+\label{sec:verifmoving}
+
+\begin{sloppypar}
+Three tutorial cases check the rotational source \eqref{eq:srot}: a cylinder turning in place
+(\code{rotatingCylinder}), the same cylinder turning about a point off its axis
+(\code{eccentricRotation}) and Taylor--Couette flow
+(\code{order/taylorCouette}).
+At every step the solver logs the domain sum of the source, its largest value and the largest
+change of the fluid fraction, $\max|\alpha^{n+1}_P-\alpha^n_P|$. The three translating cases above
+are bit-identical before and after the change, in every field of every write time and in the
+force histories.
+\end{sloppypar}
+
+\emph{Cylinder turning in place} ($R=1$, $\omega=1$, centre off the mesh lines, $81^2$ cells,
+$h=0.123$). With the earlier point evaluation the source was non-zero in all 63 wall cells
+(largest $|S_P|=1.2\times10^{-3}$ per cell depth) and its domain sum was $-1.9\times10^{-4}$
+instead of zero, the latter from a single nearly full cell whose evaluation point
+$\xx_P+\dw\nn_w$ lay five units away and was wrapped by the minimum image. With \eqref{eq:srot}
+the source vanishes to round-off in 58 of the 63 wall cells; the 5 cells next to removed cells
+carry $|S_P|\le1.3\times10^{-3}$ and $|\alpha^{n+1}_P-\alpha^n_P|\le0.018$, the flux through
+their closed faces (Proposition~\ref{prop:srot}); the domain sum is $10^{-18}$.
+
+\emph{Eccentric rotation.} The same cylinder turning about a point $(0.3,-0.2)$ off its axis
+(motion entry \code{centreOfRotation}) sweeps, uncovers and absorbs cells every step. The domain
+sum of the source stays below $10^{-16}$ at every step for sources up to
+$9\times10^{-3}$; a four-rank run, with processor boundaries through the body, reproduces the
+serial largest source at every step.
+
+\emph{Taylor--Couette flow}: Section~\ref{sec:tc}.
+
 \subsection{Passive scalar}
 \label{sec:verifscalar}
 
@@ -1835,6 +1970,32 @@ ingredients: the centroid wall distance alone (V1/F0) does not raise the order, 
 centroid-consistent face flux does, a normal probe (V3) adds nothing and the row scaling (V2) is
 inconsistent.
 
+\emph{Pressure gradient.} Two further problems exercise the gradient \eqref{eq:grad2} alone on
+the same geometry, with $p$ given at the fluid centroids: GL, $p=\bm G\cdot\xx$, and GQ,
+$p=X^2+\tfrac12XY-0.8Y^2$ about the disk centre. The relative error of $\gradV p/(\alpha V)$ in the
+wall cells, against $\bm G$ or $\nabla p(\xx_c)$, is
+\begin{center}\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+$N$ & 20 & 40 & 80 & 160\\
+\midrule
+GL, previous form & $0.79$ & $0.76$ & $0.74$ & $0.98$\\
+GL, \eqref{eq:grad2} & $3.4\times10^{-2}$ & $2.5\times10^{-2}$ & $1.1\times10^{-2}$ & $9.1\times10^{-3}$\\
+GL, \eqref{eq:grad2}, against $V^{\rm geo}\bm G$ & $5.6\times10^{-15}$ & $1.6\times10^{-14}$ & $2.2\times10^{-14}$ & $6.8\times10^{-14}$\\
+GQ, previous form & $0.29$ & $0.41$ & $0.34$ & $0.48$\\
+GQ, \eqref{eq:grad2} & $3.0\times10^{-2}$ & $1.6\times10^{-2}$ & $7.8\times10^{-3}$ & $4.7\times10^{-3}$\\
+\bottomrule
+\end{tabular}
+\end{center}
+($L_2$ over the wall cells; the first-order form gives $0.53$--$0.79$ for GL.) Against the volume
+of the geometric polyhedron, obtained from the same operator as $V^{\rm geo}=[\gradV x]_x=
+[\gradV y]_y$, the linear pressure is exact to round-off (Proposition~\ref{prop:grad2}); the
+remaining error against $\alpha V$ is the sub-sampling error of $\alpha$, relatively large in the
+smallest cells. The same holds in three dimensions, inside and outside a sphere on $12^3$ to
+$36^3$ cells ($\le1.2\times10^{-13}$, with $\sum_k\bm S_k=\Sw$ to $2\times10^{-11}$). For the
+quadratic pressure the cut-cell gradient converges at first order, as expected of face values that
+are second order in a one-sided stencil; the previous form did not converge at all.
+
 \begin{figure}[htbp]\centering
 \includegraphics[width=\textwidth]{fig_order_operators.pdf}
 \caption{Manufactured problems with the OpenFOAM operators (\code{ibmOrderTest}): $L_2$ and
@@ -1856,26 +2017,66 @@ value at the wet-face centroid.}
 $\Omega=1$ (no slip) and an outer cylinder of radius $1.5$ at rest (no slip, fluid inside), both
 immersed in a $3.2\times3.2$ box, $\nu=1$, transient to steady state ($\dt=0.02$, $t=6$, two
 outer iterations). The exact solution is $u_\theta=Ar+B/r$,
-$p=A^2r^2/2+2AB\ln r-B^2/(2r^2)$ with $A=-0.125$, $B=0.28125$. With the second-order treatment
-the velocity error drops by a factor of 5--16 and converges at order $1.8$ then $1.4$
-(Fig.~\ref{fig:order_coupled}a); the pressure converges at order $0.4$, its error being dominated
-by the cut cells (Section~\ref{sec:smallcellp}). The first-order runs are evaluated at the cell
-centres, the second-order runs at the fluid centroids.
+$p=A^2r^2/2+2AB\ln r-B^2/(2r^2)$ with $A=-0.125$, $B=0.28125$. The first-order runs are evaluated at
+the cell centres, the second-order runs at the fluid centroids. $L_2$ errors with the second-order
+treatment:
+\begin{center}\small\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+& \multicolumn{3}{c}{$10^4\,L_2(\uu)$} & \multicolumn{3}{c}{$10^3\,L_2(p)$}\\
+$N$ & 40 & 80 & 160 & 40 & 80 & 160\\
+\midrule
+before (centroid-point source, previous gradient) & 11.6 & 3.35 & 1.27 & 21.7 & 17.0 & 13.0\\
+source \eqref{eq:srot} only & 11.7 & 3.04 & 0.809 & 12.0 & 8.97 & 4.94\\
+gradient \eqref{eq:grad2} only & 11.5 & 3.60 & 1.43 & 22.2 & 17.2 & 13.0\\
+both & 11.7 & 3.04 & 0.821 & 12.3 & 9.58 & 5.13\\
+\bottomrule
+\end{tabular}
+\end{center}
+With both, the velocity converges at order $1.9$--$2.0$ (the largest error, $4.4\times10^{-4}$ at
+$N=160$, at order $1.8$ against $0.4$ before), and the pressure error halves. The source is
+responsible for all of it; the linearly exact gradient changes the errors by at most $7\%$, so
+the remaining pressure error, which converges at order $0.4$ then $0.9$ and sits in the cut cells
+(largest $0.19$ at $N=160$), is the small-cell problem of Section~\ref{sec:smallcellp} and not the
+consistency of the gradient. The geometric source with handover (Section~\ref{sec:ubpoint})
+gives instead $10^4L_2(\uu)=28.2$, $6.32$, $8.93$ and $10^3L_2(p)=98.7$, $40.2$, $124$: the
+velocity loses its second order. Without the second-order treatment the source \eqref{eq:srot} lowers
+$L_2(p)$ from $2.3\times10^{-2}$ to $1.6\times10^{-2}$ at $N=160$ and leaves the velocity
+unchanged (Fig.~\ref{fig:order_coupled}a).
+
+\emph{Hydrostatic balance.} Fluid at rest inside an immersed container (an inverted cylinder of
+radius $1.1$) around an immersed obstacle of radius $0.4$, under $\bm g=(0,-1,0)$ applied to the
+fluid volume $\alpha V$, in a periodic box whose boundaries all lie in the solid
+(\code{tutorials/order/hydrostatic}); exact $\uu=\bm 0$, $p=-y+{\rm const}$. At steady state the
+largest spurious velocity is, for $N=40,80,160$,
+$4.0\times10^{-4}$, $9.9\times10^{-5}$, $2.5\times10^{-5}$ with the first-order treatment,
+$2.3\times10^{-4}$, $6.0\times10^{-5}$, $1.5\times10^{-5}$ with the previous second-order gradient
+and $1.1\times10^{-4}$, $2.6\times10^{-5}$, $6.4\times10^{-6}$ with \eqref{eq:grad2}. The rest is
+the imbalance between the pressure force $V^{\rm geo}_P\bm g$ of a cut cell and the body force
+$\alpha_PV_P\bm g$, i.e.\ the sub-sampling error of $\alpha$, which also leaves the cut-cell
+pressure error ($2.2\times10^{-3}$ at $N=160$) slightly above that of the previous gradient
+($1.6\times10^{-3}$); a body force weighted with $V^{\rm geo}$ would remove it.
 
 \emph{Forces.} The drag of the periodic cylinder at $Re_D=1$ on $N=41,81,161,321$
-(Fig.~\ref{fig:order_coupled}b,c) shows the limitation quantitatively. For the no-slip wall the
-second-order treatment brings the drag much closer to its limit (the first-order value at
-$N=161$ is still $1.3\%$ below the second-order value at $N=321$) and the total converges at an
-apparent order of $1.7$--$1.9$; but the components show that this is largely cancellation: the
-pressure drag increases and converges at order about one, the viscous drag decreases. The
-free-slip drag, a pure pressure force, converges at order $0.5$--$0.8$ with both treatments. The
-forces are thus limited by the cut-cell pressure and by the $O(\alpha_{\min}h)$ boundary
-displacement of sliver absorption, not by the operators. (The $N=321$ runs, and the free-slip
-runs at $N=161$, stopped at the iteration limit with residuals between $2\times10^{-9}$ and $2\times10^{-8}$.)
+(Fig.~\ref{fig:order_coupled}b,c; second order with both fixes, first order unchanged by them)
+shows the limitation quantitatively. For the no-slip wall the second-order treatment brings the
+drag much closer to its limit (the first-order value at $N=161$ is still $1.3\%$ below the
+second-order value at $N=321$) and the total converges at an apparent order of $1.6$--$1.9$;
+but the components show that this is largely cancellation: the pressure drag
+($2.783$, $2.846$, $2.882$, $2.902$) increases at order $0.8$, the viscous drag ($3.002$,
+$2.975$, $2.951$, $2.933$) decreases at order $0.2$--$0.4$. The free-slip drag, a pure pressure
+force, converges at order $0.5$--$0.7$ with both treatments. The linearly exact gradient moves
+the components by up to $0.7\%$ against the previous second-order form but leaves the no-slip
+total unchanged to $2\times10^{-4}$ and the orders as they were. The forces are thus limited by the
+cut-cell pressure and by the $O(\alpha_{\min}h)$ boundary displacement of sliver absorption, not
+by the operators. (The $N=321$ runs, and the free-slip runs at $N=161$, stopped at the iteration
+limit with residuals between $5\times10^{-10}$ and $3\times10^{-8}$.)
 
 \begin{figure}[htbp]\centering
 \includegraphics[width=\textwidth]{fig_order_coupled.pdf}
-\caption{Coupled problems. (a)~Taylor--Couette flow: $L_2$ errors of velocity and pressure.
+\caption{Coupled problems, second order with the rotating-wall source \eqref{eq:srot} and the
+gradient \eqref{eq:grad2}. (a)~Taylor--Couette flow: $L_2$ errors of velocity and pressure (grey:
+second order before the two fixes).
 (b)~No-slip cylinder at $Re_D=1$: pressure and viscous drag. (c)~Total drag of the no-slip and
 free-slip cylinder relative to the second-order value at $N=321$.}
 \label{fig:order_coupled}
@@ -1896,8 +2097,9 @@ free-slip cylinder relative to the second-order value at $N=321$.}
       its pressure is poorly determined%
       \ (Section~\ref{sec:smallcellp})%
       ; the wall pressure is taken as the cell pressure%
-      \ (extrapolated from the centroid with the second-order treatment, whose
-      gradient is not exact for a linear pressure, Section~\ref{sec:grad2})%
+      \ (integrated over the wall pieces with the least-squares gradient under the
+      second-order treatment, exact for a linear pressure, Section~\ref{sec:grad2};
+      the pressure of the cut cells still does not converge)%
       . Cell merging or a wall pressure from the full cells is the remedy.
 \item \emph{Slivers.} Absorption below $\alpha_{\min}$ displaces the boundary by
       $O(\alpha_{\min}h)$ and removes the fluid volume of the absorbed cell%
@@ -1921,14 +2123,19 @@ free-slip cylinder relative to the second-order value at $N=321$.}
       These bodies have no centroids and stay first order.
 \item \emph{One fluid region.} A single pressure reference; a body splitting the fluid would
       need one per region.
-\item \emph{Rotating bodies.} The mass source of a wall moving tangentially is zero only if the
-      body velocity is evaluated on the line through the rotation centre along $\Sw$
-      (Section~\ref{sec:ubpoint});
-      the centroid point \eqref{eq:ubpoint} reduces but does not remove the spurious
-      local source. Evaluating at the chord midpoint (the vector-area centroid of the
-      wall segment in three dimensions) would remove it.
-      The domain sum of the source is exact for translation and, with cell-centre evaluation,
-      for rotation on orthogonal meshes.
+\item \emph{Rotating bodies.} The mass source is the exact flux of the rigid motion through
+      the wall of the post-processed cell, compatible for every rigid motion
+      (Section~\ref{sec:ubpoint}). A face closed by sliver absorption belongs to that wall and
+      moves with the body, so a body of revolution turning in place still has a source, and
+      $\alpha^n\neq\alpha^{n+1}$, in the cells next to removed ones; a uniform field is
+      nevertheless preserved and the domain sum is zero. The source is not compatible on faces
+      between cells of two different rotating bodies. In three dimensions the wall of a cut
+      cell is the polyhedral approximation of the surface, so the source of a sphere turning
+      about a diameter is not exactly zero but converges with the geometry. The wall velocity
+      of the no-slip traction is still a point value, at \eqref{eq:ubpoint}; for a nearly full
+      cell with a tiny wall segment the point can lie far outside the cell and, in a periodic
+      domain, beyond the minimum image, which gives a wrong tangential wall velocity weighted by
+      a small traction coefficient.
 \item \emph{Cost of moving bodies.} The level set is evaluated at all points, face and cell
       centres every step, and $n_s^d$ samples per cut cell; for three-dimensional
       triangulated bodies a smaller $n_s$ or a band around the previous position is advisable.
@@ -2002,8 +2209,9 @@ $\alpha_P$, one diagonal coefficient for a no-slip%
 .
 Moving the cell values to the fluid centroids, with a centroid-consistent diffusive flux and
 the centroid wall distance, makes the operators and the velocity second order without ghost
-values or stencil growth; the pressure of the cut cells, and with it the forces, remains the
-open problem.
+values or stencil growth, and integrating the wall pressure over the pieces of the geometric
+wall makes the pressure gradient exact for a linear pressure; the pressure of the cut cells,
+and with it the forces, remains the open problem.
 Implemented in OpenFOAM with explicit operators on an unmodified mesh, it reproduces an
 independent reference implementation to the level of the linear-solver tolerances for a body
 at rest%

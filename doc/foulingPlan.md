@@ -61,7 +61,7 @@ position" is resolved by construction here: both fluxes carry the same θ_f.
 | species transported in the fluid part only, no flux through the wall | `ibmScalarTransport`, zero-gradient wall: θ-weighted convection and diffusion, blanked solid (budget closes to 1e-11) |
 | several scalars, per-scalar walls, fvOptions sources | `ibmScalarTransportList` (2026-09-11) |
 | deposit as a body given by a fluid-fraction field, updated in time | `type alphaField; moving true;` re-fetched by `ibm.update()`, θ from the 0.5 iso-surface of the point-interpolated field |
-| geometry-consistent growth (mass source, swept volume) | `movingBody` path: S = u_b·Sw, α^n from the wall flux |
+| geometry-consistent growth (mass source, swept volume) | `movingBody` path: S = u_b·Sw, α^n from the wall flux (a normal growth velocity; rigid bodies use S = U·Sw + S_rot since 2026-09-29) |
 | local wall area, wall distance, wall shear, wall temperature per cell | `Awall()`, `dWall()`, `Sw()`, `wallCoeff()`, `cellBody()`; viscous wall force per cell ν A_wall u_P/d_wall is already what `forces()` sums |
 | mixed bodies (steel pipe as level set + deposit as alpha field) | union by min α, `cellBody` gives the owner |
 | second-order operators | level-set bodies only: alpha-field bodies get no fluid centroid, wall distance stays the α V/(2 A_wall) estimate |
