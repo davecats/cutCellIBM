@@ -1,5 +1,5 @@
 FoamFile { version 2.0; format ascii; class dictionary; object orderTestDict; }
-problem   LD;      // LD LN CD CN
+problem   LD;      // LD LN CD CN GL GQ
 omega     10;
 D         1;
 centre    (1.5 1.5 0);

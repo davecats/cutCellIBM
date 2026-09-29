@@ -1,10 +1,12 @@
 #!/bin/bash
-# Order study: runs the four problems on N = 20 40 80 160 with and without the
+# Order study: runs the problems on N = 20 40 80 160 with and without the
 # second-order treatment, in scratch copies; prints the errors and orders.
+# LD LN CD CN: Laplace and convection-diffusion; GL GQ: the cut-cell
+# pressure gradient alone (linear and quadratic p, error in the wall cells).
 cd "${0%/*}" || exit 1
 . $WM_PROJECT_DIR/bin/tools/RunFunctions
 W=${1:-runs}
-for so in false true; do for prob in LD LN CD CN; do for N in 20 40 80 160; do
+for so in false true; do for prob in LD LN CD CN GL GQ; do for N in 20 40 80 160; do
     d=$W/${prob}_so${so}_N$N; mkdir -p $d/0 $d/constant $d/system
     cp 0/T $d/0/; cp constant/ibmProperties $d/constant/; cp system/* $d/system/
     sed -i "s/^N 40;/N $N;/; s/^L 3; N 40;/L 3; N $N;/" $d/system/blockMeshDict
@@ -21,7 +23,7 @@ for f in glob.glob(os.path.join(W, '*', 'log.ibmOrderTest')):
     m = re.search(r'orderTest (\w+) secondOrder=(\d) nCells=(\d+) iterations=(\d+) L2=(\S+) Linf=(\S+)', open(f).read())
     if m:
         res[(m.group(1), m.group(2), int(round(math.sqrt(int(m.group(3))))))] = (float(m.group(5)), float(m.group(6)), int(m.group(4)))
-for prob in ('LD', 'LN', 'CD', 'CN'):
+for prob in ('LD', 'LN', 'CD', 'CN', 'GL', 'GQ'):
     for so in ('0', '1'):
         Ns = sorted(N for (p, s, N) in res if p == prob and s == so)
         row = []

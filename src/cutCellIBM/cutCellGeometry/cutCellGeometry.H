@@ -159,6 +159,22 @@ class cutCellGeometry
         //- Union level set at the fluid centroids (level-set bodies)
         scalarField centroidLevelSet_;
 
+        //- Offset of the wet-face centroid from the point the linear face
+        //  interpolate belongs to, x'_f - m_f, m_f = w_f x_c,O + (1-w_f) x_c,N;
+        //  zero on faces that need no correction
+        surfaceVectorField faceValueOffset_;
+
+        //- Level set of the geometric cut at the mesh points (positive in
+        //  the fluid) and crossing point of every cut edge
+        scalarField pointPhiGeo_;
+        pointField edgeCrossGeo_;
+
+        //- Wall pieces of every wall cell k (the wall polygon(s) of the
+        //  geometric cut and the geometric wet parts of the faces closed by
+        //  the post-processing): sum_k (x_k - x_c) S_k and sum_k S_k
+        tensorField wallMoment_;
+        vectorField wallPieceSum_;
+
         //- Work arrays filled by faceFractions/calcFromLevelSet
         mutable vectorField wetOffsetAll_;
 
@@ -225,7 +241,9 @@ class cutCellGeometry
             scalarField& theta,
             pointField& wetCentre,
             labelList& cellBody,
-            vectorField& centroidOffset
+            vectorField& centroidOffset,
+            scalarField& pointPhi,
+            pointField& edgeCross
         ) const;
 
         //- Fluid fractions from an alpha-field body
@@ -234,15 +252,21 @@ class cutCellGeometry
             const alphaFieldBody& body,
             scalarField& alpha,
             scalarField& theta,
-            pointField& wetCentre
+            pointField& wetCentre,
+            scalarField& pointPhi,
+            pointField& edgeCross
         ) const;
 
         //- Fluid fraction of one cell by sub-sampling the level set, and the
         //  centroid of its fluid part
         scalar sampleCellFraction(const label celli, point& centroid) const;
 
-        //- Centroid vectors and cut delta coefficients of every face
+        //- Centroid vectors and cut delta coefficients of every face, and
+        //  the offsets of the face-value correction of the gradient
         void calcCentroidGeometry();
+
+        //- Wall pieces of every wall cell (wallMoment_, wallPieceSum_)
+        void calcWallPieces();
 
         //- Everything that follows from alpha and theta
         void calcDerived();
@@ -320,6 +344,13 @@ public:
             const surfaceVectorField& wetFaceOffset() const { return wetFaceOffset_; }
             const surfaceVectorField& dCentroid() const { return dCentroid_; }
             const surfaceScalarField& cutDeltaCoeffs() const { return cutDeltaCoeffs_; }
+            const surfaceVectorField& faceValueOffset() const { return faceValueOffset_; }
+
+            //- sum_k (x_k - x_c) S_k over the wall pieces of every cell
+            const tensorField& wallMoment() const { return wallMoment_; }
+
+            //- sum_k S_k over the wall pieces (equals Sw by closure)
+            const vectorField& wallPieceSum() const { return wallPieceSum_; }
 
             //- Least-squares gradient about the fluid centroids, over the
             //  open faces to fluid neighbours (exact for a linear field)
@@ -374,6 +405,10 @@ public:
 
             //- Cut-cell Gauss gradient, sum_f theta_f (p_f - p_P) Sf / V.
             //  Exactly zero for a uniform field; includes the wall force.
+            //  With secondOrder: face values moved from the centroid
+            //  midpoint to the wet-face centroid and the wall pressure
+            //  integrated over the wall pieces, exact for a linear field
+            //  (the result is then V_geo grad p / V).
             tmp<volVectorField> grad(const volScalarField& p) const;
 
             //- Volume flux through the wet part of every face

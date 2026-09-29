@@ -132,6 +132,16 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
         mesh.nonOrthDeltaCoeffs()
     ),
     centroidLevelSet_(),
+    faceValueOffset_
+    (
+        IOobject("ibmFaceValueOffset", mesh.time().timeName(), mesh,
+                 IOobject::NO_READ, IOobject::NO_WRITE),
+        mesh, dimensionedVector(dimLength, Zero)
+    ),
+    pointPhiGeo_(),
+    edgeCrossGeo_(),
+    wallMoment_(),
+    wallPieceSum_(),
     wetOffsetAll_(),
     cellBody_(mesh.nCells(), -1),
     nearestBody_(mesh.nCells(), -1),
@@ -256,6 +266,38 @@ void Foam::cutCellGeometry::calcGeometry()
     wetOffsetAll_.setSize(mesh_.nFaces());
     wetOffsetAll_ = Zero;
 
+    // Level set at the points and edge crossings of the union: a point is
+    // fluid if it is fluid for every body; on an edge cut by several, the
+    // crossing nearest to the fluid end bounds the fluid
+    pointPhiGeo_.setSize(mesh_.nPoints());
+    pointPhiGeo_ = GREAT;
+    edgeCrossGeo_.setSize(mesh_.nEdges());
+    edgeCrossGeo_ = point::max;
+    auto mergeCut = [&](const scalarField& phi, const pointField& ec)
+    {
+        const edgeList& edges = mesh_.edges();
+        const pointField& points = mesh_.points();
+        forAll(edges, edgei)
+        {
+            if (ec[edgei] == point::max) continue;
+            const edge& e = edges[edgei];
+            if (edgeCrossGeo_[edgei] == point::max)
+            {
+                edgeCrossGeo_[edgei] = ec[edgei];
+            }
+            else
+            {
+                const point& xf =
+                    (phi[e[0]] > 0) ? points[e[0]] : points[e[1]];
+                if (magSqr(ec[edgei] - xf) < magSqr(edgeCrossGeo_[edgei] - xf))
+                {
+                    edgeCrossGeo_[edgei] = ec[edgei];
+                }
+            }
+        }
+        pointPhiGeo_ = min(pointPhiGeo_, phi);
+    };
+
     auto merge = [&](const scalarField& a, const scalarField& t,
                      const pointField& xw, const labelList& body)
     {
@@ -285,11 +327,12 @@ void Foam::cutCellGeometry::calcGeometry()
 
     if (nLevelSet > 0)
     {
-        scalarField a, t;
-        pointField xw;
+        scalarField a, t, phi;
+        pointField xw, ec;
         labelList body;
-        calcFromLevelSet(a, t, xw, body, centroidOffset);
+        calcFromLevelSet(a, t, xw, body, centroidOffset, phi, ec);
         merge(a, t, xw, body);
+        mergeCut(phi, ec);
         unionLevelSet(mesh_.cellCentres(), cellLevelSet_);
     }
 
@@ -297,13 +340,15 @@ void Foam::cutCellGeometry::calcGeometry()
     {
         if (!bodies_[bodyi].hasLevelSet())
         {
-            scalarField a, t;
-            pointField xw;
+            scalarField a, t, phi;
+            pointField xw, ec;
             calcFromAlphaField
             (
-                refCast<const alphaFieldBody>(bodies_[bodyi]), a, t, xw
+                refCast<const alphaFieldBody>(bodies_[bodyi]),
+                a, t, xw, phi, ec
             );
             merge(a, t, xw, labelList(mesh_.nCells(), bodyi));
+            mergeCut(phi, ec);
         }
     }
 
@@ -398,6 +443,7 @@ void Foam::cutCellGeometry::calcGeometry()
     if (secondOrder_)
     {
         calcCentroidGeometry();
+        calcWallPieces();
     }
 }
 
@@ -620,7 +666,9 @@ void Foam::cutCellGeometry::calcFromLevelSet
     scalarField& theta,
     pointField& wetCentre,
     labelList& cellBody,
-    vectorField& centroidOffset
+    vectorField& centroidOffset,
+    scalarField& pointPhi,
+    pointField& edgeCross
 ) const
 {
     const pointField& points = mesh_.points();
@@ -629,7 +677,7 @@ void Foam::cutCellGeometry::calcFromLevelSet
     const cellList& cells = mesh_.cells();
 
     // Level set at the mesh points, face centres and cell centres
-    scalarField pointPhi, facePhi, cellPhi;
+    scalarField facePhi, cellPhi;
     unionLevelSet(points, pointPhi);
     unionLevelSet(mesh_.faceCentres(), facePhi);
     unionLevelSet(mesh_.cellCentres(), cellPhi);
@@ -682,7 +730,8 @@ void Foam::cutCellGeometry::calcFromLevelSet
         }
     }
 
-    pointField edgeCross(edges.size(), point::max);
+    edgeCross.setSize(edges.size());
+    edgeCross = point::max;
     forAll(cutEdges, i)
     {
         edgeCross[cutEdges[i]] = A[i] + 0.5*(lo[i] + hi[i])*(B[i] - A[i]);
@@ -770,7 +819,9 @@ void Foam::cutCellGeometry::calcFromAlphaField
     const alphaFieldBody& body,
     scalarField& alpha,
     scalarField& theta,
-    pointField& wetCentre
+    pointField& wetCentre,
+    scalarField& pointPhi,
+    pointField& edgeCross
 ) const
 {
     const tmp<volScalarField> talpha(body.alpha());
@@ -782,11 +833,12 @@ void Foam::cutCellGeometry::calcFromAlphaField
     (
         volPointInterpolation::New(mesh_).interpolate(talpha())
     );
-    const scalarField pointPhi(pAlpha.primitiveField() - 0.5);
+    pointPhi = pAlpha.primitiveField() - 0.5;
 
     const edgeList& edges = mesh_.edges();
     const pointField& points = mesh_.points();
-    pointField edgeCross(edges.size(), point::max);
+    edgeCross.setSize(edges.size());
+    edgeCross = point::max;
     forAll(edges, edgei)
     {
         const edge& e = edges[edgei];
@@ -1005,6 +1057,19 @@ void Foam::cutCellGeometry::calcCentroidGeometry()
 
     dCentroid_ = delta;
     cutDeltaCoeffs_ = meshDC;
+    faceValueOffset_ = dimensionedVector(dimLength, Zero);
+
+    // The linear interpolate w p_O + (1-w) p_N of values at the centroids is
+    // the value at m_f = x_c,O + (1-w) d_c, not at the wet-face centroid
+    // x'_f: the gradient corrects it by g_f.(x'_f - m_f) on every open face
+    // of a cell with a centroid offset, and on every partially wet face
+    const surfaceScalarField& weights = mesh_.weights();
+    const volVectorField& C = mesh_.C();
+    const surfaceVectorField& Cf = mesh_.Cf();
+    auto needsCorrection = [&](const scalar t, const vector& oO, const vector& oN)
+    {
+        return t > 0 && (t < 1 || magSqr(oO) > 0 || magSqr(oN) > 0);
+    };
 
     forAll(own, facei)
     {
@@ -1017,6 +1082,11 @@ void Foam::cutCellGeometry::calcCentroidGeometry()
         const scalar nd = (Sf[facei] & d)/magSf[facei];
         dCentroid_[facei] = d;
         cutDeltaCoeffs_[facei] = 1.0/max(nd, 0.1/meshDC[facei]);
+        if (needsCorrection(theta_[facei], off[o], off[n]))
+        {
+            const point m(C[o] + off[o] + (1 - weights[facei])*d);
+            faceValueOffset_[facei] = Cf[facei] + wetFaceOffset_[facei] - m;
+        }
     }
     forAll(mesh_.boundary(), patchi)
     {
@@ -1034,6 +1104,10 @@ void Foam::cutCellGeometry::calcCentroidGeometry()
         const fvsPatchScalarField& dcp = meshDC.boundaryField()[patchi];
         fvsPatchVectorField& dp = dCentroid_.boundaryFieldRef()[patchi];
         fvsPatchScalarField& cp = cutDeltaCoeffs_.boundaryFieldRef()[patchi];
+        const fvsPatchScalarField& wp = weights.boundaryField()[patchi];
+        const fvsPatchVectorField& Cfp = Cf.boundaryField()[patchi];
+        const fvsPatchVectorField& wop = wetFaceOffset_.boundaryField()[patchi];
+        fvsPatchVectorField& fvop = faceValueOffset_.boundaryFieldRef()[patchi];
         forAll(fvp, i)
         {
             if (tp[i] <= 0 || solidCells_.test(fc[i])) continue;
@@ -1041,8 +1115,168 @@ void Foam::cutCellGeometry::calcCentroidGeometry()
             const scalar nd = (Sfp[i] & d)/magSfp[i];
             dp[i] = d;
             cp[i] = 1.0/max(nd, 0.1/dcp[i]);
+            if (needsCorrection(tp[i], off[fc[i]], offN[i]))
+            {
+                const point m(C[fc[i]] + off[fc[i]] + (1 - wp[i])*d);
+                fvop[i] = Cfp[i] + wop[i] - m;
+            }
         }
     }
+}
+
+
+void Foam::cutCellGeometry::calcWallPieces()
+{
+    // The wall of a cell is split into planar pieces k with area vector S_k
+    // (out of the fluid) and centroid x_k, so that the wall pressure force
+    // sum_k p(x_k) S_k is exact for a linear pressure:
+    //  - the wall polygon(s) of the geometric cut: the trace of the wall on
+    //    every cut face of the cell runs from one edge crossing to the next,
+    //    and the traces close into loops; each loop is fan-triangulated about
+    //    its mean point (in 2-D the loop is the chord times the depth);
+    //  - the geometric wet part of every face closed by the post-processing
+    //    (absorption of the neighbour, coupled-face sync), area vector
+    //    (thetaGeo - theta) Sf at the wet-face centroid.
+    // By closure of the geometric fluid polyhedron, sum_k S_k = Sw.
+    const faceList& faces = mesh_.faces();
+    const cellList& cells = mesh_.cells();
+    const labelList& own = mesh_.faceOwner();
+    const labelListList& faceEdges = mesh_.faceEdges();
+    const vectorField& Sf = mesh_.faceAreas();
+    const vectorField& Sw = Sw_.primitiveField();
+    const vectorField xc(mesh_.cellCentres() + centroidOffset_.primitiveField());
+
+    // Face fractions after post-processing over all faces; -1 on faces of
+    // empty patches, which are not part of the finite-volume boundary
+    scalarField thetaAll(mesh_.nFaces(), -1);
+    SubField<scalar>(thetaAll, mesh_.nInternalFaces()) = theta_.primitiveField();
+    forAll(mesh_.boundary(), patchi)
+    {
+        const fvPatch& fvp = mesh_.boundary()[patchi];
+        SubField<scalar>(thetaAll, fvp.size(), fvp.start()) =
+            theta_.boundaryField()[patchi];
+    }
+
+    wallMoment_.setSize(mesh_.nCells());
+    wallMoment_ = Zero;
+    wallPieceSum_.setSize(mesh_.nCells());
+    wallPieceSum_ = Zero;
+
+    label nFallback = 0;
+    scalar maxMismatch = 0;
+    Map<label> next(16);
+    DynamicList<point> loop(16);
+    DynamicList<label> crossings(8);
+    DynamicList<bool> isExit(8);
+
+    for (const label celli : wallCells_)
+    {
+        tensor T(Zero);
+        vector Ssum(Zero);
+        bool broken = false;
+
+        // Directed wall edges between edge crossings. The fluid polygon of a
+        // face, in face order (anticlockwise about Sf), runs through the
+        // wall trace from the crossing X where the boundary leaves the fluid
+        // to the next crossing Y; the wall polygon, anticlockwise about its
+        // own normal (into the body), runs through it the other way for the
+        // owner, and the same way for the neighbour (Sf points into it).
+        next.clear();
+        for (const label facei : cells[celli])
+        {
+            const face& f = faces[facei];
+            const labelList& fe = faceEdges[facei];
+            const bool isOwner = (own[facei] == celli);
+
+            // Crossings in face order, flagged as exits (fluid to solid);
+            // states alternate, so each exit is followed by an entry
+            crossings.clear();
+            isExit.clear();
+            forAll(f, i)
+            {
+                const bool fluidi = pointPhiGeo_[f[i]] > 0;
+                const bool fluidn = pointPhiGeo_[f[f.fcIndex(i)]] > 0;
+                if (fluidi != fluidn)
+                {
+                    crossings.append(fe[i]);
+                    isExit.append(fluidi);
+                }
+            }
+            forAll(crossings, k)
+            {
+                if (!isExit[k]) continue;
+                const label k1 = crossings.fcIndex(k);
+                if (isExit[k1]) { broken = true; continue; }
+                const label X = crossings[k], Y = crossings[k1];
+                if (isOwner) next.set(Y, X); else next.set(X, Y);
+            }
+
+            // Geometric wet part closed by the post-processing
+            if (thetaAll[facei] >= 0)
+            {
+                const scalar dTheta = thetaGeo_[facei] - thetaAll[facei];
+                if (dTheta > SMALL)
+                {
+                    const vector Sk((isOwner ? 1 : -1)*dTheta*Sf[facei]);
+                    Ssum += Sk;
+                    T += (wetCentreGeo_[facei] - xc[celli])*Sk;
+                }
+            }
+        }
+
+        // Close the directed edges into loops
+        labelHashSet used(2*next.size());
+        forAllConstIters(next, iter)
+        {
+            if (broken) break;
+            const label start = iter.key();
+            if (used.found(start)) continue;
+            loop.clear();
+            label e = start;
+            do
+            {
+                used.insert(e);
+                loop.append(edgeCrossGeo_[e]);
+                const auto it = next.cfind(e);
+                if (!it.found()) { broken = true; break; }
+                e = it.val();
+            } while (e != start && loop.size() <= next.size());
+            if (broken || e != start) { broken = true; break; }
+
+            point m(Zero);
+            for (const point& x : loop) m += x;
+            m /= loop.size();
+            forAll(loop, i)
+            {
+                const point& a = loop[i];
+                const point& b = loop[loop.fcIndex(i)];
+                const vector A(0.5*((a - m) ^ (b - m)));
+                Ssum += A;
+                T += ((m + a + b)/3.0 - xc[celli])*A;
+            }
+        }
+
+        const scalar mismatch = mag(Ssum - Sw[celli])/max(Awall_[celli], VSMALL);
+        if (broken || mismatch > 1e-6)
+        {
+            // Fall back on the wall value at the foot of the centroid normal
+            ++nFallback;
+            T = (dWall_[celli]*Sw[celli]/max(Awall_[celli], VSMALL))*Sw[celli];
+            Ssum = Sw[celli];
+        }
+        else
+        {
+            maxMismatch = max(maxMismatch, mismatch);
+        }
+        wallMoment_[celli] = T;
+        wallPieceSum_[celli] = Ssum;
+    }
+
+    reduce(nFallback, sumOp<label>());
+    reduce(maxMismatch, maxOp<scalar>());
+    Info<< "    wall pieces: max |sum_k S_k - Sw|/|Sw| " << maxMismatch
+        << ", cells on the fallback (centroid normal foot) " << nFallback
+        << endl;
 }
 
 
@@ -1113,6 +1347,7 @@ Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::lsqGrad
     label nD = 0;
     for (direction d = 0; d < 3; ++d) if (solD[d] > 0) ++nD;
 
+    boolList ok(mesh_.nCells(), false);
     forAll(gI, celli)
     {
         if (nUsed[celli] < nD || solidCells_.test(celli)) continue;
@@ -1127,6 +1362,50 @@ Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::lsqGrad
         if (det(Ai) > SMALL*pow3(tr(Ai)/3))
         {
             gI[celli] = inv(Ai) & r[celli];
+            ok[celli] = true;
+        }
+    }
+
+    g.correctBoundaryConditions();
+
+    // Fluid cells with too few fluid neighbours for a least-squares fit
+    // (slivers, mostly in 3-D) take the mean gradient of their fluid face
+    // neighbours that have one; still exact for a linear field
+    {
+        vectorField sumG(mesh_.nCells(), Zero);
+        labelList nG(mesh_.nCells(), 0);
+        forAll(own, facei)
+        {
+            const label o = own[facei], n = nei[facei];
+            if (theta_[facei] <= 0) continue;
+            if (ok[n] && !ok[o]) { sumG[o] += gI[n]; ++nG[o]; }
+            if (ok[o] && !ok[n]) { sumG[n] += gI[o]; ++nG[n]; }
+        }
+        boolList okN;
+        syncTools::swapBoundaryCellList(mesh_, ok, okN);
+        forAll(mesh_.boundary(), patchi)
+        {
+            const fvPatch& fvp = mesh_.boundary()[patchi];
+            if (!fvp.coupled()) continue;
+            const labelUList& fc = fvp.faceCells();
+            const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
+            const vectorField gN(g.boundaryField()[patchi].patchNeighbourField());
+            forAll(fvp, i)
+            {
+                const label bfi = fvp.start() + i - mesh_.nInternalFaces();
+                if (tp[i] > 0 && okN[bfi] && !ok[fc[i]])
+                {
+                    sumG[fc[i]] += gN[i];
+                    ++nG[fc[i]];
+                }
+            }
+        }
+        forAll(gI, celli)
+        {
+            if (!ok[celli] && !solidCells_.test(celli) && nG[celli] > 0)
+            {
+                gI[celli] = sumG[celli]/nG[celli];
+            }
         }
     }
 
@@ -1214,16 +1493,21 @@ Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::grad
 
     if (secondOrder_)
     {
-        // Face values at the wet-face centroids and the wall pressure at the
-        // wall segment, both from the least-squares gradient: exact for a
-        // linear pressure
+        // Face values at the wet-face centroids, g_f.(x'_f - m_f) added to
+        // the linear interpolate (the value at m_f), and the wall pressure
+        // integrated over the wall pieces, sum_k [p_P + g_P.(x_k - x_c)] S_k:
+        // with the least-squares gradient g exact for a linear pressure, the
+        // sum is the exact integral over the geometric fluid polyhedron
         const tmp<volVectorField> tgp(lsqGrad(p));
         const volVectorField& gp = tgp();
+        const surfaceScalarField& weights = mesh_.weights();
         forAll(own, facei)
         {
-            if (theta_[facei] <= 0 || theta_[facei] >= 1) continue;
-            const vector gf(0.5*(gp[own[facei]] + gp[nei[facei]]));
-            const vector v(theta_[facei]*(gf & wetFaceOffset_[facei])*Sf[facei]);
+            const vector& r = faceValueOffset_[facei];
+            if (magSqr(r) == 0) continue;
+            const scalar w = weights[facei];
+            const vector gf(w*gp[own[facei]] + (1 - w)*gp[nei[facei]]);
+            const vector v(theta_[facei]*(gf & r)*Sf[facei]);
             gI[own[facei]] += v;
             gI[nei[facei]] -= v;
         }
@@ -1234,21 +1518,19 @@ Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::grad
             const labelUList& fc = fvp.faceCells();
             const vectorField gN(gp.boundaryField()[patchi].patchNeighbourField());
             const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
-            const fvsPatchVectorField& wp = wetFaceOffset_.boundaryField()[patchi];
+            const fvsPatchVectorField& rp = faceValueOffset_.boundaryField()[patchi];
+            const fvsPatchScalarField& wp = weights.boundaryField()[patchi];
             const fvsPatchVectorField& Sfp = Sf.boundaryField()[patchi];
             forAll(fvp, i)
             {
-                if (tp[i] <= 0 || tp[i] >= 1) continue;
-                const vector gf(0.5*(gp[fc[i]] + gN[i]));
-                gI[fc[i]] += tp[i]*(gf & wp[i])*Sfp[i];
+                if (magSqr(rp[i]) == 0) continue;
+                const vector gf(wp[i]*gp[fc[i]] + (1 - wp[i])*gN[i]);
+                gI[fc[i]] += tp[i]*(gf & rp[i])*Sfp[i];
             }
         }
         for (const label celli : wallCells_)
         {
-            // p_wall - p_c = grad p . (x_wall - x_c), x_wall - x_c = dWall n_wall
-            gI[celli] +=
-                (gp[celli] & Sw_[celli])*dWall_[celli]/max(Awall_[celli], VSMALL)
-               *Sw_[celli];
+            gI[celli] += gp[celli] & wallMoment_[celli];
         }
     }
 
@@ -1425,13 +1707,13 @@ void Foam::cutCellGeometry::forces
     {
         const label bodyi = max(cellBody_[celli], 0);
         if (bodyi >= bodies_.size()) continue;
-        // pressure on the wall segment, p_wall Sw (Sw points into the body)
-        scalar pw = p[celli];
+        // pressure on the wall, p_P Sw, plus with the second-order treatment
+        // sum_k g_P.(x_k - x_c) S_k over the wall pieces (as in grad())
+        Fp[bodyi] += p[celli]*Sw_[celli];
         if (secondOrder_)
         {
-            pw += (tgp()[celli] & Sw_[celli])*dWall_[celli]/max(Awall_[celli], VSMALL);
+            Fp[bodyi] += tgp()[celli] & wallMoment_[celli];
         }
-        Fp[bodyi] += pw*Sw_[celli];
         // viscous traction, nu (u_P - u_b)/d Awall
         if (moving_)
         {
