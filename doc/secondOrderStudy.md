@@ -323,10 +323,12 @@ Taylor–Couette, L2 errors at N = 40/80/160:
 | second order | geometric + handover | 2.82e-3, 6.32e-4, 8.93e-4 | 9.87e-2, 4.02e-2, 1.24e-1 |
 
 The wall velocity of the no-slip traction is still a point value, x_P + d n_w or x_c + d_c n_w.
-For a nearly full cell with a tiny wall segment d = αV/(2A_wall) can be several units: the point
-then lies far outside the cell and may be wrapped by the minimum image (u_b = 4.5 instead of
-about 1 in one cell of the rotating cylinder). Its traction coefficient is small, but the point
-could be clipped to the cell.
+For a nearly full cell with a tiny wall segment d = αV/(2A_wall) can be several units, and the point
+lay far outside the cell, wrapped by the minimum image (u_b = 4.5 instead of about 1 in one cell of
+the rotating cylinder). The distance is now limited to where n_w leaves the cell's bounding box
+(the traction coefficient keeps d): |u_b| = 1.01 in that cell. On movingBody the Taylor–Couette
+errors become L2(U) = 1.13e-2, 7.30e-3, 3.76e-3 and L2(p) = 3.28e-2, 2.89e-2, 2.14e-2 (16–124
+cells limited); translating cases are bit-identical.
 
 ### 2. Second-order pressure gradient
 
@@ -367,6 +369,7 @@ Taylor–Couette with each fix alone and with both (second order, L2 at N = 40/8
 | source only | 1.17e-3, 3.04e-4, 8.09e-5 | 1.20e-2, 8.97e-3, 4.94e-3 |
 | gradient only | 1.15e-3, 3.60e-4, 1.43e-4 | 2.22e-2, 1.72e-2, 1.30e-2 |
 | both | 1.17e-3, 3.04e-4, 8.21e-5 | 1.23e-2, 9.58e-3, 5.13e-3 |
+| both, evaluation point limited to the cell | 1.17e-3, 3.04e-4, 8.12e-5 | 1.23e-2, 9.58e-3, 5.13e-3 |
 
 With both, the velocity converges at order 1.9–2.0 in L2 and 1.8 in Linf (4.4e-4 at N = 160,
 against 1.7e-3 before), and the pressure error halves. All of it comes from the source; the

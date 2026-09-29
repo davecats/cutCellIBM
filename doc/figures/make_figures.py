@@ -659,11 +659,11 @@ def fig_order_coupled():
     N = np.array([40, 80, 160])
     # validation/data/fixes/taylorCouette.txt: rotating-wall source over the open faces
     # (first order) and both fixes (second order); grey: second order before the fixes
-    ax.loglog(N, [6.609e-3, 4.556e-3, 2.157e-3], "o-", color=C_WALL, ms=3, label="$L_2(u)$, first")
-    ax.loglog(N, [1.174e-3, 3.036e-4, 8.211e-5], "s-", color=C_ARROW, ms=3, label="$L_2(u)$, second")
-    ax.loglog(N, [2.492e-2, 2.607e-2, 1.595e-2], "o--", color=C_WALL, ms=3, mfc="white",
+    ax.loglog(N, [6.609e-3, 4.271e-3, 2.048e-3], "o-", color=C_WALL, ms=3, label="$L_2(u)$, first")
+    ax.loglog(N, [1.174e-3, 3.036e-4, 8.117e-5], "s-", color=C_ARROW, ms=3, label="$L_2(u)$, second")
+    ax.loglog(N, [2.492e-2, 2.383e-2, 1.530e-2], "o--", color=C_WALL, ms=3, mfc="white",
               label="$L_2(p)$, first")
-    ax.loglog(N, [1.232e-2, 9.581e-3, 5.128e-3], "s--", color=C_ARROW, ms=3, mfc="white",
+    ax.loglog(N, [1.232e-2, 9.581e-3, 5.133e-3], "s--", color=C_ARROW, ms=3, mfc="white",
               label="$L_2(p)$, second")
     ax.loglog(N, [1.159e-3, 3.353e-4, 1.274e-4], "s-", color=C_GREY, ms=2, lw=0.7,
               label="second, before fixes")
