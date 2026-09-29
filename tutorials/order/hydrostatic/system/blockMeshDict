@@ -1,0 +1,16 @@
+FoamFile { version 2.0; format ascii; class dictionary; object blockMeshDict; }
+// Doubly periodic 2.4 x 2.4 box with N x N cells; the fluid is enclosed by an
+// immersed container, so no domain boundary touches it
+L 2.4; N 40;
+dz #eval{ $L / $N };
+scale 1;
+vertices ( (0 0 0) ($L 0 0) ($L $L 0) (0 $L 0) (0 0 $dz) ($L 0 $dz) ($L $L $dz) (0 $L $dz) );
+blocks ( hex (0 1 2 3 4 5 6 7) ($N $N 1) simpleGrading (1 1 1) );
+boundary
+(
+    left   { type cyclic; neighbourPatch right;  faces ((0 4 7 3)); }
+    right  { type cyclic; neighbourPatch left;   faces ((1 2 6 5)); }
+    bottom { type cyclic; neighbourPatch top;    faces ((0 1 5 4)); }
+    top    { type cyclic; neighbourPatch bottom; faces ((3 7 6 2)); }
+    frontAndBack { type empty; faces ((0 3 2 1) (4 5 6 7)); }
+);

@@ -1,0 +1,17 @@
+# validation/hydrostatic_error.py on tutorials/order/hydrostatic (fluid at rest in an immersed container around an immersed obstacle,
+# g = (0 -1 0) on alpha V, doubly periodic box, t = 10, steady), N = 40 80 160, runs of 2026-09-29
+# before: fdbcacf; after: both fixes. Control without the obstacle, after, N = 40, t = 2: see last line.
+before_hs_sofalse_N40: N=40 t=10 max|U| 3.980e-04 (cut cells 3.980e-04), rms|U| 5.816e-05; p error max 1.240e-02 (cut cells 1.240e-02); max|U| at alpha=0.960 (1.110, 1.590)
+before_hs_sofalse_N80: N=80 t=10 max|U| 9.927e-05 (cut cells 9.927e-05), rms|U| 1.152e-05; p error max 5.248e-03 (cut cells 5.248e-03); max|U| at alpha=0.959 (0.945, 1.575)
+before_hs_sofalse_N160: N=160 t=10 max|U| 2.500e-05 (cut cells 2.500e-05), rms|U| 2.498e-06; p error max 4.191e-03 (cut cells 4.191e-03); max|U| at alpha=0.961 (1.117, 1.567)
+before_hs_sotrue_N40: N=40 t=10 max|U| 2.349e-04 (cut cells 1.890e-04), rms|U| 4.973e-05; p error max 6.428e-03 (cut cells 4.635e-03); max|U| at alpha=1.000 (1.290, 0.150)
+before_hs_sotrue_N80: N=80 t=10 max|U| 5.953e-05 (cut cells 5.147e-05), rms|U| 9.126e-06; p error max 2.950e-03 (cut cells 2.632e-03); max|U| at alpha=1.000 (1.365, 2.265)
+before_hs_sotrue_N160: N=160 t=10 max|U| 1.519e-05 (cut cells 1.218e-05), rms|U| 1.756e-06; p error max 1.676e-03 (cut cells 1.610e-03); max|U| at alpha=1.000 (1.133, 0.113)
+after_hs_sofalse_N40: N=40 t=10 max|U| 3.980e-04 (cut cells 3.980e-04), rms|U| 5.816e-05; p error max 1.240e-02 (cut cells 1.240e-02); max|U| at alpha=0.960 (1.110, 1.590)
+after_hs_sofalse_N80: N=80 t=10 max|U| 9.927e-05 (cut cells 9.927e-05), rms|U| 1.152e-05; p error max 5.248e-03 (cut cells 5.248e-03); max|U| at alpha=0.959 (0.945, 1.575)
+after_hs_sofalse_N160: N=160 t=10 max|U| 2.500e-05 (cut cells 2.500e-05), rms|U| 2.498e-06; p error max 4.191e-03 (cut cells 4.191e-03); max|U| at alpha=0.961 (1.117, 1.567)
+after_hs_sotrue_N40: N=40 t=10 max|U| 1.052e-04 (cut cells 9.632e-05), rms|U| 2.848e-05; p error max 6.856e-03 (cut cells 6.856e-03); max|U| at alpha=1.000 (1.170, 0.150)
+after_hs_sotrue_N80: N=80 t=10 max|U| 2.555e-05 (cut cells 2.365e-05), rms|U| 5.207e-06; p error max 3.652e-03 (cut cells 3.652e-03); max|U| at alpha=1.000 (1.335, 0.135)
+after_hs_sotrue_N160: N=160 t=10 max|U| 6.448e-06 (cut cells 5.847e-06), rms|U| 9.255e-07; p error max 2.213e-03 (cut cells 2.213e-03); max|U| at alpha=1.000 (1.177, 0.113)
+after_noObstacle_both_noobstacle: N=40 t=2 max|U| 1.052e-04 (cut cells 9.631e-05), rms|U| 2.300e-05; p error max 6.456e-03 (cut cells 6.456e-03); max|U| at alpha=1.000 (1.230, 2.250)
+# a first version in a closed box with walls (p = -y prescribed on the walls) had its error at the box walls: max|U| 3.2e-4 at N = 40 without any body

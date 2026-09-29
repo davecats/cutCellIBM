@@ -657,14 +657,19 @@ def fig_order_coupled():
     fig, axs = plt.subplots(1, 3, figsize=(6.8, 2.4))
     ax = axs[0]
     N = np.array([40, 80, 160])
-    ax.loglog(N, [6.479e-3, 4.478e-3, 2.104e-3], "o-", color=C_WALL, ms=3, label="$L_2(u)$, first")
-    ax.loglog(N, [1.159e-3, 3.353e-4, 1.274e-4], "s-", color=C_ARROW, ms=3, label="$L_2(u)$, second")
-    ax.loglog(N, [3.633e-2, 3.337e-2, 2.295e-2], "o--", color=C_WALL, ms=3, mfc="white",
+    # validation/data/fixes/taylorCouette.txt: rotating-wall source over the open faces
+    # (first order) and both fixes (second order); grey: second order before the fixes
+    ax.loglog(N, [6.609e-3, 4.556e-3, 2.157e-3], "o-", color=C_WALL, ms=3, label="$L_2(u)$, first")
+    ax.loglog(N, [1.174e-3, 3.036e-4, 8.211e-5], "s-", color=C_ARROW, ms=3, label="$L_2(u)$, second")
+    ax.loglog(N, [2.492e-2, 2.607e-2, 1.595e-2], "o--", color=C_WALL, ms=3, mfc="white",
               label="$L_2(p)$, first")
-    ax.loglog(N, [2.169e-2, 1.697e-2, 1.296e-2], "s--", color=C_ARROW, ms=3, mfc="white",
+    ax.loglog(N, [1.232e-2, 9.581e-3, 5.128e-3], "s--", color=C_ARROW, ms=3, mfc="white",
               label="$L_2(p)$, second")
-    slope(ax, 60, 1.6e-4, 2, L=1.6)
-    slope(ax, 60, 8.5e-3, 1, L=1.6)
+    ax.loglog(N, [1.159e-3, 3.353e-4, 1.274e-4], "s-", color=C_GREY, ms=2, lw=0.7,
+              label="second, before fixes")
+    ax.loglog(N, [2.169e-2, 1.697e-2, 1.296e-2], "s--", color=C_GREY, ms=2, lw=0.7, mfc="white")
+    slope(ax, 60, 1.1e-4, 2, L=1.6)
+    slope(ax, 60, 4.5e-3, 1, L=1.6)
     ax.set_xlabel("$N$")
     ax.set_ylabel("error")
     ax.set_xticks([40, 80, 160])
@@ -675,7 +680,9 @@ def fig_order_coupled():
     ax = axs[1]
     N = np.array([41, 81, 161, 321])
     comp = {"first": ([2.7965, 2.8689, 2.8928, 2.9074], [2.7465, 2.7915, 2.8649, 2.8878]),
-            "second": ([2.8017, 2.8599, 2.8903, 2.9065], [2.9817, 2.9606, 2.9418, 2.9288])}
+            "second": ([2.7830, 2.8461, 2.8816, 2.9025], [3.0018, 2.9747, 2.9507, 2.9330])}
+    # second order with both fixes of 2026-09-29 (validation/data/fixes/richardson.txt);
+    # first order unchanged (validation/data/secondOrder/richardson.txt)
     for tr, (fp, fv) in comp.items():
         col = C_WALL if tr == "first" else C_ARROW
         ax.plot(1 / N, fp, "-", color=col, marker="^", ms=3, label="pressure, %s" % tr)
@@ -689,7 +696,7 @@ def fig_order_coupled():
     tot = {("no slip", "first"): np.add(*comp["first"]),
            ("no slip", "second"): np.add(*comp["second"]),
            ("free slip", "first"): np.array([2.837673, 2.942117, 3.000386, 3.035406]),
-           ("free slip", "second"): np.array([2.916107, 2.984759, 3.023749, 3.051058])}
+           ("free slip", "second"): np.array([2.898140, 2.972820, 3.019140, 3.052340])}
     for (w, tr), F in tot.items():
         col = C_WALL if tr == "first" else C_ARROW
         ref = tot[(w, "second")][-1]
