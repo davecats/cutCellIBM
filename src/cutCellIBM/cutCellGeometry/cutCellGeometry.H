@@ -279,6 +279,15 @@ class cutCellGeometry
         //- Mass source, swept old volume and body velocity (moving only)
         void calcMovingTerms();
 
+        //- Distance from x0 along n to the boundary of the bounding box of
+        //  cell celli (solved directions only)
+        scalar cellExitDistance
+        (
+            const label celli,
+            const point& x0,
+            const vector& n
+        ) const;
+
         //- Flux of the rotational body velocity through the wall of every
         //  cell (chord and closed faces), from its open wet faces
         void rotationalWallFlux(scalarField& Srot) const;

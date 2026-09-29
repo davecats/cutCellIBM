@@ -8,6 +8,7 @@
 #include "cutCellGeometry.H"
 #include "fvMesh.H"
 #include "Time.H"
+#include "boundBox.H"
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
@@ -70,13 +71,35 @@ void Foam::cutCellGeometry::calcMovingTerms()
     // fluid centroid, x_w = x_c + dWall n_w, the point the two-point wall
     // gradient differences against. Solid cells use their centre. The mass
     // source does not use it for rotating bodies (see below).
+    //
+    // Without the second-order treatment dWall = alpha V/(2 Awall) is an
+    // effective distance (with it, the centroid distance): in a nearly full
+    // cell with a tiny wall segment it exceeds the cell size by orders of
+    // magnitude and x_w would lie far outside the cell (in a periodic domain
+    // possibly beyond the minimum image). The wall of such a cell lies inside
+    // the cell, so the distance is limited to where the normal leaves the
+    // cell's bounding box; the traction coefficient keeps dWall.
     vectorField& Ub = UbPtr_().primitiveFieldRef();
     Ub = Zero;
 
     pointField wallPoints(mesh_.cellCentres() + centroidOffset_.primitiveField());
+    label nClipped = 0;
     for (const label celli : wallCells_)
     {
-        wallPoints[celli] += dWall_[celli]*Sw[celli]/max(Awall_[celli], VSMALL);
+        const scalar dExit = cellExitDistance
+        (
+            celli, wallPoints[celli], Sw[celli]/max(Awall_[celli], VSMALL)
+        );
+        if (dWall_[celli] <= dExit)
+        {
+            wallPoints[celli] +=
+                dWall_[celli]*Sw[celli]/max(Awall_[celli], VSMALL);
+        }
+        else
+        {
+            wallPoints[celli] += dExit*Sw[celli]/max(Awall_[celli], VSMALL);
+            ++nClipped;
+        }
     }
 
     List<vectorField> bodyU(bodies_.size());
@@ -96,6 +119,12 @@ void Foam::cutCellGeometry::calcMovingTerms()
         }
     }
     UbPtr_().correctBoundaryConditions();
+    reduce(nClipped, sumOp<label>());
+    if (nClipped > 0)
+    {
+        Info<< "    wall velocity: evaluation point limited to the cell in "
+            << nClipped << " wall cells (tiny wall segments)" << endl;
+    }
 
     // Wall flux S (Sw points from the fluid into the body): the volume the
     // wall sweeps per unit time, taken as PRIMARY. Continuity becomes
@@ -189,6 +218,32 @@ void Foam::cutCellGeometry::calcMovingTerms()
     Info<< "    mass source: sum over the domain " << sumS
         << " (zero to roundoff by closure), max |S| " << maxS
         << ", max |alpha^{n+1} - alpha^n| " << maxDalpha << endl;
+}
+
+
+Foam::scalar Foam::cutCellGeometry::cellExitDistance
+(
+    const label celli,
+    const point& x0,
+    const vector& n
+) const
+{
+    // Distance from x0 (inside the cell) along n to the boundary of the
+    // cell's bounding box, over the solved directions
+    const boundBox bb
+    (
+        mesh_.cells()[celli].points(mesh_.faces(), mesh_.points()),
+        false
+    );
+    const Vector<label>& solD = mesh_.solutionD();
+    scalar t = GREAT;
+    for (direction d = 0; d < 3; ++d)
+    {
+        if (solD[d] < 0 || mag(n[d]) < SMALL) continue;
+        const scalar face = (n[d] > 0) ? bb.max()[d] : bb.min()[d];
+        t = min(t, max((face - x0[d])/n[d], scalar(0)));
+    }
+    return t;
 }
 
 
