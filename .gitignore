@@ -8,6 +8,7 @@ ibm_secondOrder
 tutorials/**/constant/polyMesh/
 tutorials/**/log.*
 tutorials/**/[1-9]*/
+tutorials/**/0.[0-9]*/
 tutorials/**/0/ibm*
 tutorials/**/0/C
 tutorials/**/0/Cf

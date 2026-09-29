@@ -5,6 +5,9 @@
 \usepackage{booktabs}
 \usepackage{xcolor}
 \usepackage{listings}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,calc}
 \usepackage[colorlinks=true,linkcolor=blue!60!black,citecolor=blue!60!black,urlcolor=blue!60!black]{hyperref}
 \usepackage{caption}
 \captionsetup{font=small,labelfont=bf}
@@ -12,24 +15,30 @@
 
 \newtheorem{proposition}{Proposition}
 \newtheorem{definition}{Definition}
+\newtheorem{lemma}{Lemma}
 \theoremstyle{remark}
 \newtheorem{remark}{Remark}
 
 \newcommand{\uu}{\bm{u}}
 \newcommand{\ub}{\uu_b}
 \newcommand{\nn}{\bm{n}}
+\newcommand{\xx}{\bm{x}}
 \newcommand{\Sf}{\bm{S}_f}
 \newcommand{\Sw}{\bm{S}_w}
 \newcommand{\dd}{\,\mathrm{d}}
 \newcommand{\dt}{\Delta t}
 \newcommand{\Aw}{A_{\rm wall}}
 \newcommand{\dw}{d_{\rm wall}}
+\newcommand{\cns}{c_{\rm ns}}
 \newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\gradV}{\nabla_{\!V}}
 
 \lstset{basicstyle=\footnotesize\ttfamily,columns=fullflexible,keepspaces=true,frame=single,framerule=0.3pt,xleftmargin=1em}
+\SetAlFnt{\small}
+\SetKwComment{tcp}{// }{}
 
 \title{\bf A cut-cell immersed boundary method for static and moving bodies\\
-in a collocated finite-volume solver\\[3pt]
+with passive scalar transport in a collocated finite-volume solver\\[3pt]
 \large Formulation, implementation in OpenFOAM and verification}
 \author{}
 \date{\today}
@@ -39,27 +48,37 @@ in a collocated finite-volume solver\\[3pt]
 
 \begin{abstract}
 We present a cut-cell immersed boundary method for the incompressible Navier--Stokes
-equations on a fixed, non body-fitted mesh, its extension to rigid bodies moving through the
-mesh, and the transport of a passive scalar in the same framework. The body is described by
-a level set; each face of the mesh carries the fraction of its area that lies in the fluid
-and each cell the fraction of its volume. The wall segment of a cut cell is not computed
-independently but \emph{defined} by the geometric closure of the fluid polyhedron, and this
-single identity carries the whole boundary treatment: the wall pressure force is absorbed
-into a face sum, no-penetration follows from discrete continuity, and the difference between
-a free-slip and a no-slip wall is one diagonal coefficient. No ghost values, no extrapolation
-into the solid and no coupling between velocity components appear. For a moving body only
-continuity changes: it acquires the flux swept by the wall as a source, and taking that flux
---- rather than the geometric volume change --- as the primary quantity makes the discrete
-geometric conservation law hold by construction, so that a free stream is preserved to machine
-precision at any body speed. A passive scalar is transported by the same face fluxes and sees
-the wall either as a fixed-value or as a zero-flux surface, and its budget closes to round-off.
+equations on a fixed, non body-fitted mesh%
+, its extension to rigid bodies moving through the mesh%
+, and the transport of passive scalars in the same framework%
+. The body is described by a level set; each face of the mesh carries the fraction of its
+area that lies in the fluid and each cell the fraction of its volume. The wall segment of a
+cut cell is not computed independently but \emph{defined} by the geometric closure of the
+fluid polyhedron, and this single identity carries the whole boundary treatment: the wall
+pressure force is absorbed into a face sum, no-penetration follows from discrete continuity,
+and the difference between a free-slip and a no-slip wall is one diagonal coefficient. No
+ghost values, no extrapolation into the solid and no coupling between velocity components
+appear.
+For a moving body only continuity changes: it acquires the flux swept by the wall as a
+source, and taking that flux --- rather than the geometric volume change --- as the primary
+quantity makes the discrete geometric conservation law hold by construction, so that a free
+stream is preserved to machine precision at any body speed.
+Passive scalars are transported by the same face fluxes and see the wall either as a
+fixed-value or as a zero-flux surface; their budgets close to round-off.
+An optional second-order wall treatment replaces the cell centres by the centroids of the
+fluid parts, with a centroid-consistent diffusive face flux and a centroid wall distance; it
+raises the operators and the velocity from first to second order without ghost values or
+stencil growth.
 The method is implemented in OpenFOAM without modifying the mesh: the fractions enter the
 standard operators explicitly, which keeps the pressure--velocity coupling of
-\code{simpleFoam}/\code{pimpleFoam} and the linear algebra untouched, and the whole
-moving-body extension sits behind a single run-time switch. The implementation is verified
-against an independent reference implementation of the same discretisation on a cylinder at
-$Re_D=1$ at rest, oscillating and translating through a periodic seam, and by conservation
-tests for the scalar.
+\code{simpleFoam}/\code{pimpleFoam} and the linear algebra untouched%
+, and the whole moving-body extension sits behind a single run-time switch%
+. The implementation is verified against an independent reference implementation of the
+same discretisation on a cylinder at $Re_D=1$%
+\ at rest, oscillating and translating through a periodic seam%
+, by conservation tests for the scalar%
+, and by order-of-accuracy studies on manufactured and exact solutions%
+.
 \end{abstract}
 
 \tableofcontents
@@ -69,28 +88,41 @@ tests for the scalar.
 Immersed boundary methods let a body of arbitrary shape be represented on a mesh that does
 not conform to it. Among them, cut-cell methods are distinguished by being conservative:
 the fluid part of every cell is a well-defined control volume, and fluxes are accounted for on
-its actual boundary. Their classical difficulties are the description of the cut geometry, the
-small-cell problem, and, for moving bodies, the consistency between the change of the fluid
-volume of a cell and the flux swept by its wall, i.e.\ the discrete geometric conservation law.
+its actual boundary. Their classical difficulties are the description of the cut geometry,
+the small-cell problem%
+, and, for moving bodies, the consistency between the change of the fluid
+volume of a cell and the flux swept by its wall, i.e.\ the discrete geometric
+conservation law%
+.
 
 The method described here addresses these points with a minimum of machinery. Its central
 object is the \emph{closure identity} of a cut cell: the wet parts of its faces and its wall
 segment form a closed surface, so the wall area vector equals minus the sum of the wet face
 area vectors. Rather than computing the wall segment from the geometry and then enforcing
 consistency, the method defines the wall segment through the identity. Every consequence of
-the boundary condition --- pressure force, no-penetration, wall traction, and for a moving body
-the volume swept --- is then expressed with the same face fractions that the flux operators
-use, and the resulting discrete properties (exactness for uniform flow, no spurious force from
-a uniform pressure, exact compatibility of the pressure system, free-stream preservation) hold
-to round-off by construction.
+the boundary condition --- pressure force, no-penetration, wall traction%
+, and for a moving body the volume swept%
+\ --- is then expressed with the same face fractions that the flux operators use, and the
+resulting discrete properties (exactness for uniform flow, no spurious force from a uniform
+pressure, exact compatibility of the pressure system%
+, free-stream preservation%
+) hold to round-off by construction.
 
-Section~\ref{sec:geom} defines the geometry and its computation, Section~\ref{sec:static}
-the discretisation for a body at rest, Section~\ref{sec:moving} the extension to moving
-bodies, Section~\ref{sec:scalar} the transport of a passive scalar. Section~\ref{sec:impl}
-describes the implementation in OpenFOAM, Section~\ref{sec:verif} the verification, and
-Section~\ref{sec:limits} the limitations.
+The document is organised as follows. Section~\ref{sec:equations} states the equations,
+Section~\ref{sec:geom} defines the geometry and how it is computed,
+Section~\ref{sec:static} derives the discretisation for a body at rest and its properties,
+and Section~\ref{sec:coupling} the pressure--velocity coupling, the forces and the flow-rate
+forcing.
+Section~\ref{sec:moving} extends the method to moving bodies.
+Section~\ref{sec:scalar} treats passive scalars.
+Section~\ref{sec:secondorder} derives the second-order wall treatment.
+Section~\ref{sec:impl} describes the implementation in OpenFOAM, Section~\ref{sec:verif}
+the verification, and Section~\ref{sec:limits} the limitations.
+Section~\ref{sec:fouling} outlines the planned extension to reacting scalars and deposit
+growth, which is the subject of the branch this document belongs to and not yet implemented.
 
 \section{Governing equations}
+\label{sec:equations}
 
 We solve the incompressible Navier--Stokes equations
 \begin{equation}
@@ -99,133 +131,323 @@ We solve the incompressible Navier--Stokes equations
 \qquad \nabla\!\cdot\!\uu=0,
 \label{eq:ns}
 \end{equation}
-with $p$ the kinematic pressure and $\bm{g}$ a body force, in a domain $\Omega$ containing
-one or more rigid bodies $B_i$ with prescribed velocity $\ub(\bm x,t)$ (zero for a body at
-rest, $\bm U(t)+\bm\omega\times(\bm x-\bm c(t))$ for a rigid body). On each body surface one
-of two conditions is imposed: \emph{no slip}, $\uu=\ub$, or \emph{free slip},
-$(\uu-\ub)\cdot\nn=0$ together with zero tangential traction. A passive scalar $T$ obeys
+with $p$ the kinematic pressure, $\nu$ the kinematic viscosity and $\bm{g}$ a body force, in
+a domain $\Omega$ containing one or more rigid bodies $B_i$%
+\ with prescribed velocity $\ub(\xx,t)$: zero for a body at rest,
+$\ub=\bm U(t)+\bm\omega\times(\xx-\bm c(t))$ for a rigid body with centre $\bm c(t)$. On each
+body surface one of two conditions is imposed: \emph{no slip}, $\uu=\ub$, or \emph{free slip},
+$(\uu-\ub)\cdot\nn=0$ together with zero tangential traction,
+$(\bm I-\nn\nn)\cdot(\nabla\uu+\nabla\uu^{\!\top})\cdot\nn=\bm 0$.
+Passive scalars $T_k$, $k=1,\dots,K$, obey
 \begin{equation}
 \frac{\partial T}{\partial t}+\nabla\!\cdot\!(\uu T)-\nabla\!\cdot\!(D\nabla T)=q,
 \label{eq:scalar}
 \end{equation}
-with, on the body, either a fixed value $T=T_w$ or zero diffusive flux
-$\partial T/\partial n=0$.
+each with its own constant diffusivity $D$, volumetric source $q$ and, on each body, either a
+fixed value $T=T_w$ or zero diffusive flux $\partial T/\partial n=0$. The coupling is one-way:
+the flow does not depend on the scalars.
 
 The discretisation is a collocated finite-volume method with SIMPLE(C) pressure--velocity
 coupling in the arrangement of OpenFOAM's \code{simpleFoam} (steady) and \code{pimpleFoam}
 (transient, implicit Euler with outer iterations). We write $V_P$ for the volume of cell $P$,
-$\Sf$ for the area vector of face $f$ pointing out of $P$, $\phi_f$ for the volume flux
-through $f$, and $\delta_f=1/|\bm d_f|$ for the inverse of the centre-to-centre distance across
-$f$. Face values are linear interpolates, $(\cdot)_f=\tfrac12[(\cdot)_P+(\cdot)_N]$ on a
-uniform mesh.
-
+$\Sf$ for the area vector of face $f$ pointing out of $P$, $N$ for the neighbour across $f$,
+$\phi_f$ for the volume flux through $f$, $\bm d_f=\xx_N-\xx_P$ and $\delta_f=1/|\bm d_f|$ for
+the inverse of the centre-to-centre distance. Face values $(\cdot)_f$ are linear interpolates,
+$\tfrac12[(\cdot)_P+(\cdot)_N]$ on a uniform mesh. Sums $\sum_f$ run over the faces of the
+cell under consideration.
 \section{Geometric description of the body}
 \label{sec:geom}
 
-\subsection{Fluid fractions and the closure identity}
+\subsection{Level set, fluid fractions and cell classes}
 
 \begin{definition}[Level set and fractions]
-A body is given by a function $\varphi(\bm x)$, negative inside the body and positive in the
-fluid; only its sign and its zero level are used. For a face $f$ and a cell $P$,
+A body is given by a function $\varphi(\xx)$, negative inside the body and positive in the
+fluid; only its sign and its zero level are used, and $\varphi=0$ counts as solid. For a face
+$f$ and a cell $P$,
 \begin{equation}
-\theta_f=\frac{|\{\bm x\in f:\varphi>0\}|}{|f|}\in[0,1],\qquad
-\alpha_P=\frac{|\{\bm x\in P:\varphi>0\}|}{V_P}\in[0,1]
+\theta_f=\frac{|\{\xx\in f:\varphi>0\}|}{|\Sf|}\in[0,1],\qquad
+\alpha_P=\frac{|\{\xx\in P:\varphi>0\}|}{V_P}\in[0,1]
+\label{eq:fractions}
 \end{equation}
-are the fluid area and volume fractions. A cell is fluid if $\alpha_P=1$, solid if
-$\alpha_P=0$, cut otherwise. Several bodies are combined through the minimum of their level
-sets, which represents their union exactly.
+are the fluid area and volume fractions. Several bodies are combined through the pointwise
+minimum of their level sets, which represents their union exactly.
 \end{definition}
+
+Cells fall into three classes (Fig.~\ref{fig:geometry}a): \emph{fluid} ($\alpha_P=1$),
+\emph{solid} ($\alpha_P=0$) and \emph{cut} ($0<\alpha_P<1$). A fourth set, overlapping the
+others, collects the \emph{wall cells}: every cell with $\alpha_P>0$ whose wall area
+(defined below) exceeds $10^{-10}V_P^{2/3}$. It contains all cut cells and, in addition, the
+fluid cells one of whose faces has been closed by a solid neighbour (Section~\ref{sec:absorb}).
+Wall cells are the only cells in which a wall term appears.
 
 The fluid part $\Omega_P$ of a cut cell is a polyhedron bounded by the wet parts of the cell
 faces, of area vectors $\theta_f\Sf$, and by the wall segment, of area $\Aw$ and outward unit
-normal $\nn_w$ (Fig.~\ref{fig:cutcell}).
+normal $\nn_w$ (Fig.~\ref{fig:geometry}b). Its volume is $\alpha_PV_P$.
 
 \begin{figure}[htbp]\centering
-\includegraphics[width=0.55\textwidth]{f1_cutcell.pdf}
-\caption{A cut cell. The fluid boundary consists of the wet parts of the faces (areas
-$\theta_f|\Sf|$) and the wall segment (area $\Aw$, outward normal $\nn_w$). The cell carries
-fluid volume $\alpha_PV_P$.}
-\label{fig:cutcell}
+\includegraphics[width=\textwidth]{fig_geometry.pdf}
+\caption{Geometry of the cut cells, computed with the algorithm of
+Section~\ref{sec:geomcomp} for a cylinder of radius $1$ on a mesh of spacing $h=0.2$.
+(a)~Cell classes. (b)~One cut cell: corner signs (open squares fluid, filled squares solid),
+the bisection iterates (red ticks) converging to the edge crossings (red dots), the wet parts
+of the faces (green), the chord joining the crossings (dashed), and the sub-sampling lattice
+that gives $\alpha_P$ (blue points in the fluid, grey in the body; $8\times8$ drawn, $32\times32$
+used). (c)~The closure polygon of the same cell: the wet face area vectors, laid head to tail,
+are closed by the wall area vector $\Sw$ (Proposition~\ref{prop:closure}).}
+\label{fig:geometry}
 \end{figure}
+
+\subsection{The closure identity}
 
 \begin{proposition}[Closure]
 \label{prop:closure}
-For every cut cell, $\sum_f\theta_f\Sf+\nn_w\Aw=\bm 0$.
+For every cell, $\sum_f\theta_f\Sf+\nn_w\Aw=\bm 0$.
 \end{proposition}
 \begin{proof}
-Apply the divergence theorem to a constant vector field over $\Omega_P$.
+Apply the divergence theorem to a constant vector field $\bm a$ over $\Omega_P$:
+$0=\int_{\Omega_P}\nabla\!\cdot\!\bm a\dd V=\bm a\cdot\big(\sum_f\theta_f\Sf+\nn_w\Aw\big)$
+for every $\bm a$. For a planar wall segment $\nn_w\Aw$ is its area vector; for a curved one
+it is the integral $\int_{\rm wall}\nn\dd S$, and the identity holds unchanged.
 \end{proof}
 
-We write $\Sw\equiv-\sum_f\theta_f\Sf=\nn_w\Aw$ for the wall area vector, pointing from the
-fluid into the body, and $\Aw=|\Sw|$. In the implementation $\Sw$ is never computed from the
-level set: it is \emph{defined} by Proposition~\ref{prop:closure} from the same $\theta_f$ that
-weight every flux operator, so the identity holds to round-off, however the wall is inclined
-and, for a moving body, however fast it moves.
-
-Two further derived quantities are needed. The effective wall-normal distance of the cell
-average from the wall is estimated from the volume the cell holds behind its wall segment,
-halved for a profile linear in the wall-normal direction,
+We write
 \begin{equation}
-\dw=\frac{\alpha_PV_P}{2\Aw},
-\label{eq:dwall}
+\Sw\equiv-\sum_f\theta_f\Sf=\nn_w\Aw,\qquad \Aw=|\Sw|,
+\label{eq:Sw}
 \end{equation}
-and the \emph{Dirichlet wall coefficient} $\Aw/(\dw V_P)=2\Aw^2/(\alpha_PV_P^2)$, which
-multiplies a diffusivity to give the wall exchange coefficient per unit volume.
-A fluid cell one of whose faces is fully closed by a solid neighbour has $\Sw\neq\bm 0$ as
-well; it is treated as a wall cell with $\dw=h/2$, the staircase limit of the same formula.
+for the wall area vector, pointing from the fluid into the body. In the implementation $\Sw$
+is never computed from the level set: it is \emph{defined} by \eqref{eq:Sw} from the same
+$\theta_f$ that weight every flux operator, so the identity holds to round-off however the wall
+is inclined or curved%
+\ and, for a moving body, however fast it moves%
+. Figure~\ref{fig:geometry}c shows the construction. Two consequences are used throughout.
+First, every property that follows from the divergence theorem for a closed surface holds
+discretely: a constant field has zero net flux, a uniform pressure exerts no force. Second,
+the geometric errors of the fractions (the chord instead of the arc on a face, the
+quadrature error of $\alpha_P$) change \emph{where} the discrete wall is, but never make the
+discrete control volume leak.
 
-\subsection{Computation}
+In a cell whose faces are all fully open or fully closed, \eqref{eq:Sw} also gives a
+non-zero $\Sw$ as soon as one face is closed: for a fluid cell next to a solid neighbour,
+$\Sw$ is the area vector of the closed face, i.e.\ the cell has a staircase wall. The two
+cases need no distinction in any operator.
+
+\subsection{Computation of the fractions}
 \label{sec:geomcomp}
 
-The fractions are computed once for a body at rest and at every time step for a moving body,
+The fractions are computed once for bodies at rest and at every time step when a body moves,
 as follows.
-\begin{enumerate}\itemsep2pt
-\item The level set is evaluated at the mesh points, the face centres and the cell centres.
-\item On every edge whose end points differ in sign, the crossing is located by bisection of
-      the exact level set (40 steps, i.e.\ to machine precision relative to the edge length).
-      The bisection runs in a canonical direction along the edge so that the two sides of a
-      processor or periodic boundary obtain the same crossing.
-\item $\theta_f$ is the area of the fluid polygon of the face (fluid vertices and crossing
-      points, in order) divided by $|\Sf|$.
-\item $\alpha_P$ is obtained by sub-sampling the level set on a lattice of $n_s^d$ points in
-      the cell ($n_s=32$ here; $d$ is the number of solution directions, so a two-dimensional
-      case samples a $32\times32$ lattice), for every cell whose vertices, face centres and
-      centre do not all lie on the same side. A body smaller than a cell is not resolved.
-\item \emph{Sliver absorption.} Cells with $\alpha_P<\alpha_{\min}$ (here $0.02$) are
-      absorbed into the body: $\alpha_P:=0$ and \emph{all their faces are closed},
-      $\theta_f:=0$. Closing the faces is essential: an absorbed cell with an open face would
-      break Proposition~\ref{prop:closure} for its neighbours, which would then see a flux
-      into a cell that carries no equation. The absorption displaces the boundary by
-      $O(\alpha_{\min}h)$, within the first-order error of the no-slip treatment.
-\item \emph{Coupled faces.} The two copies of a face on a periodic or processor boundary must
-      carry the same fraction. After absorption, $\theta_f$ is synchronised across coupled
-      faces with the minimum, which also propagates the closing of absorbed cells across the
-      boundary. Doing this \emph{after} absorption matters (Section~\ref{sec:galilean}).
+\begin{enumerate}\itemsep3pt
+\item \emph{Evaluation.} The union level set is evaluated at the mesh points, the face
+      centres and the cell centres.
+\item \emph{Edge crossings.} On every edge whose end points have different fluid status,
+      the crossing is located by bisection of the exact level set, $n_{\rm bis}=40$ steps by
+      default. The edge is always traversed in a canonical direction, from the
+      lexicographically smaller end point $A$ to the larger one $B$: with bracket
+      $[\lambda_{\rm lo},\lambda_{\rm hi}]\subset[0,1]$, the midpoint
+      $\xx_m=A+\tfrac12(\lambda_{\rm lo}+\lambda_{\rm hi})(B-A)$ replaces the end of the
+      bracket that has the same fluid status, and the crossing is the final midpoint. Its
+      error is at most $2^{-41}\approx4.5\times10^{-13}$ of the edge length. The canonical
+      direction makes the two copies of an edge on a processor boundary, which have identical
+      coordinates, obtain bit-identical crossings; across a translational periodic boundary
+      the lexicographic order is preserved, so the two sides agree whenever the level set
+      is itself periodic. All cut edges are bisected together, one level-set call per
+      iteration, which matters for bodies whose level set is expensive (triangulated
+      surfaces).
+\item \emph{Face fractions.} A face whose vertices are all fluid has $\theta_f=1$, one whose
+      vertices are all solid $\theta_f=0$. Otherwise the vertices are walked in order;
+      each fluid vertex is appended to a polygon, and after every vertex whose status differs
+      from the next the crossing of that edge is appended. The polygon area
+      $\big|\sum_i\tfrac12(\bm p_i-\bm p_0)\times(\bm p_{i+1}-\bm p_0)\big|$ divided by
+      $|\Sf|$ is $\theta_f$. A face with alternating signs (a saddle) is resolved as
+      \emph{fluid-connected}: the walk yields one polygon joining both fluid corners. The
+      wet part of the face is thus approximated by the polygon whose edges are chords of the
+      wall's trace on the face, a second-order approximation in the mesh spacing.
+\item \emph{Cell fractions.} A cell is a candidate for sub-sampling when the level set
+      at its centre, its face centres and its vertices does not have one sign; the others
+      have $\alpha_P=1$ or $0$. For a candidate, $\alpha_P$ is the fraction of fluid points
+      in a lattice of $n_s$ points per direction ($n_s=32$ by default) placed at the
+      sub-cell centres of the cell's bounding box,
+      \begin{equation}
+      \alpha_P=\frac{\#\{k:\varphi(\xx_k)>0\}}{\#\{k:\xx_k\in P\}},
+      \label{eq:subsample}
+      \end{equation}
+      where samples outside the cell are discarded (the point-in-cell test is skipped for
+      axis-aligned hexahedra, whose bounding box is the cell). In a direction that is not
+      solved (the empty direction of a two-dimensional case) a single sample at the cell
+      centre is taken, so a two-dimensional case samples $n_s^2$ points and a
+      three-dimensional one $n_s^3$. This midpoint quadrature has an error of order
+      $1/n_s$ per cell for a generic cut (about $10^{-3}$ for $n_s=32$), which is small
+      compared with the discretisation error%
+      \ but, as Section~\ref{sec:primary} shows, not small enough to be differentiated in time%
+      .
+\item \emph{Sliver absorption and coupled faces}, Section~\ref{sec:absorb}.
+\item \emph{Derived quantities}, Section~\ref{sec:derived}.
 \end{enumerate}
-Bodies described by a closed triangulated surface use the signed distance to the surface as
-level set (nearest point and inside/outside test), so that the same bisection applies. A body
-given only as a fluid-fraction field $\alpha$ has its face fractions reconstructed from the
-$0.5$ iso-surface of the point-interpolated field; this route is less accurate
-(Section~\ref{sec:limits}) and is intended for fractions produced by another model.
+Two features smaller than a cell are not resolved: a body that crosses a face without
+crossing any of its edges leaves $\theta_f$ unchanged, and one that enters a cell without
+reaching its centre, a face centre or a vertex leaves $\alpha_P=1$. Note also that $\alpha_P$
+and $\theta_f$ come from different algorithms and are therefore not exactly consistent (the
+polyhedron implied by the $\theta_f$ does not have exactly the volume $\alpha_PV_P$); nothing
+in the method requires them to be, because $\alpha_P$ enters only as a volume weight and
+$\Sw$ is built from $\theta_f$ alone.
 
-\subsection{Multiple bodies}
+\subsection{Sliver absorption and coupled faces}
+\label{sec:absorb}
 
-The level sets of all bodies are combined by their minimum before the fractions are computed,
-so overlapping bodies form an exact union. Every cut, solid or wall cell is attributed to a
-body --- the one with the smallest level set at its centre, or the one across its closed face
---- which selects the wall condition (no slip or free slip; fixed value or zero flux for the
-scalar), the wall velocity, and the body to which its force contribution is added.
+A cut cell with a tiny fluid volume but open faces is the source of the small-cell problem.
+The fractions are therefore post-processed in two steps (Fig.~\ref{fig:sliver}).
 
+\emph{Absorption.} Every cell with $\alpha_P<\alpha_{\min}$ ($\alpha_{\min}=0.02$ by default)
+is absorbed into the body: $\alpha_P:=0$ and \emph{all its faces are closed}, $\theta_f:=0$.
+The same rule closes the faces of every cell that has $\alpha_P=0$ from the start, so a solid
+cell never has an open face. Closing the faces is essential: an open face between an absorbed
+cell and a fluid neighbour would let the neighbour exchange flux with a cell that carries no
+equation, and the closure identity would then place the neighbour's wall on a face that is not
+a wall. After absorption the neighbours see the closed face through \eqref{eq:Sw} as part of
+their wall (Fig.~\ref{fig:sliver}b), so the treatment is automatically consistent. The
+absorption displaces the boundary by at most $O(\alpha_{\min}h)$ and removes the fluid volume
+$\alpha_PV_P<\alpha_{\min}V_P$ of each absorbed cell. The pass is not iterated: a neighbour
+that loses faces keeps its $\alpha$.
+
+\emph{Coupled faces.} The two copies of a face on a periodic or processor boundary must carry
+the same fraction. After absorption, $\theta_f$ is synchronised across coupled faces with the
+minimum of the two copies,
+\begin{equation}
+\theta_f:=\min(\theta_f,\theta_{f'}),
+\end{equation}
+which also propagates the closing of an absorbed cell across the boundary. The order matters
+(Fig.~\ref{fig:sliver}c): synchronising first and absorbing second would close the face on the
+side of the absorbed cell only, and its partner cell would keep an open face into a cell
+without equation.
+Section~\ref{sec:galilean} shows the effect on a body crossing a periodic seam.
+A difference larger than $10^{-10}$ between the two copies before synchronisation is reported
+as a warning (a body that is not periodic although the mesh is).
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth]{fig_sliver.pdf}
+\caption{Sliver absorption, with real fractions for a cylinder of radius $1$ on a mesh of
+spacing $0.2$. Closed faces are black lines; red arrows are the wall vectors $\Sw$ of the
+wall cells (scaled by $0.8$), drawn from the fluid centroid. (a)~A sliver with
+$\alpha_P=0.018$. (b)~After absorption its faces are closed, and the neighbour above it
+becomes a wall cell whose $\Sw$ now includes the closed face. (c)~On a periodic or processor
+boundary the coupled face must be closed on both sides, which requires absorbing
+\emph{before} synchronising with the minimum.}
+\label{fig:sliver}
+\end{figure}
+
+\subsection{Derived quantities}
+\label{sec:derived}
+
+From the fractions the following fields are formed.
+\begin{itemize}\itemsep3pt
+\item The wall vector $\Sw$ by \eqref{eq:Sw}, accumulated face by face: each internal face
+      subtracts $\theta_f\Sf$ from its owner and adds it to its neighbour, each boundary face
+      subtracts it from its cell. Boundary faces of the domain count with their own
+      $\theta_f$, so a body that cuts an inlet or a wall patch still has a closed control
+      volume. The front and back faces of a two-dimensional case do not enter (they cancel).
+\item The wall area $\Aw=|\Sw|$ and the wall normal $\nn_w=\Sw/\Aw$.
+\item The \emph{wall distance} of the cell value from the wall,
+      \begin{equation}
+      \dw=\frac{\alpha_PV_P}{2\Aw}.
+      \label{eq:dwall}
+      \end{equation}
+      It is exact for a fluid slab: if the fluid part of a cell is a layer of thickness
+      $\delta$ on a wall of area $A$ parallel to a face, then $\alpha_PV_P=A\delta$,
+      $\Aw=A$, and $\dw=\delta/2$ is the distance from the centroid of the layer to the wall.
+      For a general cut it is an estimate of that distance from two integral quantities that
+      the closure identity delivers exactly; Fig.~\ref{fig:walldist} compares it with the
+      true centroid distance. For a fluid cell with one closed face on a Cartesian mesh it
+      gives $h/2$, the exact distance of the cell centre from the face.
+\item The \emph{no-slip (Dirichlet) coefficient}
+      \begin{equation}
+      \cns=\frac{\Aw}{\dw\,V_P}=\frac{2\Aw^2}{\alpha_PV_P^2}\qquad[\mathrm{m}^{-2}]
+      \label{eq:cns}
+      \end{equation}
+      in wall cells of no-slip bodies (and of wall cells without a body), zero elsewhere.
+      Multiplied by a diffusivity it is the wall exchange coefficient per unit volume.
+\item The \emph{blanking coefficient} $b_P=\sum_f|\Sf|\delta_f/V_P$ in solid cells, zero
+      elsewhere: the viscous diagonal per unit volume and diffusivity of an unobstructed cell.
+\item The body index of every cut, solid and wall cell (Section~\ref{sec:bodies}).
+\end{itemize}
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth]{fig_walldist.pdf}
+\caption{Wall distance. (a)~In a cut cell the first-order estimate \eqref{eq:dwall} is half
+the thickness $\alpha V/\Aw$ of the slab with the same volume on the same wall area;
+the distance $d_c$ of the fluid centroid $\xx_c$ from the wall is the quantity it
+approximates.
+The second-order treatment of Section~\ref{sec:secondorder} uses $d_c$ itself.
+(b)~Ratio of the two over all cut cells of a cylinder of radius $1$ for 40 random offsets of a
+mesh of spacing $0.1$: the estimate is within $25\%$ for $\alpha_P\lesssim0.8$ and
+overestimates the distance in cells cut near a corner, whose small wall area makes $\dw$ large
+(and $\cns$ small, so the wall term there is weak but also unimportant).}
+\label{fig:walldist}
+\end{figure}
+
+\subsection{Bodies}
+\label{sec:bodies}
+
+Table~\ref{tab:bodies} lists the body descriptions. Every body carries a wall condition
+(\code{wallType noSlip} or \code{freeSlip}%
+, and per scalar a fixed value or zero gradient%
+) and may be inverted ($\varphi\to-\varphi$, e.g.\ fluid inside a cylinder).
+
+\begin{table}[htbp]\centering\small
+\caption{Body descriptions. $\bm c$ centre, $R$ radius, $\hat{\bm a}$ unit axis,
+$\bm h$ half-size and $\bm q=|\xx-\bm c|-\bm h$ componentwise, $\hat{\bm n}$ unit normal into
+the fluid.}
+\label{tab:bodies}
+\begin{tabular}{@{}lll@{}}
+\toprule
+type & level set $\varphi(\xx)$ & remark\\
+\midrule
+\code{cylinder} & $|\bm r-(\bm r\cdot\hat{\bm a})\hat{\bm a}|-R$, $\bm r=\xx-\bm c$ & infinite\\
+\code{sphere} & $|\xx-\bm c|-R$ & \\
+\code{box} & $|\max(\bm q,\bm 0)|+\min(\max_iq_i,0)$ & exact signed distance\\
+\code{plane} & $(\xx-\xx_0)\cdot\hat{\bm n}$ & half space\\
+any closed \code{searchableSurface} & $\pm|\xx-\xx_{\rm nearest}|$, $-$ inside & e.g.\ STL\\
+\code{alphaField} & --- (fraction field supplied) & see text\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A closed triangulated surface (any OpenFOAM \code{searchableSurface} with an inside/outside
+test, e.g.\ \code{triSurfaceMesh} reading an STL file) uses the signed distance to the surface
+as level set, so that the same bisection applies. A surface without a volume type is
+rejected.
+A body given as a fluid-fraction field $\alpha$ is intended for fractions produced by
+another model (e.g.\ a deposit or a particle, re-read every step when the body is flagged as
+moving).
+Its cell fractions are the field values (clipped to $[0,1]$, optionally converted from a
+solid fraction); point values are obtained by inverse-distance interpolation, $\alpha-\tfrac12$
+serves as a point level set, edge crossings are found by linear interpolation of that level
+set, and the same polygon construction gives $\theta_f$. This route smears the wall over about
+one cell (Section~\ref{sec:limits}).
+
+The level sets of all bodies with a level set are combined by their minimum before the
+fractions are computed, so overlapping bodies form an exact union; fraction-field bodies are
+merged afterwards with the minimum of $\alpha$ and of $\theta$. Every cut or solid cell is
+attributed to the body with the most negative level set at its centre (for a fraction-field
+body: every cell whose fraction it lowered), and a wall cell that is not cut inherits the
+body across its closed face. The attribution selects the wall condition, the wall
+velocity, the
+body to which the cell's force contribution is added%
+, and the scalar wall condition%
+. A wall cell without a body is treated as no-slip and its force is added to the first body.
 \section{Discretisation for a body at rest}
 \label{sec:static}
 
 Every term of \eqref{eq:ns} is integrated over the fluid part $\Omega_P$ of each cell. The
-wall segment contributes to each term according to the boundary condition, and this is the
-only place where the boundary condition enters. Table~\ref{tab:static} collects the result.
+boundary of $\Omega_P$ consists of the wet parts of the faces and of the wall segment. The
+face parts are treated as in any finite-volume method, weighted by $\theta_f$; the wall
+segment contributes to each term according to the boundary condition, and this is the only
+place where the boundary condition enters. Table~\ref{tab:static} collects the result, and
+the subsections derive each entry.
 
 \begin{table}[htbp]\centering\small
-\caption{Volume-integrated terms on the fluid part of a cell; $\Gamma$ is a diffusivity,
-$p_f$ and $\bar\uu_f$ are linear face interpolates.}
+\caption{Volume-integrated terms on the fluid part of a cell for a body at rest; $\Gamma$ is a
+diffusivity, $p_f$ and $\bar\uu_f$ are linear face interpolates, $\phi_f$ is the wet face flux.}
 \label{tab:static}
 \begin{tabular}{@{}lll@{}}
 \toprule
@@ -234,101 +456,357 @@ term & wall contribution & discrete operator\\
 unsteady & --- & $\alpha_PV_P\,(\uu_P^{n+1}-\uu_P^{n})/\dt$\\[3pt]
 convective & zero ($\uu\cdot\nn_w=0$) & $\sum_f\phi_f\,\bar\uu_f$, \quad $\phi_f=\theta_f\,\bar\uu_f\cdot\Sf$\\[3pt]
 viscous, free slip & zero (no tangential traction) & $\sum_f\theta_f\,\Gamma_f\,\delta_f|\Sf|\,(\uu_N-\uu_P)$\\[3pt]
-viscous, no slip & $\nu\,(\bm 0-\uu_P)\Aw/\dw$ & same, plus $-\nu\,\Aw/\dw\,\uu_P$\\[3pt]
+viscous, no slip & $\nu\,(\bm 0-\uu_P)\Aw/\dw$ & same, plus $-\nu\,\cns V_P\,\uu_P$\\[3pt]
 pressure & $p_P\Sw$, absorbed by closure & $\sum_f\theta_f\,(p_f-p_P)\,\Sf$\\[3pt]
 continuity & zero & $\sum_f\phi_f=0$\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The pressure entry deserves a derivation. The volume-integrated gradient is
-$\oint_{\partial\Omega_P}p\,\nn\dd S$; splitting the boundary into the wet faces and the wall
-segment, and taking $p_w=p_P$ on the wall to first order,
+\subsection{Term-by-term derivation}
+
+\paragraph{Unsteady term.} $\int_{\Omega_P}\partial_t\uu\dd V=\alpha_PV_P\,\dd\uu_P/\dd t$ for
+a cell whose fluid volume does not change, discretised with implicit Euler. The cell value
+$\uu_P$ is the average over the fluid part.
+
+\paragraph{Convective term.} $\oint_{\partial\Omega_P}\uu(\uu\cdot\nn)\dd S$ receives nothing
+from the wall, where $\uu\cdot\nn_w=0$ for a wall at rest under either condition. On the wet
+face parts the mass flux is $\phi_f=\theta_f\,\bar\uu_f\cdot\Sf$ and the transported value is
+the face interpolate (central differencing in all cases reported here, any OpenFOAM
+convection scheme in general).
+
+\paragraph{Viscous term.} $\oint\nu\nabla\uu\cdot\nn\dd S$ over the wet face parts is the
+standard two-point flux weighted by $\theta_f$, with the diffusivity interpolated to the face
+and multiplied by $\theta_f$,
 \begin{equation}
-\oint p\,\nn\dd S=\sum_f\theta_fp_f\Sf+p_P\Sw
+\sum_f\theta_f\nu_f|\Sf|\,\frac{\uu_N-\uu_P}{|\bm d_f|}\quad
+(+\text{ the usual non-orthogonal correction on non-orthogonal meshes}).
+\label{eq:viscface}
+\end{equation}
+On the wall segment, free slip means zero tangential traction and, since $\uu\cdot\nn_w=0$,
+no normal viscous flux either, so the wall contributes nothing. For no slip the wall shear is
+approximated by a two-point difference between the cell value and the wall value $\bm 0$ over
+the distance \eqref{eq:dwall},
+\begin{equation}
+\int_{\rm wall}\nu\nabla\uu\cdot\nn\dd S\simeq-\nu\Aw\frac{\uu_P-\bm 0}{\dw}
+=-\nu\,\cns V_P\,\uu_P .
+\label{eq:noslipwall}
+\end{equation}
+This is one implicit diagonal term per no-slip wall cell and per velocity component; the
+components stay uncoupled because the difference is taken for the full vector (the normal
+component is small anyway, being driven to zero by continuity).
+
+\paragraph{Pressure term.} The volume-integrated gradient is
+$\oint_{\partial\Omega_P}p\,\nn\dd S$; splitting the boundary into the wet faces and the wall
+segment, and taking $p_w=p_P$ on the wall (first order),
+\begin{equation}
+\gradV p\big|_P\equiv\oint p\,\nn\dd S=\sum_f\theta_fp_f\Sf+p_P\Sw
 \overset{\text{Prop.\,\ref{prop:closure}}}{=}\sum_f\theta_f\,(p_f-p_P)\,\Sf .
 \label{eq:grad}
 \end{equation}
-The wall pressure force --- the form drag --- is therefore absorbed exactly into the face sum,
-and a uniform pressure produces no force on any cell.
+The wall pressure force --- the form drag --- is therefore absorbed exactly into the face sum.
+The momentum equation uses $\gradV p/V_P$, i.e.\ the gradient per unit \emph{cell} volume;
+the factor $\alpha_P$ belongs to the mobility, not to the gradient (Section~\ref{sec:simplec}).
+
+\paragraph{Continuity.} $\oint\uu\cdot\nn\dd S=\sum_f\phi_f+\int_{\rm wall}\uu\cdot\nn_w\dd S$,
+and the wall integral vanishes for a wall at rest. Hence $\sum_f\phi_f=0$ with the same wet
+fluxes as in the convective term.
 
 \subsection{Properties}
+\label{sec:staticprops}
 
-\begin{proposition}[Exactness for uniform tangential flow]
-For a plane wall and a uniform discrete velocity $\uu$ with $\uu\cdot\nn_w=0$, the discrete
-divergence vanishes identically in every cut cell.
+The following properties hold to round-off because every wall-related quantity is built from
+the same $\theta_f$.
+
+\begin{proposition}[No force from a uniform pressure]
+\label{prop:uniformp}
+For $p\equiv p_0$, $\gradV p=\bm 0$ in every cell, cut or not.
 \end{proposition}
 \begin{proof}
-$\sum_f\phi_f=\uu\cdot\sum_f\theta_f\Sf=-\uu\cdot\Sw=0$.
+$p_f-p_P=0$ in \eqref{eq:grad}.
+\end{proof}
+
+\begin{proposition}[Free-stream divergence]
+\label{prop:uniformu}
+For a uniform discrete velocity $\uu\equiv\bm U$, $\sum_f\phi_f=-\bm U\cdot\Sw$ in every cell.
+In particular the discrete divergence vanishes in a cut cell if and only if $\bm U\cdot\nn_w=0$.
+\end{proposition}
+\begin{proof}
+$\sum_f\phi_f=\bm U\cdot\sum_f\theta_f\Sf=-\bm U\cdot\Sw$ by \eqref{eq:Sw}.
 \end{proof}
 
 \begin{proposition}[No-penetration is implied, not imposed]
 \label{prop:nopen}
-For a locally uniform $\uu$ in a cut cell with $\Aw\neq0$, discrete continuity
-$\sum_f\phi_f=0$ holds if and only if $\uu\cdot\nn_w=0$.
+Let the velocity be locally uniform, $\uu=\bm U$, on the faces of a wall cell with
+$\Aw\neq0$. Discrete continuity $\sum_f\phi_f=0$ holds if and only if $\bm U\cdot\nn_w=0$.
 \end{proposition}
+\begin{proof}
+Immediate from Proposition~\ref{prop:uniformu}. The statement holds for any shape of the wall
+inside the cell, since only the area vector $\Sw$ enters.
+\end{proof}
 
 Proposition~\ref{prop:nopen} is the structural point of the method: the no-penetration
 condition is never written down, it is a consequence of enforcing mass conservation on the cut
 cell with fluxes and wall segment taken from the same fractions. The free-slip condition
 appears only as the \emph{absence} of a wall term in the viscous operator, and the no-slip
-condition as the presence of the single diagonal term $\nu\Aw/\dw$. Because
-$\dw\propto\alpha_P$, this coefficient grows like $1/\alpha_P$ as a cell is squeezed against
-the wall: the small-cell limit \emph{strengthens} diagonal dominance and drives $\uu_P$ onto
-the wall value rather than degrading the system. Consequently the discretisation contains no
-ghost value, no extrapolation into the solid, no blanking of cut cells, no coupling between the
-velocity components, and no adjustable parameter other than $\alpha_{\min}$.
+condition as the presence of the single diagonal term $\nu\cns V_P$.
 
-Measured against exact solutions of Poisson problems on a disk, the free-slip treatment is
-second-order accurate and the no-slip treatment first-order accurate, the difference being
-entirely due to the wall-normal distance estimate \eqref{eq:dwall}, which free slip does not
-need.
+\begin{proposition}[Small cells strengthen the diagonal]
+\label{prop:smallcell}
+In a cut cell with a planar wall segment, the no-slip coefficient \eqref{eq:cns} grows like
+$1/\alpha_P$ as $\alpha_P\to0$ at fixed $\Aw$.
+\end{proposition}
+\begin{proof}
+$\cns=2\Aw^2/(\alpha_PV_P^2)$.
+\end{proof}
+The small-cell limit therefore drives $\uu_P$ onto the wall value and increases the
+diagonal dominance of the momentum rows instead of degrading them; together with sliver
+absorption it is what keeps the system well conditioned without cell merging. The price is
+paid by the pressure (Section~\ref{sec:simplec}, and
+Section~\ref{sec:smallcellp}%
+).
 
-\subsection{Solid cells and the pressure--velocity coupling}
+\begin{proposition}[Discrete conservation]
+\label{prop:conservation}
+Summing the momentum equations of all cells, the convective and viscous face fluxes cancel in
+pairs, and the pressure term reduces to the pressure force on the bodies,
+$\sum_P\gradV p|_P=\sum_P p_P\bm S_{w,P}+(\text{domain boundary faces})$.
+\end{proposition}
+\begin{proof}
+Each internal face appears in the rows of its two cells with the same $\theta_f$ and opposite
+$\Sf$. In \eqref{eq:grad} write $\sum_f\theta_fp_f\Sf+p_P\Sw$; the face terms cancel pairwise.
+Solid cells have all faces closed and contribute nothing.
+\end{proof}
+
+Consequently the force on the bodies is the reaction to exactly the wall terms assembled in the
+momentum equations (Section~\ref{sec:forces}), and at a steady state in a periodic domain the
+total force equals the driving body force times the fluid volume. The same argument gives
+global mass conservation, $\sum_P\sum_f\phi_f=0$, and it is what makes the pressure system
+compatible (Section~\ref{sec:reference}).
+
+Measured on manufactured solutions of Poisson and convection--diffusion problems on a disk,
+the free-slip (Neumann) treatment is second-order accurate and the no-slip (Dirichlet)
+treatment first-order accurate.
+Section~\ref{sec:secondorder} shows that the first-order error comes mainly from the
+diffusive fluxes through the faces of cut cells, which assume the two cell values to sit on the
+cell centres, and only secondarily from the wall distance \eqref{eq:dwall}.
+
+\section{Pressure--velocity coupling, forces and flow-rate forcing}
 \label{sec:coupling}
 
-Every face of a solid cell is closed, so its rows in the momentum and pressure matrices are
-empty. The momentum row receives a blanking diagonal $\nu\sum_f|\Sf|\delta_f/V_P$ (the
-viscous diagonal of an unobstructed cell) and the source that drives the cell to the body
-velocity; the pressure row receives a diagonal of the typical magnitude of the fluid rows and a
-zero source, so that $p=0$ there. Neither value affects the fluid: the rows are decoupled.
+\subsection{Solid cells}
+\label{sec:solid}
 
-The coupling is SIMPLEC. Writing the assembled momentum equation of cell $P$ as
-$a_P\uu_P=\bm H(\uu)-\nabla_{\!V}p$, with $\nabla_{\!V}p$ the volume-integrated gradient
-\eqref{eq:grad} and $\bm H=\bm b-\sum_{nb}a_{nb}\uu_{nb}$,
+Every face of a solid cell is closed, so its rows in the momentum and pressure matrices have
+no off-diagonal entries and are decoupled from the fluid. They receive regular diagonals so
+that the linear solvers see a well-posed system.
+\begin{itemize}\itemsep2pt
+\item \emph{Momentum.} The blanking diagonal $\nu\,b_PV_P=\nu\sum_f|\Sf|\delta_f$, the
+      viscous diagonal of an unobstructed cell. The right-hand side is zero in a solid cell
+      (the gradient \eqref{eq:grad} vanishes, the forcing is weighted with $\alpha_P=0$),
+      and the blanking source $\nu b_PV_P\ub(\xx_P)$ is added, so $\uu_P=\ub$
+      exactly, independently of the size of $b_P$.
+\item \emph{Pressure.} The diagonal $-\bar a$, with $\bar a$ the mean magnitude of the
+      diagonal over the non-solid cells, and a zero source, so $p_P=0$.
+\end{itemize}
+Neither value affects the fluid. The coefficient of the momentum row matters only for the
+rate at which an iterative solver converges; its size makes the solid rows neither dominate nor
+spoil the scaling of the matrix.
+
+\subsection{SIMPLEC with cut-cell operators}
+\label{sec:simplec}
+
+Write the assembled momentum equation of cell $P$ as
 \begin{equation}
-r_{A}=\frac{V_P}{a_P},\qquad
-r_{At}=\frac{V_P}{a_P+\sum_{nb}a_{nb}},\qquad
-\sum_f\theta_f\,(r_{At})_f\,\delta_f|\Sf|\,(p_N-p_P)=\sum_f\phi_{H,f}+S_P,
+a_P\uu_P=\bm H_P(\uu)-\gradV p|_P,\qquad
+\bm H_P=\bm b_P-\sum_{nb}a_{nb}\uu_{nb},
+\label{eq:mom}
+\end{equation}
+with $a_{nb}\le0$ the off-diagonal coefficients (OpenFOAM's sign convention), $\bm b_P$ the
+explicit sources (old time level, wall and blanking sources, forcing) and $\gradV p$ the
+volume-integrated cut-cell gradient \eqref{eq:grad}. With under-relaxation $\lambda_U$ the
+diagonal is $a_P/\lambda_U$ and $\bm b_P$ holds the relaxation source. Define, per unit volume
+as OpenFOAM does,
+\begin{equation}
+A_P=\frac{a_P}{V_P},\qquad H1_P=-\frac{1}{V_P}\sum_{nb}a_{nb},\qquad
+r_{A}=\frac{1}{A_P}=\frac{V_P}{a_P},\qquad
+r_{At}=\frac{1}{A_P-H1_P}=\frac{V_P}{a_P+\sum_{nb}a_{nb}} .
+\label{eq:rA}
+\end{equation}
+$r_A$ is the mobility of SIMPLE and $r_{At}$ that of SIMPLEC, the response of the cell velocity
+to a pressure gradient when the neighbours respond in the same way. Note that the momentum
+equation keeps the full cell volume in $A$: the fluid volume enters only through the unsteady
+diagonal $\alpha_PV_P/\dt$ and the wall term. The predictor is
+$\bm H/a_P$, and the Rhie--Chow flux of the predictor is
+\begin{equation}
+\phi_{H,f}=\theta_f\,(r_A\bm H/V)_f\cdot\Sf
++\theta_f\,(r_{At}-r_A)_f\,|\Sf|\,\partial_np^{\rm old}_f
+\;\big[+\,(r_A)_f\,\mathcal{D}_f\big],
+\label{eq:phiH}
+\end{equation}
+with $\partial_n$ the face-normal gradient of the \code{snGrad} scheme and $\mathcal{D}_f$ the
+transient Rhie--Chow correction (below). The pressure equation is the discrete divergence of
+the corrected flux, with the Laplacian weighted by the same $\theta_f$ as the flux,
+\begin{equation}
+\sum_f\theta_f\,(r_{At})_f\,|\Sf|\,\partial_np_f=\sum_f\phi_{H,f}
+\;+\;S_P
+,
+\qquad
+\phi_f=\phi_{H,f}-\theta_f(r_{At})_f|\Sf|\,\partial_np_f ,
 \label{eq:peqn}
 \end{equation}
-where $\phi_{H,f}=\theta_f\,(\bm H/a_P)_f\cdot\Sf+\theta_f\,(r_{At}-r_A)_f\,\delta_f|\Sf|(p^{\rm old}_N-p^{\rm old}_P)$
-is the Rhie--Chow flux of the predictor, and $S_P$ is the mass source of a moving wall
-(zero for a body at rest, Section~\ref{sec:moving}). The corrected flux
-$\phi_f=\phi_{H,f}-\theta_f(r_{At})_f\delta_f|\Sf|(p_N-p_P)$ is then discretely
-divergence-free, and the velocity is corrected with the gradient \eqref{eq:grad}. Laplacian
-and flux in \eqref{eq:peqn} are weighted by the same $\theta_f$, so no inconsistency
-appears at the wall. The denominator of $r_{At}$ is floored at the transient diagonal
-$\alpha_PV_P/\dt$ (the value of an unobstructed cell) to keep the pressure Laplacian definite.
+where $S_P$ is the mass source of a moving wall (zero for a body at rest,
+Section~\ref{sec:moving}),
+and the cell velocity is corrected with the cut-cell gradient,
+$\uu_P=r_A\bm H_P/V_P-(r_{At})_P\gradV p|_P/V_P+\big((r_{At})_P-(r_A)_P\big)\gradV p^{\rm old}|_P/V_P$
+(the last two terms combine into the familiar SIMPLEC update with
+$\bm H/a_P$ modified by $(r_A-r_{At})\nabla p^{\rm old}$). Laplacian and flux in
+\eqref{eq:peqn} carry the same $\theta_f$, so a closed face transports neither flux nor
+pressure information, and $\phi_f$ is discretely divergence-free
+(or equal to $-S_P$)
+after the solve.
 
-The fluid region is a pure Neumann island for the pressure, and the reference is imposed as
-in \code{fvMatrix::setReference}, by doubling one diagonal entry rather than replacing a row.
-With $L$ the pressure matrix on the fluid cells ($\bm 1^{\!\top}L=\bm 0$) and
-$L'=L+d_r\bm e_r\bm e_r^{\!\top}$, left-multiplying $L'p=\bm b$ by $\bm 1^{\!\top}$ gives
-$d_rp_r=\bm 1^{\!\top}\bm b$: for a compatible right-hand side the reference is transparent
-and $Lp=\bm b$ exactly, whereas any incompatibility is deposited at the reference cell as a
-spurious point source. Exact compatibility of $S_P$ is therefore not a nicety but a
-requirement (Section~\ref{sec:primary}).
+\paragraph{Floors of the mobility.} In a cut cell dominated by its wall term, $a_P$ can be
+close to $\sum_{nb}|a_{nb}|$ and the SIMPLEC denominator $A-H1$ tiny or negative. It is
+floored:
+\begin{itemize}\itemsep2pt
+\item transient solver: $A_P-H1_P\ge\alpha_P/\dt$, the unsteady diagonal of the cell's own
+      fluid volume (zero in solid cells, where $A-H1=A>0$);
+\item steady solver: $A_P-H1_P\ge10^{-3}A_P$, a pure safeguard.
+\end{itemize}
+$r_A$ itself is not floored. The reference implementation of Section~\ref{sec:verif} instead
+floors $a_P$ at $\alpha_PV_P/\dt$; the difference is invisible in the converged transient
+solutions but is one reason why the steady solver converges to a slightly different fixed
+point (the Rhie--Chow dissipation depends on the relaxation).
+
+\paragraph{Transient Rhie--Chow correction.} With \code{ddtCorr} active, the flux of the
+predictor carries the difference between the old flux and the interpolate of the old
+velocity,
+\begin{equation}
+\mathcal{D}_f=c_f\,\frac{\phi^n_f-\theta_f\,\bar\uu^n_f\cdot\Sf}{\dt},\qquad
+c_f=1-\min\!\Big(\frac{|\phi^n_f-\theta_f\bar\uu^n_f\cdot\Sf|}{|\phi^n_f|+\epsilon},1\Big),
+\label{eq:ddtcorr}
+\end{equation}
+the Euler form of OpenFOAM's \code{ddtCorr} with $\theta$-weighted interpolation. It is added
+to \eqref{eq:phiH} with the coefficient $(r_A)_f$.
+For a moving body the old flux lives on the old wet faces and is first rescaled to the new
+ones, $\phi^n_f\to\phi^n_f\,\theta^{n+1}_f/\theta^n_f$ where $\theta^n_f>0$, and replaced by
+$\theta^{n+1}_f\bar\uu^n_f\cdot\Sf$ (no correction) on faces that have just opened. For a rigid
+free stream the rescaled old flux equals the interpolated one and the correction vanishes.
+Other time schemes fall back to the Euler form with a warning.
+
+\subsection{Compatibility and the pressure reference}
+\label{sec:reference}
+
+The fluid region is a pure Neumann island for the pressure: no face of the fluid carries a
+pressure boundary condition in a periodic domain, and the solid rows are decoupled. The
+pressure Laplacian $L$ restricted to the fluid cells is therefore singular with null vector
+$\bm 1$ and $\bm 1^{\!\top}L=\bm 0$. The reference is imposed as in
+\code{fvMatrix::setReference}, by doubling one diagonal entry $d_r$ (and adding $d_rp_{\rm
+ref}$ to the source) rather than replacing a row.
+
+\begin{lemma}[Transparent reference]
+\label{lem:reference}
+Let $L'=L+d_r\bm e_r\bm e_r^{\!\top}$ and $L'p=\bm b$ (with $p_{\rm ref}=0$). Then
+$d_rp_r=\bm 1^{\!\top}\bm b$. In particular, for a compatible right-hand side
+($\bm 1^{\!\top}\bm b=0$) the reference is transparent, $p_r=0$ and $Lp=\bm b$ exactly; any
+incompatibility is deposited at the reference cell as a point source.
+\end{lemma}
+\begin{proof}
+Left-multiply $L'p=\bm b$ by $\bm 1^{\!\top}$ and use $\bm 1^{\!\top}L=\bm 0$.
+\end{proof}
+
+The right-hand side of \eqref{eq:peqn} is compatible because $\sum_P\sum_f\phi_{H,f}$
+telescopes (each internal and coupled face appears twice with opposite sign)%
+\ and $\sum_PS_P=0$ (Section~\ref{sec:primary})%
+. In a domain with inflow and outflow boundaries the steady solver additionally balances the
+boundary fluxes (\code{adjustPhi}). The reference cell must be a fluid cell; this is checked
+at start-up.
+For moving bodies the user's reference cell is kept while it is fluid and otherwise replaced by
+the non-solid cell with the largest level set at its centre, i.e.\ the cell farthest from the
+bodies, so that a body cannot swallow it (without a level set, the first fluid cell). The
+pressure level then jumps; forces on closed bodies are unaffected because $\sum_P\bm S_{w,P}=\bm 0$
+over a closed body.
+
+\subsection{Algorithm}
+\label{sec:algstatic}
+
+Algorithm~\ref{alg:pimple} summarises one time step of the transient solver; the steady solver
+is the same loop without the unsteady term, with one pass per iteration and relaxation of
+$\uu$ and $p$.
+The lines marked $\triangleright$ exist only when a body moves
+(Section~\ref{sec:algo}).
+
+\begin{algorithm}[htbp]
+\caption{One time step of the transient cut-cell solver (\code{ibmPimpleFoam}).}
+\label{alg:pimple}
+\If(\tcp*[f]{$\triangleright$ moving bodies only}){a body moves}{
+  move the bodies to $t^{n+1}$ and rebuild $\theta_f,\alpha_P,\Sw,\Aw,\dw,\cns$, cell sets\;
+  $\ub$ in the body-owned cells; $S_P=\ub\cdot\Sw$; store $\alpha^n_P=\alpha^{n+1}_P-\dt S_P/V_P$\;
+  re-interpolate the flux, $\phi_f:=\theta^{n+1}_f\,\bar\uu^n_f\cdot\Sf$; relocate the pressure reference if needed\;
+}
+\For{outer iteration $k=1,\dots,n_{\rm outer}$}{
+  assemble $\alpha V\,\partial_t\uu+\nabla\!\cdot(\phi\uu)-\nabla\!\cdot(\theta\nu\nabla\uu)+\nu\cns V\uu+\nu bV\uu=\bm s$\;
+  $\triangleright$ add the sources $\nu(\cns+b)V\ub$\;
+  solve the predictor with $-\gradV p$ (optional)\;
+  \For{corrector $j=1,\dots,n_{\rm corr}$}{
+    $r_A$, $r_{At}$ (floored), $\bm H/a_P$, $\phi_H$ by \eqref{eq:phiH} with $\theta_f$\;
+    solve $\sum_f\theta_f(r_{At})_f|\Sf|\partial_np_f=\sum_f\phi_{H,f}$ %
+    $\;+\,S_P$ ($\triangleright$) %
+    with regular solid rows and the reference\;
+    $\phi:=\phi_H-\theta r_{At}|\Sf|\partial_np$; correct $\uu$ with $\gradV p$; update the flow-rate forcing\;
+  }
+}
+solve the passive scalars with the final $\phi$ (Section~\ref{sec:scalar})\;
+\end{algorithm}
 
 \subsection{Force on the body}
+\label{sec:forces}
 
-By closure, the pressure force on a body is $\bm F_p=\sum_Pp_P\Sw$ over its wall cells, and
-the viscous force is the reaction to the traction already assembled in the momentum equation,
-$\bm F_v=\sum_P\nu\,\Aw/\dw\,(\uu_P-\ub)$ for no slip and zero for free slip. Summing the
-momentum equations over the fluid shows that, at steady state in a periodic domain, the total
-force equals the driving body force times the fluid volume exactly; this identity is used as a
+By closure, the pressure force on a body is the sum of the wall terms of \eqref{eq:grad},
+\begin{equation}
+\bm F_p=\sum_{P\in\text{wall}}p_P\bm S_{w,P},\qquad
+\bm F_v=\sum_{P\in\text{wall}}\nu\,\cns V_P\,(\uu_P
+-\ub
+),
+\label{eq:forces}
+\end{equation}
+the viscous force being the reaction to the traction \eqref{eq:noslipwall} assembled in the
+momentum equation (zero for free slip). Wall cells without a body are counted on the first
+body. The forces are per unit density; for a two-dimensional case they refer to the depth of
+the mesh, and are divided by it to obtain forces per unit depth. By
+Proposition~\ref{prop:conservation}, at a steady state in a periodic domain with forcing
+$\bm g$ the total force equals $\bm g\sum_P\alpha_PV_P$ exactly; this identity is used as a
 consistency check in Section~\ref{sec:verif}.
 
+\subsection{Constant flow rate in periodic domains}
+\label{sec:meanforce}
+
+A periodic domain is driven by a uniform body force $\bm g=g\,\bm e$ adjusted so that the bulk
+velocity $\bar u=\sum_P\alpha_PV_P\,\bm e\cdot\uu_P/V_f$, $V_f=\sum_P\alpha_PV_P$, equals a target
+$U$. The force acts on the fluid only: the source of cell $P$ is $g\,\bm e\,\alpha_PV_P$.
+
+\paragraph{Gain.} Adding a force increment $\delta g$ changes the cell velocity by
+$\delta\uu_P=\bm e\,\rho_P\,\alpha_P\,\delta g$, where $\rho_P$ is the mobility of the cell to a
+force that is the same in the neighbours. For a uniform increment the neighbour couplings
+cancel in the momentum equation, so $\rho_P=1/(A_P-H1_P)=r_{At}$, the SIMPLEC mobility. The
+bulk response is
+\begin{equation}
+\delta\bar u=\bar r\,\delta g,\qquad \bar r=\frac{\sum_P(r_{At})_P\,\alpha_P^2V_P}{V_f},
+\qquad\text{hence}\qquad
+\delta g=\lambda\,\frac{U-\bar u}{\bar r},
+\label{eq:gain}
+\end{equation}
+with a relaxation $\lambda$ ($1$ by default); the extra factor $\alpha_P$ in $\bar r$ comes from
+the force being weighted with $\alpha_P$ and the average with $\alpha_PV_P$. After every
+momentum predictor and pressure correction, $\delta g$ is computed, added to the accumulated
+increment, and the velocity is corrected by $\bm e\,(r_{At})_P\alpha_P\delta g$. The
+stock OpenFOAM controller uses the gain $1/A$, which underestimates the bulk response by
+the diffusion number $\nu\dt/h^2$ when the viscous term is implicit, and overshoots by two
+orders of magnitude in the cases of Section~\ref{sec:verif}.
+The mobility is floored at $A-H1\ge\max(10^{-3}A,\alpha_P/\dt)$ in transient runs, the second
+bound covering the cells emerging from a moving body. The flow direction may be given
+separately, so a zero target (a body moving through fluid at rest on average) is allowed.
 \section{Moving bodies}
 \label{sec:moving}
 
@@ -341,18 +819,22 @@ step. The entire modification lives on the wall segment.
 
 Let $\Omega_P(t)$ be the fluid part of cell $P$. Its boundary consists of the wet parts of the
 faces, which lie in fixed planes and sweep no volume, and the wall segment, which moves with
-$\ub$. Reynolds transport gives
+$\ub$. The Reynolds transport theorem for the volume of $\Omega_P(t)$ gives
 \begin{equation}
 \frac{\dd(\alpha_PV_P)}{\dd t}=\int_{\rm wall}\ub\cdot\nn_w\dd S\simeq\ub\cdot\Sw ,
 \label{eq:volume}
 \end{equation}
-and continuity over the same region, with $(\uu-\ub)\cdot\nn_w=0$ on the wall,
+and continuity over the same region, with $(\uu-\ub)\cdot\nn_w=0$ on the wall under either
+condition,
 \begin{equation}
-\boxed{\;\sum_f\theta_f\phi_f=-\,\ub\cdot\Sw\equiv-S_P .\;}
+0=\oint_{\partial\Omega_P}\uu\cdot\nn\dd S=\sum_f\phi_f+\int_{\rm wall}\ub\cdot\nn_w\dd S
+\quad\Longrightarrow\quad
+\boxed{\;\sum_f\phi_f=-\,\ub\cdot\Sw\equiv-S_P ,\;}
 \label{eq:continuity}
 \end{equation}
-The sign is as it must be: a body advancing into the fluid has $\ub\cdot\nn_w<0$, the cell
-loses volume, and the net outflow through its faces is positive.
+with $\phi_f=\theta_f\bar\uu_f\cdot\Sf$ the wet face flux as before. The sign is as it must be:
+a body advancing into the fluid has $\ub\cdot\nn_w<0$ ($\nn_w$ points into the body), the cell
+loses volume, $S_P<0$, and the net outflow through its faces is positive.
 
 \begin{table}[htbp]\centering\small
 \caption{Every term for a body at rest and a body moving. Only three rows differ.}
@@ -361,7 +843,7 @@ loses volume, and the net outflow through its faces is positive.
 \toprule
 term & body at rest & body moving\\
 \midrule
-continuity & $\sum_f\theta_f\phi_f=0$ & $\sum_f\theta_f\phi_f=-S_P$, $\;S_P=\ub\cdot\Sw$\\
+continuity & $\sum_f\phi_f=0$ & $\sum_f\phi_f=-S_P$, $\;S_P=\ub\cdot\Sw$\\
 convective & no wall term & no wall term\\
 pressure & $p_P\Sw$, absorbed by closure & same\\
 viscous, free slip & no wall term & no wall term\\
@@ -373,15 +855,19 @@ unsteady & $\alpha_PV_P(\uu^{n+1}-\uu^n)/\dt$ & $(\alpha^{n+1}_P\uu^{n+1}-\alpha
 
 Table~\ref{tab:moving} lists every term. The convective row is the one that is easy to get
 wrong: the absolute mass flux through the wall is not zero, but the momentum balance over the
-\emph{time-varying} region involves the relative flux $\uu(\uu-\bm w)\cdot\nn$, with $\bm w$
-the boundary velocity, and on the wall $\bm w=\ub$ and $(\uu-\ub)\cdot\nn=0$; on the fixed
-faces $\bm w=\bm 0$ and the flux is the absolute one. So the convective operator is untouched,
-provided the unsteady term is the two-level one of Table~\ref{tab:moving} with the volume
-inside the difference. For free slip nothing else is added: repeating the argument of
-Proposition~\ref{prop:nopen} with \eqref{eq:continuity} forces
-$\uu\cdot\nn_w=\ub\cdot\nn_w$ for a locally uniform field --- \emph{the mass source is the
-boundary condition}. For no slip the wall traction $\nu(\ub-\uu_P)\Aw/\dw$ keeps its diagonal
-half unchanged and acquires the source $\nu\ub\Aw/\dw$, which vanishes for a wall at rest.
+\emph{time-varying} region is
+\begin{equation}
+\frac{\dd}{\dd t}\int_{\Omega_P(t)}\uu\dd V+\oint_{\partial\Omega_P(t)}\uu\,(\uu-\bm w)\cdot\nn\dd S
+=\dots,
+\end{equation}
+with $\bm w$ the velocity of the boundary: on the wall $\bm w=\ub$ and $(\uu-\ub)\cdot\nn=0$, on
+the fixed faces $\bm w=\bm 0$ and the flux is the absolute one. So the convective operator is
+untouched, provided the unsteady term is the two-level one of Table~\ref{tab:moving} with the
+volume inside the difference. For free slip nothing else is added: repeating the argument of
+Proposition~\ref{prop:nopen} with \eqref{eq:continuity} forces $\bm U\cdot\nn_w=\ub\cdot\nn_w$
+for a locally uniform field --- \emph{the mass source is the boundary condition}. For no slip
+the wall traction $\nu(\ub-\uu_P)\Aw/\dw$ keeps its diagonal half unchanged and acquires the
+source $\nu\cns V_P\ub$, which vanishes for a wall at rest.
 
 \subsection{Which quantity is primary}
 \label{sec:primary}
@@ -392,12 +878,16 @@ only one of them works.
 
 \emph{Geometry first.} Compute $\alpha^n$ and $\alpha^{n+1}$ from the level set and set
 $S_P=(\alpha^{n+1}_P-\alpha^n_P)V_P/\dt$. This differentiates a sampled quantity: the
-sub-sampled $\alpha$ carries a quadrature error of order $10^{-3}$ per cell, which divided by
-$\dt$ is amplified without bound, and the resulting source is not compatible
-($\sum_PS_P\neq0$), so the whole defect is deposited at the pressure reference cell. The
-measured free-stream error of this variant is $50\%$ of the body velocity and does not
-decrease with the number of outer iterations: it is a wrong fixed point, not a splitting
-error.
+sub-sampled $\alpha$ of \eqref{eq:subsample} carries a quadrature error of order $10^{-3}$ per
+cell, absorption removes up to $\alpha_{\min}V_P$ in single steps, and divided by $\dt$ both
+are amplified without bound. The resulting source is not compatible ($\sum_PS_P\neq0$), so by
+Lemma~\ref{lem:reference} the whole defect is deposited at the pressure reference cell.
+Figure~\ref{fig:gcl} quantifies both defects for a cylinder translating on a mesh: the
+per-cell discrepancy between the two sources is of the order of the source itself, and the
+domain sum of the geometric source is $10^{-2}$ instead of zero. In the reference
+implementation this variant gives a free-stream error of $18\%$ of the body velocity at
+$u_b=0.37$ and $90\%$ at $u_b=2$, which does not decrease with the number of outer iterations:
+it is a wrong fixed point, not a splitting error.
 
 \emph{Flux first.} Compute $\Sw$ from $\theta^{n+1}$, set
 \begin{equation}
@@ -405,49 +895,134 @@ S_P=\ub\cdot\Sw ,\qquad\text{then}\qquad
 \alpha^n_PV_P:=\alpha^{n+1}_PV_P-\dt\,S_P .
 \label{eq:candB}
 \end{equation}
-Nothing is differentiated. $\sum_PS_P$ telescopes to round-off for every body position and
-every pattern of absorbed slivers (each interior face appears twice with opposite normals and
-the same $\theta_f$, coupled faces are synchronised, and an absorbed cell has $\Sw=\bm 0$),
-and for a uniform $\uu\equiv\ub$ the discrete divergence equals $-S_P$ \emph{identically},
-because $\Sw$ is assembled from the same $\theta_f$ that the flux uses. The second half of
-\eqref{eq:candB} is a backward Euler integration of \eqref{eq:volume}: the classical resolution
-of the geometric conservation law, \emph{take the volume from the flux, not the flux from the
-volume}, applied per step. Since $\alpha^n$ is recomputed from the current geometry at every
-step and never accumulated, it cannot drift; it converges to the geometric fraction at the old
-time at first order.
+Nothing is differentiated, and three properties follow.
+\begin{enumerate}\itemsep2pt
+\item \emph{Consistency with the flux.} For a uniform $\uu\equiv\ub$ the discrete divergence
+      equals $-S_P$ \emph{identically} (Proposition~\ref{prop:uniformu}), because $\Sw$ is
+      assembled from the same $\theta_f$ that the flux uses.
+\item \emph{Compatibility.} Extending $\ub$ to all cells (its value off the wall cells is
+      irrelevant since $\Sw=\bm 0$ there),
+      \begin{equation}
+      \sum_PS_P=\sum_P\uu_{b,P}\cdot\bm S_{w,P}=\sum_{f\,\rm internal}\theta_f\Sf\cdot(\uu_{b,N}-\uu_{b,O}),
+      \label{eq:sumS}
+      \end{equation}
+      with $O$ and $N$ the owner and neighbour of $f$. For a translating body $\ub$ is uniform
+      and every term vanishes: $\sum_PS_P$ is zero to round-off for every body position and
+      every pattern of absorbed slivers (an absorbed cell has $\Sw=\bm 0$, coupled faces carry
+      the same $\theta_f$ on both sides). For a rotation $\uu_{b,N}-\uu_{b,O}=\bm\omega\times(\xx^e_N-
+      \xx^e_O)$ with $\xx^e$ the evaluation points of $\ub$ (Section~\ref{sec:ubpoint}); with
+      cell centres the terms are $\theta_f\bm\omega\cdot(\bm d_f\times\Sf)$ and vanish on
+      orthogonal meshes. The sum is also not exact when two bodies with different velocities
+      share a cut cell, or when a moving body is cut by a non-periodic domain boundary.
+\item \emph{Geometric conservation law.} The second half of \eqref{eq:candB} is a backward
+      Euler integration of \eqref{eq:volume}: the classical resolution of the discrete
+      geometric conservation law, \emph{take the volume from the flux, not the flux from the
+      volume}, applied per step. Since $\alpha^n$ is recomputed from the current geometry at
+      every step and never accumulated, it cannot drift; it differs from the geometric
+      fraction at the old time by $O(\dt^2)$ per step, i.e.\ it is first-order consistent.
+\end{enumerate}
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.95\textwidth]{fig_gcl.pdf}
+\caption{Geometry-first against flux-first mass source for a cylinder of radius $1$
+translating at $\ub=(0.5,0)$ on a mesh of spacing $0.1$ with $\dt=0.02$, computed with the
+fractions of Section~\ref{sec:geomcomp}. (a)~Domain sum of the source per step: the flux
+form telescopes to round-off, the geometric form carries the sub-sampling error and the
+absorption jumps divided by $\dt$. (b)~Distribution over the cut cells of the per-cell
+difference between the two, relative to the largest source.}
+\label{fig:gcl}
+\end{figure}
 
 \begin{proposition}[Free-stream preservation]
 \label{prop:freestream}
-Let the body translate rigidly at $\ub$ and let $\uu^n\equiv\ub$, $p\equiv0$. Then
-$\uu^{n+1}\equiv\ub$, $p\equiv0$ solves the discrete system exactly, for any $\dt$, body
-path, mesh and wall condition.
+Let the body translate at a constant velocity $\ub$, let $\uu^n\equiv\ub$ in every cell
+(including the solid) and $p\equiv0$, and let the flow-rate forcing be either absent or target
+$\ub$. Then $\uu^{n+1}\equiv\ub$, $p\equiv0$ solves the discrete system exactly, for any $\dt$,
+mesh and wall condition.
 \end{proposition}
 \begin{proof}
-In the momentum row of a fluid cell the row sums are: unsteady $\alpha^{n+1}V_P/\dt$;
-convective $\sum_f\phi_f=-S_P$ (the flux having been formed from $\ub$ through the new
-$\theta_f$, Section~\ref{sec:algo}); viscous zero, since the $\theta$-weighted Laplacian
-annihilates a constant; no-slip wall $+\nu\Aw/\dw$ on the diagonal, matched by
-$+\nu\Aw\ub/\dw$ on the right; pressure zero by \eqref{eq:grad}. The row reduces to
-$(\alpha^{n+1}V_P/\dt-S_P)\ub=\alpha^nV_P\ub/\dt$, which is \eqref{eq:candB}. Continuity
-holds because $\sum_f\phi_f=-S_P$ identically, so the pressure equation has zero right-hand
-side and $p\equiv0$.
+In the momentum row of a fluid cell the contributions for $\uu\equiv\ub$ are: unsteady
+$(\alpha^{n+1}\ub-\alpha^n\ub)V_P/\dt$; convective $\ub\sum_f\phi_f=-S_P\ub$ (the flux having
+been formed from $\ub$ through the new $\theta_f$, Section~\ref{sec:algo}); viscous zero, since
+the $\theta$-weighted Laplacian annihilates a constant; no-slip wall
+$\nu\cns V_P(\uu_P-\ub)=\bm 0$; pressure zero by Proposition~\ref{prop:uniformp}. The row
+reduces to $\big((\alpha^{n+1}-\alpha^n)V_P/\dt-S_P\big)\ub=\bm 0$, which is \eqref{eq:candB}.
+In solid cells $\uu=\ub$ is the blanking solution. Continuity holds because $\sum_f\phi_f=-S_P$
+identically, so the pressure equation has zero right-hand side and $p\equiv0$; the transient
+Rhie--Chow correction vanishes because the rescaled old flux is the free-stream flux.
 \end{proof}
 
+A rotating or accelerating body has no uniform exact solution, so the proposition does not
+apply to it; the construction still guarantees consistency (item~1) and, for translation,
+compatibility.
+
 \begin{remark}
-The diagonal contribution of the convective operator is $\tfrac12\sum_f\phi_f=-\tfrac12S_P$,
-so unsteady and convective terms together put $\tfrac12(\alpha^{n+1}+\alpha^n)V_P/\dt$ on the
-diagonal, the \emph{average} of old and new fluid volume. A cell just emerging from the body
-still carries half its new volume there.
+With central differencing the diagonal contribution of the convective operator is
+$\tfrac12\sum_f\phi_f=-\tfrac12S_P$, so once continuity is satisfied the unsteady and
+convective terms together put $\tfrac12(\alpha^{n+1}+\alpha^n)V_P/\dt$ on the diagonal, the
+\emph{average} of old and new fluid volume, and their row sum is $\alpha^n_PV_P/\dt$. A cell
+just emerging from the body still carries half its new volume on the diagonal. In the first
+outer iteration of a step the re-interpolated flux does not yet satisfy
+\eqref{eq:continuity} unless the velocity is uniform, so these statements hold from the second
+outer iteration on.
 \end{remark}
+
+\subsection{Where the body velocity is evaluated}
+\label{sec:ubpoint}
+
+For a translating body $\ub$ is uniform and the question does not arise. For a rotating one
+the evaluation point $\xx^e_P$ of $\ub$ in a wall cell matters, because the mass source
+should vanish for a motion tangential to the wall: for a circle rotating about its centre,
+$\int_{\rm wall}\ub\cdot\nn\dd S=0$ on every wall segment. Two observations settle what a
+point can achieve.
+
+\begin{lemma}[Rigid motion along the normal]
+For $\ub(\xx)=\bm U+\bm\omega\times(\xx-\bm c)$ and any $s$,
+$\ub(\xx+s\nn_w)\cdot\nn_w=\ub(\xx)\cdot\nn_w$.
+\end{lemma}
+\begin{proof}
+$(\bm\omega\times s\nn_w)\cdot\nn_w=0$.
+\end{proof}
+
+Hence the normal velocity, and with it $S_P$, depends only on the position of $\xx^e_P$
+\emph{across} the normal; shifting the point along $\nn_w$ changes only the tangential
+velocity, which enters the no-slip traction and the viscous force. For a circle $\Sw$ is
+normal to the chord joining the two edge crossings (Fig.~\ref{fig:geometry}c), and the line
+through the centre along $\Sw$ passes through the chord midpoint; any point on that line
+gives $S_P=0$ exactly. The cell centre does not lie on it in general, and the resulting
+spurious sources, of order $|\bm\omega|h\Aw$ and alternating in sign around the body,
+checkerboard the pressures of the cut cells.
+
+In the implementation, solid cells use their centre and wall cells the point
+\begin{equation}
+\xx^e_P=\xx_{c,P}+\dw\,\nn_w ,
+\label{eq:ubpoint}
+\end{equation}
+the fluid centroid $\xx_{c,P}$ (Section~\ref{sec:centroids}) moved by the wall distance towards
+the body; the centroid is computed whether or not the second-order treatment is switched on.
+By the lemma the mass source is that of the centroid. For a thin cut cell the centroid lies
+close to the perpendicular bisector of the wall chord, so the spurious source is reduced by
+far compared with the cell centre; it is not zero in general. On the Taylor--Couette case of
+Section~\ref{sec:tc} the cell-centre evaluation produced pressure errors of $\pm0.4$ in the
+cut cells (larger than the whole pressure range), and \eqref{eq:ubpoint} removed them; the
+domain sum \eqref{eq:sumS} stayed at $10^{-17}$, although with centroid evaluation points it is
+exact only by the symmetry of that case.
 
 \subsection{Algorithm}
 \label{sec:algo}
 
-One time step (Fig.~\ref{fig:swept}):
+One time step (Algorithm~\ref{alg:pimple} and Fig.~\ref{fig:swept}):
 \begin{enumerate}\itemsep2pt
-\item Move the bodies to $t+\dt$ and rebuild $\theta_f$, $\alpha_P$, $\Sw$, $\Aw$, $\dw$,
-      the cell sets and the body velocity at the cell centres $\ub(\bm x_P)$.
-\item Form $S_P=\ub\cdot\Sw$ and $\alpha^n_PV_P=\alpha^{n+1}_PV_P-\dt S_P$.
+\item Advance the time and move the bodies to $t^{n+1}$ (implicit in time); keep $\theta^n_f$
+      for the transient Rhie--Chow correction.
+\item Rebuild all geometry from scratch: $\theta_f$, $\alpha_P$ (with sliver absorption and
+      coupled-face synchronisation), $\Sw$, $\Aw$, $\dw$, $\cns$, the cell sets and the body
+      attribution%
+      , the centroids and, if switched on, the second-order quantities%
+      . The old geometry is not kept.
+\item Evaluate $\ub$ in every body-owned cell (wall cells at \eqref{eq:ubpoint}, solid cells at
+      their centre), form $S_P=\ub\cdot\Sw$ and $\alpha^n_PV_P=\alpha^{n+1}_PV_P-\dt S_P$, and
+      store $\alpha^n$ as the old-time value of $\alpha$.
 \item \emph{Re-interpolate the carried flux}: $\phi_f:=\theta_f^{n+1}\,\bar\uu^n_f\cdot\Sf$.
       The flux returned by the previous step lives on the faces of the \emph{old} cut mesh: a
       face that has just opened has no history there, and one that has just closed carries a
@@ -456,93 +1031,491 @@ One time step (Fig.~\ref{fig:swept}):
       way --- but for a fluid translating rigidly with the body it lands exactly on the fixed
       point, which is why Proposition~\ref{prop:freestream} holds from the first outer
       iteration. Without it the fixed point is approached at roughly a factor of two per outer
-      iteration.
+      iteration. The previous Rhie--Chow flux is kept as the old-time flux for
+      \eqref{eq:ddtcorr}.
+\item Keep the pressure reference cell if it is fluid, otherwise relocate it
+      (Section~\ref{sec:reference}).
 \item For each of $n_{\rm outer}$ outer iterations: assemble and solve the momentum
-      predictor with the sources $\alpha^nV_P\uu^n/\dt$, $\nu\Aw\ub/\dw$ (no slip) and the
-      blanking source; form $\bm H/a_P$ and $\phi_H$; solve \eqref{eq:peqn} with $S_P$ on the
-      right-hand side; correct flux and velocity.
+      predictor with the sources $\alpha^nV_P\uu^n/\dt$, $\nu\cns V_P\ub$ (no slip) and the
+      blanking source $\nu b_PV_P\ub$; form $\bm H/a_P$ and $\phi_H$; solve \eqref{eq:peqn}
+      with $S_P$ on the right-hand side; correct flux and velocity. The geometry is frozen
+      during the outer iterations.
 \end{enumerate}
-Equation \eqref{eq:peqn} with $S_P$ is the entire algorithmic modification. The pressure
-reference cell is kept while it is fluid and otherwise replaced by the fluid cell farthest from
-the bodies, so that a body cannot swallow it.
+Equation \eqref{eq:peqn} with $S_P$ is the entire algorithmic modification of the pressure
+equation. Newly uncovered cells enter the step with the velocity they had in the solid,
+$\ub(\xx_P)$, and $p=0$. For this reason velocity and pressure are \emph{not} set to zero in
+the solid at start-up when a body moves: a free stream must start with $\uu=\ub$ in the solid.
 
 \begin{figure}[htbp]\centering
-\includegraphics[width=0.58\textwidth]{f1_swept.pdf}
+\includegraphics[width=0.5\textwidth]{fig_swept.pdf}
 \caption{A cut cell over one step. The faces are fixed in space; only their wet fractions
-change. The shaded band is the volume the wall sweeps, $\dt\,\ub\cdot\Sw=\dt S_P$, the only
-quantity the motion contributes to the discretisation.}
+change. The shaded band is the volume the wall sweeps, $\dt\,\ub\cdot\Sw=\dt S_P$ (negative
+here: the body advances and the cell loses volume), the only quantity the motion contributes
+to the discretisation; the old fluid volume is recovered from it, $\alpha^n_PV_P=
+\alpha^{n+1}_PV_P-\dt S_P$.}
 \label{fig:swept}
 \end{figure}
 
 \subsection{Step restriction}
 
-The row sum of unsteady plus convective operator is exactly $\alpha^nV_P/\dt$, which changes
-sign when the swept volume exceeds the fluid the cell holds:
+The row sum of the unsteady plus convective operator is $\alpha^n_PV_P/\dt$, which becomes
+negative when the swept fraction does. By \eqref{eq:candB}, $\alpha^n_P<0$ when
 \begin{equation}
-\dt\,|\ub|\lesssim\frac{\alpha_PV_P}{\Aw}=2\dw .
+\dt\,\ub\cdot\nn_w>\frac{\alpha^{n+1}_PV_P}{\Aw}=2\dw ,
 \end{equation}
-This is a condition on the smallest wet cell, hence set by $\alpha_{\min}$ rather than by the
-mesh spacing. It is not fatal when violated in a few cells --- the diagonal there is still
-dominated by the viscous and wall terms, which grow like $1/\alpha_P$ --- and the solver reports
-$\min_P\alpha^n_P$ and the number of violating cells at every step.
+i.e.\ at a \emph{receding} wall (the rear of a body), in cells being uncovered whose linearised
+swept volume exceeds their new fluid volume. This is a condition on the smallest wet cells,
+hence set by $\alpha_{\min}$ rather than by the mesh spacing. It is not fatal when violated in
+a few cells --- the diagonal there is still dominated by the viscous and wall terms, which grow
+like $1/\alpha_P$ --- and the solver reports $\min_P\alpha^n_P$ and the number of cells with
+$\alpha^n_P<0$ at every step (in the oscillating-cylinder case of Section~\ref{sec:galilean},
+one or two cells in 25 of 400 steps, $\min_P\alpha^n_P=-0.032$, Fig.~\ref{fig:movingdiag}). At an advancing
+staircase wall $\alpha^n_P$ can exceed $1$ by the same mechanism; this is harmless.
 
 \subsection{Rigid body kinematics}
 
-A body is defined at rest and moved by a rigid motion: translation $\bm d(t)$ with velocity
-$\bm U(t)=\dot{\bm d}$, optionally a rotation with constant angular velocity $\bm\omega$
-about its centre. The velocity must be the exact derivative of the displacement: the first
-supplies the wall condition, the second the mass source, and if they disagree the two halves of
-the boundary condition pull against each other. Level-set queries are evaluated by transforming
-the points into the body frame (inverse translation and rotation), and, in periodic
-directions, by taking the minimum image of the point about the current centre, so that a body
-may cross a periodic boundary. The same transform gives $\ub(\bm x)=\bm U+\bm\omega\times
-(\bm x-\bm c(t))$ at the cell centres. The kinematics may also be set from outside at every
-step, which is the hook for a body driven by its own equation of motion.
+A body is defined at rest and moved by a rigid motion: a translation $\bm d(t)$ with velocity
+$\bm U(t)$, and optionally a rotation with constant angular velocity $\bm\omega$ about the
+body's reference centre $\bm c_0$ (the centre of an analytical body, the bounding-box centre
+of a triangulated one), by the angle $|\bm\omega|t$ measured from $t=0$.
+Table~\ref{tab:motions} lists the motions. The velocity must be the exact derivative of the
+displacement: the first supplies the wall condition, the second, through the geometry, the
+mass source, and if they disagree the two halves of the boundary condition pull against each
+other (this is not checked for prescribed functions).
 
+\begin{table}[htbp]\centering\small
+\caption{Body motions; every type accepts in addition a constant \code{angularVelocity}.}
+\label{tab:motions}
+\begin{tabular}{@{}lll@{}}
+\toprule
+type & displacement $\bm d(t)$ & velocity $\bm U(t)$\\
+\midrule
+\code{none} & $\bm 0$ & $\bm 0$ (moving if $\bm\omega\neq\bm 0$)\\
+\code{translating} & $\bm Ut$ & $\bm U$\\
+\code{oscillating} & $\bm A\sin(2\pi ft+\varphi_0)$ & $2\pi f\bm A\cos(2\pi ft+\varphi_0)$\\
+\code{prescribed} & \code{Function1} $\bm D(t)$ & \code{Function1} $\bm V(t)$\\
+\code{external} & set from code every step & set from code every step\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Level-set queries transform the query point into the body frame. With $\bm c(t)=\bm c_0+\bm
+d(t)$ and periodic lengths $L_k$ (given in the geometry dictionary),
+\begin{equation}
+\xx_{\rm body}=\bm c_0+\mathsf R(-|\bm\omega|t)\,\big[\,\mathrm{mi}(\xx-\bm c(t))\,\big],\qquad
+\mathrm{mi}(r)_k=r_k-L_k\big\lfloor r_k/L_k+\tfrac12\big\rfloor ,
+\end{equation}
+the minimum image of the point about the current centre in every periodic direction, so that
+a body may cross a periodic boundary. The same transform gives $\ub(\xx)=\bm U+\bm\omega\times
+\mathrm{mi}(\xx-\bm c(t))$. The \code{external} motion is the hook for a body driven by its
+own equation of motion; a body given as a fraction field and flagged as moving has its field
+re-read every step and its velocity taken from a supplied velocity field or a uniform value.
 \section{Passive scalar transport}
 \label{sec:scalar}
 
-Integrating \eqref{eq:scalar} over the fluid part of a cell with the same arguments as above
-gives
+\subsection{Discrete equation}
+
+Integrating \eqref{eq:scalar} over the fluid part of a cell with the same arguments as for
+momentum gives, for each scalar $T$,
 \begin{equation}
 \begin{aligned}
-\frac{(\alpha^{n+1}_PT^{n+1}_P-\alpha^n_PT^n_P)V_P}{\dt}
+&\frac{(\alpha^{n+1}_PT^{n+1}_P-\alpha^n_PT^n_P)V_P}{\dt}
 +\sum_f\phi_f\bar T_f
--\sum_f\theta_fD_f\delta_f|\Sf|(T_N-T_P)\qquad&\\
-+\;D\,\frac{\Aw}{\dw}\,(T_P-T_w)\,[\text{fixed value}]
-&=q_P\,\alpha_PV_P ,
+-\sum_f\theta_fD\,\delta_f|\Sf|(T_N-T_P)\\
+&\qquad+D\,c_{w,P}V_P\,(T_P-T_{w,P})+D\,b_PV_P\,(T_P-T_{w,P})
+=q_P\,\alpha^{n+1}_PV_P+s_P V_P ,
 \end{aligned}
 \label{eq:scalard}
 \end{equation}
-with $\alpha^n$ the swept fraction \eqref{eq:candB} for a moving body. The wall segment is
-seen either as a fixed-value surface --- the analogue of no slip, one diagonal term with the
-Dirichlet wall coefficient of Section~\ref{sec:geom} and the source $D\Aw T_w/\dw$ --- or as
-a zero-flux surface, the analogue of free slip, which needs no term at all because the wall
-segment simply carries no flux. The two masks, for velocity and scalar, are independent. Solid
-cells are blanked to $T_w$ so that a cell released by a moving body starts from a defined
-value. No mass-source term appears: Reynolds transport gives exactly \eqref{eq:scalard} because
-the relative flux through the wall is zero, and a uniform $T$ is preserved for the same reason
-as in Proposition~\ref{prop:freestream}. The source $q$ multiplies $\alpha_P$, so it never
-injects into the solid.
+where every $T$ without superscript is at $t^{n+1}$ and
+\begin{itemize}\itemsep2pt
+\item $\phi_f$ is the final wet flux of the flow solver, so the scalar is convected by exactly
+      the flux that satisfies discrete continuity%
+      \ ($\sum_f\phi_f=-S_P$ for a moving body)%
+      ; the convection scheme is that of the case (central in all cases reported here);
+\item the diffusive face flux is $\theta_f$-weighted as for momentum, with the constant
+      diffusivity $D$ of the scalar (plus the non-orthogonal correction of the Laplacian
+      scheme);
+\item $c_{w,P}=\Aw/(\dw V_P)=2\Aw^2/(\alpha_PV_P^2)$ is the wall coefficient \eqref{eq:cns},
+      applied in the wall cells of the bodies that are fixed-value \emph{for this scalar},
+      with $T_{w,P}$ the value of the attributed body; it is zero in the wall cells of
+      zero-flux bodies;
+\item $b_P$ is the blanking coefficient of the solid cells, where $T_{w,P}$ is the value of the
+      owning body if it is fixed-value for this scalar and $0$ otherwise;
+\item $q_P$ is an optional source per unit fluid volume, uniform in a disk (two dimensions) or
+      sphere (three dimensions) of given centre and radius, set in the cells whose centre lies
+      inside it; it multiplies $\alpha^{n+1}_P$ and never injects into the solid;
+\item $s_P$ collects the sources and sinks of the finite-volume options (\code{fvOptions})
+      that list the scalar, per unit \emph{cell} volume as OpenFOAM applies them; an implicit
+      coefficient enters the diagonal, an explicit one the source;
+\item $\alpha^n_P$ is the swept fraction \eqref{eq:candB} for a moving body and
+      $\alpha^n_P=\alpha^{n+1}_P$ for a body at rest.
+\end{itemize}
 
-Cells containing the wall are fluid cells: the scalar is transported into their fluid part
-through the wet fraction of their faces and never across the wall segment. The budget
+The wall segment is seen either as a fixed-value surface --- the analogue of no slip, one
+diagonal term $Dc_wV_P$ and the source $Dc_wV_PT_w$, i.e.\ the flux $D\Aw(T_P-T_w)/\dw$ through
+the wall --- or as a zero-flux surface, the analogue of free slip, which needs no term at all:
+the wall segment is not a mesh face and simply carries no flux. The two masks, for velocity and
+scalars, are independent, and each scalar has its own. Cells containing the wall are fluid
+cells: the scalar enters their fluid part through the wet fractions of their faces and never
+crosses the wall segment. There is no convective wall term, because the relative flux through
+the wall vanishes%
+; in particular no mass-source term appears for a moving body, the effect of the
+moving wall being carried entirely by the two-level unsteady term%
+. The solid rows are decoupled (all faces closed, $\alpha^{n+1}=\alpha^n=0$) and reduce to
+$Db_PV_P(T_P-T_{w,P})=s_PV_P$, so $T_P=T_{w,P}$ exactly when no option acts there; a cell
+released by a moving body starts from this defined value.
+
+In OpenFOAM the equation is assembled as
+\begin{lstlisting}
+fvm::ddt(ibm.alpha(), T) + fvm::div(phi, T) - fvm::laplacian(DT*ibm.theta(), T)
++ fvm::Sp(DT*wallCoeff, T) + fvm::Sp(DT*ibm.blankCoeff(), T)
+== DT*(wallCoeff + ibm.blankCoeff())*Twall + q*ibm.alpha() + fvOptions(T)
+\end{lstlisting}
+with \code{wallCoeff} and \code{Twall} the per-scalar masks. The transient solver solves the
+scalars once per time step, after the last outer iteration, with the final flux; the steady
+solver once per SIMPLE iteration, after the pressure correction.
+
+\subsection{Discrete conservation}
+
+\begin{proposition}[Scalar budget]
+\label{prop:budget}
+In a periodic or closed domain, with no finite-volume option acting in solid cells and the
+linear systems solved exactly, the scalar content $C^n=\sum_P\alpha^n_{g,P}V_PT^n_P$, with
+$\alpha_g$ the geometric fraction of the current step, satisfies
+\begin{equation}
+C^{n+1}-C^n=\dt\sum_P\big(q_P\alpha^{n+1}_P+s_P\big)V_P
+-\dt\sum_PDc_{w,P}V_P\big(T^{n+1}_P-T_{w,P}\big)
+-\sum_P\big(\alpha^n_{g,P}-\alpha^n_P\big)V_PT^n_P
+.
+\label{eq:budgetstep}
+\end{equation}
+\end{proposition}
+\begin{proof}
+Sum \eqref{eq:scalard} over all cells. Every internal and coupled face appears in the rows of
+its two cells with the same flux and the same diffusive coefficient and opposite sign, whatever
+the interpolation of $\bar T_f$, so the convective and diffusive sums vanish; the wall is not a
+face. The solid rows balance the blanking term against the options acting there, which are zero
+by assumption. What remains is
+$\sum_P(\alpha^{n+1}_PT^{n+1}_P-\alpha^n_PT^n_P)V_P/\dt=\sum_P(q\alpha^{n+1}+s)V_P-
+\sum_PDc_wV_P(T-T_w)$, and $\sum_P\alpha^n_PV_PT^n_P=C^n-\sum_P(\alpha^n_g-\alpha^n)V_PT^n$.
+\end{proof}
+
+Summed over the steps, \eqref{eq:budgetstep} is the budget
 \begin{equation}
 \begin{aligned}
-&\underbrace{\sum_P\alpha_PV_PT_P}_{\text{content}}
--\underbrace{\sum_n\dt\sum_Pq_P\alpha_PV_P}_{\text{injected}}
-+\underbrace{\sum_n\dt\sum_PD\frac{\Aw}{\dw}(T_P-T_w)}_{\text{through walls}}\\
-&\qquad+\underbrace{\sum_n\sum_P(\alpha^{\rm prev}_P-\alpha^n_P)V_PT^n_P}_{\text{swept defect}}
-=\text{round-off}
+&\underbrace{C^n-C^0}_{\text{content}}
+-\underbrace{\sum_m\dt\sum_P(q_P\alpha_P+s_P)V_P}_{\text{injected}}
++\underbrace{\sum_m\dt\sum_PDc_{w,P}V_P(T_P-T_{w,P})}_{\text{through walls}}\\
+&\qquad+\underbrace{\sum_m\sum_P(\alpha^{\rm prev}_P-\alpha^m_P)V_PT^m_P}_{\text{swept defect}}
+&\qquad=\text{round-off},
 \end{aligned}
 \label{eq:budget}
 \end{equation}
-is evaluated at every step. The last term exists only for moving bodies: $\alpha^n$ is
-integrated from the wall flux and is first-order consistent with the geometric fraction
-$\alpha^{\rm prev}$ of the previous step, and a cell absorbed into the body hands over no
-content. It is the price of the exact geometric conservation law of
-Section~\ref{sec:primary}, and it is small (Section~\ref{sec:verifscalar}).
+which the solver evaluates and reports at every step, with the options' contribution computed
+exactly as the matrix applied it (implicit part times the new value, explicit part as
+assembled). The residual is the accumulated linear-solver tolerance. The steady solver reports
+the balance of rates instead, $\sum_P(q\alpha+s)V_P$ against $\sum_PDc_wV_P(T-T_w)$.
+The swept-defect term exists only for moving bodies: $\alpha^n$ is integrated from the wall
+flux and is first-order consistent with the geometric fraction $\alpha^{\rm prev}$ of the
+previous step, and a cell absorbed into the body hands over no content. It is the price of the
+exact geometric conservation law of Section~\ref{sec:primary}; it is of either sign, of
+order $\dt$, and small (Section~\ref{sec:verifscalar}).
+Fluxes through non-periodic domain boundaries are not included in the reported budget;
+all cases reported here are periodic.
 
+\subsection{Consistency and boundedness}
+
+Conservation and consistency need different conditions. A uniform field $T\equiv T_0$ with
+$q=s=0$ is preserved by \eqref{eq:scalard} when every wall term vanishes, i.e.\ when the
+fixed-value walls have $T_w=T_0$: the convective row sum is $T_0\sum_f\phi_f$, which cancels
+against the unsteady term by
+\eqref{eq:candB} and \eqref{eq:continuity} for a moving body (Proposition~\ref{prop:freestream}),
+to the tolerance of the pressure solver. For a moving zero-flux body a released cell
+comes from the solid with the blanked value $0$, so a uniform $T_0\neq0$ is perturbed
+there by $O(\alpha^n_PT_0)$, the same effect as the swept defect.
+
+With central differencing the off-diagonal coefficient of face $f$ is
+$\tfrac12\phi_f-\theta_fD\delta_f|\Sf|$. The factor $\theta_f$ appears in both terms, so the
+condition for non-positive off-diagonals, the face P\'eclet number
+$|\bar\uu_f\cdot\Sf|/(D\delta_f|\Sf|)<2$, is the same in cut cells as in full ones. The diagonal
+is $\alpha^{n+1}V/\dt$ (%
+$\tfrac12(\alpha^{n+1}+\alpha^n)V/\dt$ for a moving body, %
+plus the neighbour sum) and the wall coefficient, which grows like $1/\alpha_P$ in small cells
+(Proposition~\ref{prop:smallcell}). The matrix is then an M-matrix and a discrete maximum
+principle, $\min(T^n,T_w)\le T^{n+1}\le\max(T^n,T_w)$ for $q=s=0$, holds%
+\ provided $\alpha^n\ge0$, i.e.\ the step restriction of Section~\ref{sec:moving} is met%
+. In the cases below the cell P\'eclet number is about $0.6$. A bounded convection scheme
+(upwind or TVD) keeps conservation and consistency, since both rely only on the flux.
+In a steady problem with zero-flux walls only and a net source there is no steady solution;
+with fixed-value walls the level of the solution is set by the wall sink.
+
+\subsection{Several scalars and input}
+
+The scalars are listed in \code{constant/scalarTransportProperties} and solved in turn, each
+with its own diffusivity, source, wall conditions, options and budget:
+\begin{lstlisting}
+scalars
+{
+    T { DT 0.1; source { centre (5 8.5 0); radius 0.5; rate 1; }
+        walls { cylinder { type fixedValue; value 0; } ".*" { type zeroGradient; } } }
+    c { DT 0.01; }                       // walls from the body entries of ibmProperties
+}
+\end{lstlisting}
+The body names in \code{walls} may be regular expressions; a body not listed falls back to its
+own \code{scalarWall} (default \code{zeroGradient}) and \code{scalarWallValue} entries in
+\code{constant/ibmProperties}. An older single-scalar form (the entries of one scalar at the
+top level of the file) is still accepted. The coupling is one-way: the flow does not see the
+scalars, and the scalars do not see each other except through options that read other fields,
+which are then lagged by the sequential solution.
+\section{Second-order wall treatment}
+\label{sec:secondorder}
+
+The treatment of Sections~\ref{sec:static}--\ref{sec:coupling} is first order for no-slip and
+fixed-value walls. This section derives an optional treatment, switched on by
+\code{secondOrder true} in \code{constant/ibmProperties}, that makes the diffusive operators
+and the velocity second order. It rests on one principle --- the value of a cut cell lives at
+the centroid of its fluid part --- and on two ingredients: a diffusive face flux consistent
+with the centroids, and the wall distance of the centroid. Neither needs a ghost value, a
+probe into the fluid or a larger stencil.
+
+\subsection{Cell values live at fluid centroids}
+\label{sec:centroids}
+
+For a smooth field, the average over the fluid part of a cell equals the point value at its
+centroid to second order,
+\begin{equation}
+\frac{1}{\alpha_PV_P}\int_{\Omega_P}u\dd V=u(\xx_{c,P})+O(h^2),\qquad
+\xx_{c,P}=\frac{1}{\alpha_PV_P}\int_{\Omega_P}\xx\dd V ,
+\end{equation}
+because the linear term of the Taylor expansion about $\xx_c$ integrates to zero. In a full
+cell $\xx_c=\xx_P$ and nothing changes; in a cut cell the centroid is displaced by $O(h)$
+from the cell centre, and every operator that treats $u_P$ as the value at $\xx_P$ makes an
+$O(h)$ error in position. Two centroids are computed (Fig.~\ref{fig:centroids}):
+\begin{itemize}\itemsep2pt
+\item the \emph{fluid centroid} $\xx_{c,P}=\xx_P+\bm o_P$ as the mean position of the fluid
+      samples of the sub-sampling that gives $\alpha_P$ \eqref{eq:subsample}, with error
+      $O(h/n_s)$; it is computed for every candidate cell (and set to $\xx_P$ in full and solid
+      cells), whether or not the switch is on;
+\item the \emph{wet-face centroid} $\xx'_f=\xx_f+\bm o'_f$ as the centroid of the fluid polygon
+      of Section~\ref{sec:geomcomp}, by fan triangulation, $\xx'_f=\sum_i|\bm a_i|(\bm p_0+\bm
+      p_i+\bm p_{i+1})/(3\sum_i|\bm a_i|)$, exact for the polygon.
+\end{itemize}
+Fraction-field bodies have no sub-samples and keep $\bm o_P=\bm 0$.
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.45\textwidth]{fig_centroids.pdf}
+\caption{Second-order ingredients for two neighbouring cut cells $P$ and $N$ of a cylinder
+(real fractions, $h=0.2$): cell centres $\xx_P,\xx_N$ (crosses), fluid centroids
+$\bm c_P=\xx_{c,P}$, $\bm c_N$ (dots), the wet part of the common face with its centroid
+$\xx'_f$, the centroid vector $\bm d$ with its normal part $(\nn\cdot\bm d)\nn$ and the
+remainder $\bm k$ along the face, and the wall distance $d_c$ of the centroid.}
+\label{fig:centroids}
+\end{figure}
+
+\subsection{Why the no-slip wall is first order}
+
+Consider the diffusive flux density through face $f$ between $P$ and $N$, discretised as
+$(u_N-u_P)\delta_f$ with $\delta_f=1/h$ on a uniform Cartesian mesh (variant F0). The values
+live at the centroids, separated by
+\begin{equation}
+\bm d=\xx_{c,N}-\xx_{c,P}=h\,\nn+(\bm o_N-\bm o_P).
+\end{equation}
+Expanding about the midpoint $\bm m$ of the two centroids,
+$u_N-u_P=\nabla u(\bm m)\cdot\bm d+O(|\bm d|^3)$, so
+\begin{equation}
+\frac{u_N-u_P}{h}=\nn\cdot\nabla u(\bm m)+\frac{(\bm o_N-\bm o_P)\cdot\nabla u(\bm m)}{h}+O(h^2).
+\label{eq:F0error}
+\end{equation}
+The second term is an $O(1)$ error in the flux density on every face of the layer of cut cells,
+since the offsets are $O(h)$. Its size depends on the wall condition. The offsets of cut cells
+are predominantly normal to the wall: at a Neumann wall the normal derivative vanishes, so
+$(\bm o_N-\bm o_P)\cdot\nabla u=O(h)\cdot O(h)$ and the error is $O(h)$ per unit flux density;
+at a Dirichlet wall the normal derivative is $O(1)$ and the error is $O(1)$. This is the
+observation of the order study summarised in Fig.~\ref{fig:order_ablation}: the Neumann problems
+are second order with the original scheme, the Dirichlet problems first order, and improving
+only the wall distance (V1/F0) leaves them first order. The wall distance
+\eqref{eq:dwall} is itself inconsistent for inclined walls (for the corner triangle
+$(0,0),(h,0),(0,h)$ it gives $0.177h$ against the true centroid distance $0.236h$, and
+Fig.~\ref{fig:walldist}b shows the spread), but that is not the limiting error.
+
+\subsection{Centroid-consistent diffusive flux}
+\label{sec:F1}
+
+Decompose the face normal as
+\begin{equation}
+\nn=\frac{\bm d}{\nn\cdot\bm d}+\bm k,\qquad \bm k=\nn-\frac{\bm d}{\nn\cdot\bm d},\quad
+\bm k\cdot\nn=0 ,
+\end{equation}
+so that $\bm k$ lies in the plane of the face (Fig.~\ref{fig:centroids}). Then
+$\nn\cdot\nabla u=\bm d\cdot\nabla u/(\nn\cdot\bm d)+\bm k\cdot\nabla u$, and the first part
+is approximated by the two-point difference along $\bm d$, which is centred between the two
+values, while the second is evaluated with a reconstructed gradient $\bm g_f$:
+\begin{equation}
+\nn\cdot\nabla u\big|_f\simeq c_f\,(u_N-u_P)+\Big[\bm g_f\cdot\nn-c_f\,\bm g_f\cdot\bm d\Big],
+\qquad c_f=\frac{1}{\max(\nn\cdot\bm d,\,0.1\,h_f)} ,
+\label{eq:f1}
+\end{equation}
+with $h_f$ the mesh distance across the face. This is the over-relaxed non-orthogonal
+correction of finite-volume methods, applied to the centroids instead of the cell centres. The
+flux through the wet part of the face is
+\begin{equation}
+F_f=\theta_f\,\Gamma_f\,|\Sf|\Big\{c_f(u_N-u_P)+\big[\bm g_f\cdot\nn-c_f\,\bm g_f\cdot\bm d\big]\Big\},
+\label{eq:F1flux}
+\end{equation}
+with the first term implicit and the bracket explicit (deferred correction, re-evaluated at
+every assembly, i.e.\ once per outer iteration). The ingredients are:
+\begin{itemize}\itemsep2pt
+\item $\bm d=\bm d_f+\bm o_N-\bm o_P$ on internal and coupled faces that are open and
+      between two non-solid cells; on all other faces the mesh values (which makes the
+      correction vanish on faces between full cells of an orthogonal mesh);
+\item the \emph{least-squares gradient on the centroids},
+      \begin{equation}
+      \bm g_P=\mathsf A_P^{-1}\sum_{N}w_{PN}\,\bm d_{PN}(u_N-u_P),\qquad
+      \mathsf A_P=\sum_Nw_{PN}\,\bm d_{PN}\bm d_{PN}^{\!\top},\quad w_{PN}=|\bm d_{PN}|^{-2},
+      \label{eq:lsq}
+      \end{equation}
+      over the neighbours across open faces (the wall value is not used), with a unit diagonal
+      added for each non-solved direction; $\bm g_P=\bm 0$ if $\mathsf A_P$ is singular (e.g.\
+      all open neighbours collinear);
+\item the face gradient $\bm g_f=\tfrac12(\bm g_P+\bm g_N)$.
+\end{itemize}
+
+\begin{proposition}[Exactness for linear fields]
+\label{prop:linear}
+If $u=a+\bm G\cdot\xx$ and $\mathsf A_P,\mathsf A_N$ are non-singular, then
+\eqref{eq:f1} returns $\nn\cdot\bm G$ exactly, independently of the floor on $\nn\cdot\bm d$.
+\end{proposition}
+\begin{proof}
+The least-squares right-hand side is $\sum_Nw\bm d(\bm d\cdot\bm G)=\mathsf A_P\bm G$, so
+$\bm g_P=\bm g_N=\bm g_f=\bm G$. Then
+$c_f\,\bm G\cdot\bm d+\bm G\cdot\nn-c_f\,\bm G\cdot\bm d=\bm G\cdot\nn$; the same $c_f$ multiplies
+the implicit and the subtracted explicit term, so the floor cancels.
+\end{proof}
+
+\noindent Further properties follow directly.
+\begin{itemize}\itemsep2pt
+\item \emph{Conservation.} $\nn$ and $\bm d$ change sign with the orientation of the face, so
+      the flux \eqref{eq:F1flux} is antisymmetric and the discrete conservation of
+      Proposition~\ref{prop:conservation} is kept (also across coupled faces).
+\item \emph{Uniform and linear fields} are reproduced, so the free-stream property of a body at
+      rest%
+      \ and Proposition~\ref{prop:freestream}
+      \ are unaffected, and so are closure, blanking, the mass source and the flow-rate
+      forcing.
+\item \emph{Stability.} The implicit part has coefficients $\theta_f\Gamma_f|\Sf|c_f>0$ and is
+      an M-matrix; the floor keeps $c_f\le10/h_f$. The explicit remainder vanishes where
+      $\bm d\parallel\nn$.
+\item \emph{Accuracy.} $\bm g_f=\nabla u(\bm m)+O(h)$ and $|\bm k|=O(1)$ in cut cells, so the flux
+      density error on cut faces is $O(h)$ instead of the $O(1)$ of \eqref{eq:F0error}; on the
+      $O(h^{1-d})$ faces of the cut layer this is the classical situation in which a local
+      truncation error of first order in a codimension-one set still yields a second-order
+      global error. The order study confirms it (Section~\ref{sec:verifsecond}).
+\end{itemize}
+
+In OpenFOAM, \eqref{eq:f1} is one \code{snGradScheme}, \code{cutCellCorrected}: its delta
+coefficients are $c_f$ and its explicit correction the bracket. Selected for
+\code{laplacianSchemes} and \code{snGradSchemes}, it is used consistently by the Gauss
+Laplacian of the momentum and pressure equations (the correction moves to the source), by
+\code{pEqn.flux()}, and by \code{fvc::snGrad} in the SIMPLEC term of \eqref{eq:phiH}, so the flux
+and velocity corrections stay consistent without any change to the solvers.
+The scalar equations inherit it through their Laplacian scheme.
+
+\subsection{Wall flux with the centroid distance}
+
+In the no-slip term \eqref{eq:noslipwall} (and the fixed-value scalar term) the distance
+$\dw$ of \eqref{eq:dwall} is replaced by the distance of the fluid centroid from the wall,
+\begin{equation}
+d_c=\max\big(\varphi(\xx_{c,P}),\;10^{-3}V_P^{1/3}\big),
+\label{eq:dc}
+\end{equation}
+evaluated with the union level set (V1). It is the exact centroid distance for level sets that
+are signed distances (the analytical bodies and triangulated surfaces); fraction-field bodies
+keep \eqref{eq:dwall}. For a fluid cell behind a closed face it is the distance to the true
+surface rather than to the closed face. The two-point wall flux
+\begin{equation}
+\Gamma\Aw\frac{u_P-u_w}{d_c}=\Gamma\Aw\Big(\partial_nu|_w+\tfrac12d_c\,\partial^2_nu|_w+\dots\Big)
+\end{equation}
+has an $O(h)$ error in flux density on an area $O(h^{d-1})$, the same class as \eqref{eq:f1},
+and suffices for second order. A three-point normal probe (V3) gives no improvement, and
+scaling the wall row with the cell's Laplacian (V2) is inconsistent, because the cell
+Laplacian contains the tangential curvature (Fig.~\ref{fig:order_ablation}). The same $d_c$
+enters the viscous force%
+\ and the evaluation point \eqref{eq:ubpoint} of the wall velocity%
+.
+
+\subsection{Pressure gradient and forces}
+\label{sec:grad2}
+
+With the switch on, the cut-cell gradient \eqref{eq:grad} is modified in two places, with
+$\bm g$ the least-squares gradient \eqref{eq:lsq} of $p$:
+\begin{equation}
+\gradV p\big|_P=\sum_f\theta_f\Big[p_f+\bm g_f\cdot(\xx'_f-\xx_f)\,[0<\theta_f<1]\Big]\Sf
++\Big[p_P+d\,\bm g_P\cdot\nn_w\Big]\Sw ,
+\label{eq:grad2}
+\end{equation}
+i.e.\ the face value of partially wet faces is moved from the face centre to the wet-face
+centroid, and the wall pressure is extrapolated from the centroid along the wall normal by the
+wall distance $d$ ($d_c$ when a level set exists), $p_w=p_c+d\,\partial_np$. The face
+corrections are antisymmetric, so Proposition~\ref{prop:conservation} still holds, and the
+force \eqref{eq:forces} uses the same wall pressure, $\bm F_p=\sum_Pp_{w,P}\bm S_{w,P}$, so the
+momentum-sum identity is kept. Two approximations remain: the linear interpolate $p_f$ is the
+value at the midpoint of the two \emph{centroids}, not at the face centre, so for a linear
+pressure the corrected face value is off by $\tfrac12\bm G\cdot(\bm o_P+\bm o_N)$ (and faces
+with $\theta_f=1$ next to a cut cell are not corrected at all); and $\xx_c+d\nn_w$ is the
+normal projection of the centroid, not the centroid of the wall segment. The operator is
+therefore \emph{not} exact for a linear pressure; a linearly exact form would use the face
+correction $\bm g_f\cdot(\xx'_f-\bm m_f)$ with $\bm m_f$ the centroid midpoint, on every open
+face of a cut cell.
+
+\subsection{The small-cell problem of the pressure}
+\label{sec:smallcellp}
+
+The operators and the velocity become second order with the two ingredients above, but the
+pressure of the cut cells does not converge (Section~\ref{sec:verifsecond}). The reason is the
+scaling of the mobility. In a thin cut cell the momentum diagonal is dominated by the wall term,
+\begin{equation}
+a_P\simeq\nu\Aw/d_c\propto\nu\Aw^2/(\alpha_PV_P),\qquad
+r_{A,P}=V_P/a_P\propto\alpha_P\,V_P^2/(\nu\Aw^2),
+\end{equation}
+against $r_A\sim h^2/\nu$ in a full cell, while the pressure row of the cut cell has the
+diagonal $\sum_f\theta_f(r_{At})_f|\Sf|c_f$, which scales with the wet fractions. The cut-cell
+pressure is thus determined by small flux residuals divided by a small coefficient, and the
+cell's own velocity barely responds to it, being pinned by the wall term. Through the face
+values $p_f$ the error feeds back into the neighbours' momentum and pollutes the near-wall
+pressure, and with it the forces, at first order. The velocity is hardly affected. A cut-cell
+pressure that is not determined by the cut cell alone --- cell merging or linking of cut cells
+below $\alpha\approx0.5$ to a full neighbour, or a wall pressure formed from the full cells ---
+is the natural next step.
+
+\subsection{Implementation and scope}
+
+\begin{itemize}\itemsep2pt
+\item Switch and schemes: \code{secondOrder true} in \code{constant/ibmProperties}, and
+\begin{lstlisting}
+laplacianSchemes { default Gauss linear cutCellCorrected; }
+snGradSchemes    { default cutCellCorrected; }
+\end{lstlisting}
+      Mismatched settings are not detected: \code{cutCellCorrected} with the switch off is the
+      \code{uncorrected} scheme (identical to \code{corrected} on orthogonal meshes), and the
+      switch with \code{corrected} gives V1/F0, which is still first order.
+\item With the switch off, $\theta$, $\alpha$, $\dw$, the gradient, the forces and the schemes
+      are bit-identical to the first-order treatment.
+      The only change on this branch that is not behind the switch is the evaluation
+      point \eqref{eq:ubpoint} of the wall velocity, which uses the centroid in
+      both cases (rotating bodies only; translating and static bodies are unaffected).
+\item The convective face value is not reconstructed at the wet-face centroid: in the order
+      study this refinement (C1) changes the error by 10--30\% on coarse meshes and nothing
+      asymptotically, and convection uses the scheme of the case.
+\item For moving bodies all centroid quantities are recomputed with the geometry at every
+      step. The combination has been exercised only with a body rotating in place
+      (Section~\ref{sec:tc}).
+\item The scalars obtain \eqref{eq:f1} and \eqref{eq:dc} through the Laplacian scheme and the
+      wall coefficient; the scalar tutorials still use the first-order schemes.
+\item Cost: one least-squares gradient per corrected field and component per assembly, the
+      centroids, and one coefficient per face. The utility \code{ibmOrderTest} solves the
+      manufactured problems of Section~\ref{sec:verifsecond} with the library operators.
+\end{itemize}
 \section{Implementation in OpenFOAM}
 \label{sec:impl}
 
@@ -559,92 +1532,141 @@ fvm::ddt(ibm.alpha(), U)                      // alpha V/dt; alpha.oldTime() = a
 == fvOptions(U) - ibm.grad(p)                 // sum_f theta_f (p_f - p_P) Sf / V
 \end{lstlisting}
 and, for moving bodies, \code{UEqn -= ibm.movingWallSource(nu)} adds
-$\nu(\text{noSlipCoeff}+\text{blankCoeff})\ub$. The pressure equation is
+$\nu(\cns+b)\ub$.
+The pressure equation is
 \begin{lstlisting}
 fvm::laplacian(ibm.thetaInterpolate(rAtU), p) == fvc::div(phiHbyA)  // phiHbyA = ibm.flux(HbyA)
 pEqn -= ibm.massSource();          // moving bodies only: div(phi) = -S
 ibm.constrainPressure(pEqn);       // regular rows for the solid cells
 \end{lstlisting}
-and \code{pEqn.flux()} is then automatically $\theta$-weighted. Everything else is untouched
-\code{simpleFoam} and \code{pimpleFoam}: the boundary constraints on $\bm H/a_P$ and $p$,
-the pressure reference, pressure relaxation, fvOptions, residual control and the PIMPLE loops.
+and \code{pEqn.flux()} is then automatically $\theta$-weighted. Everything else is
+\code{simpleFoam} and \code{pimpleFoam}: the boundary constraints on $\bm H/a_P$ and $p$, the
+pressure reference, pressure relaxation, finite-volume options, residual control and the
+PIMPLE loops. The steady and transient solvers differ from their stock counterparts only in
+the lines above, the floors of Section~\ref{sec:simplec} and the forces%
+; the moving-body operations sit behind \code{if (ibm.moving())} guards in the
+transient solver (geometry update and flux re-interpolation, moving-wall source,
+mass source, continuity report), and the steady solver rejects moving bodies%
+.
 
 This choice keeps the full cell volume $V_P$ in \code{fvMatrix::A()}, so that
-$r_A=V_P/a_P$ is exactly the mobility of \eqref{eq:peqn}. Scaling the face area vectors and
+$r_A=V_P/a_P$ is exactly the mobility of \eqref{eq:rA}. Scaling the face area vectors and
 cell volumes of the mesh in place would make all operators $\theta$/$\alpha$-aware
 implicitly, but would change the SIMPLEC mobility to $\alpha V_P/a_P$, break the interpolation
 weights on closed faces and require floors for solid cells; explicit operators are transparent
 and term-for-term identical to the formulation above.
-
 The two-level unsteady term of Table~\ref{tab:moving} costs no solver code: the density-weighted
-time derivative of OpenFOAM uses the old-time value of the weight in its source, so the swept
-fraction $\alpha^n$ of \eqref{eq:candB} is simply stored as the old-time value of $\alpha$
-after the geometry update. The transient Rhie--Chow correction (\code{ddtCorr}) is provided in Euler form with
-the old flux rescaled to the new wet area.
+time derivative \code{fvm::ddt(rho, U)} of OpenFOAM puts $\rho^{n+1}V/\dt$ on the diagonal and
+uses the old-time value of the weight in its source, so the swept fraction $\alpha^n$ of
+\eqref{eq:candB} is simply stored as the old-time value of $\alpha$ after the geometry update.
 
 \subsection{Structure}
 
 \begin{description}\itemsep2pt
-\item[\code{ibmBody}] a body: analytical (cylinder, sphere, box, half space), any closed
-      \code{searchableSurface} (e.g.\ an STL through \code{triSurfaceMesh}), or a supplied
-      fraction field; with its wall conditions and its \code{bodyMotion} (none, translating,
-      oscillating, prescribed \code{Function1}, external).
+\item[\code{ibmBody}] a body (Table~\ref{tab:bodies}): analytical, any closed
+      \code{searchableSurface}, or a supplied fraction field, with its wall condition%
+      \ and its \code{bodyMotion} (Table~\ref{tab:motions})%
+      .
 \item[\code{cutCellGeometry}] the fractions and derived fields of Section~\ref{sec:geom}, the
-      cut-cell operators (gradient, flux, \code{ddtCorr}), the solid-row regularisation, the
-      forces, and \code{update()}, which returns immediately unless a body moves. The
-      moving-only fields (body velocity, mass source) are allocated only then, so the static
-      path carries no additional cost.
-\item[\code{ibmMeanVelocityForce}] constant-flow-rate forcing for periodic domains: the bulk
-      velocity is averaged over $\alpha V$, the force acts on the fluid volume only, and the
-      controller gain is the SIMPLEC mobility $1/(A-H_1)$, the exact bulk response to a
-      uniform force, floored at $\alpha/\dt$; $1/A$ underestimates the response by the
-      diffusion number $\nu\dt/h^2$ with implicit viscosity. A zero target is allowed.
+      cut-cell operators (gradient, flux, $\theta$-interpolation, \code{ddtCorr}), the
+      solid-row regularisation, the forces%
+      , and \code{update()}, which returns immediately unless a body moves. The
+      moving-only fields (body velocity, mass source, old face fractions) are allocated
+      only then, so the static path carries no additional cost%
+      . It also holds the centroid geometry and the least-squares gradient of
+      Section~\ref{sec:secondorder}%
+      .
+\item[\code{cutCellCorrected}] the \code{snGradScheme} of \eqref{eq:f1}.
+\item[\code{ibmMeanVelocityForce}] the constant-flow-rate forcing of
+      Section~\ref{sec:meanforce}, as a finite-volume option.
 \item[\code{ibmScalarTransport}] equation \eqref{eq:scalard} for one scalar: the per-body
-      wall masks, a circular source, the sources and sinks of \code{fvOptions} listing the
-      field, and the budget \eqref{eq:budget}. \code{ibmScalarTransportList} holds the
-      scalars of \code{scalarTransportProperties}, each with its own diffusivity, source and
-      wall conditions, and solves them in turn after the pressure correction.
-\item[\code{ibmSimpleFoam}, \code{ibmPimpleFoam}] \code{simpleFoam} and \code{pimpleFoam}
-      with the terms above; the moving-body operations sit behind three
-      \code{if (ibm.moving())} guards in the transient solver.
+      wall masks, the disk source, the options listing the field, and the budget
+      \eqref{eq:budget}. \code{ibmScalarTransportList} holds the scalars of
+      \code{scalarTransportProperties} and solves them in turn.
+\item[\code{ibmSimpleFoam}, \code{ibmPimpleFoam}] the solvers.
+\item[\code{ibmSetGeometry}] computes and writes the geometry fields, and checks that the
+      cut-cell gradient of a uniform field is zero (the closure identity).
+\item[\code{ibmOrderTest}] the manufactured problems of Section~\ref{sec:verifsecond} on the
+      library operators.
 \end{description}
-The geometry computation is local except for the synchronisation of coupled faces
-(\code{syncTools}) and global reductions, so parallel runs need nothing else; a four-rank
-run reproduces the serial forces to $2\times10^{-12}$.
+The geometry computation is local except for the synchronisation of coupled faces and global
+reductions, so parallel runs need nothing else.
 
+\subsection{Input and output}
+
+The geometry is controlled by \code{constant/ibmProperties}:
+\begin{lstlisting}
+alphaMin     0.02;   // sliver threshold
+nSubSamples  32;     // n_s, samples per direction for alpha
+nBisect      40;     // bisection steps per cut edge
+writeFields  true;   writeForces true;
+periodicLengths (10 10 0);   // minimum image for bodies crossing periodic boundaries
+secondOrder  false;          // Section 7
+bodies
+{
+    cylinder
+    {
+        type cylinder;  centre (5 5 0);  axis (0 0 1);  radius 1;
+        wallType noSlip;                 // or freeSlip; invert true for fluid inside
+motion { type oscillating; amplitude (1 0 0); frequency 0.05; }
+scalarWall fixedValue;  scalarWallValue 0;   // default for all scalars
+    }
+}
+\end{lstlisting}
+The flow-rate forcing is an \code{fvOptions} entry of type \code{ibmMeanVelocityForce} with
+the target \code{Ubar}%
+, an optional \code{flowDir}%
+\ and \code{relaxation}. The fields \code{ibmAlpha}, \code{ibmTheta}, \code{ibmSw},
+\code{ibmWallDistance}, \code{ibmNoSlipCoeff} and \code{ibmBodyIndex} are written at start-up%
+; for moving bodies $\alpha$, $\theta$, $\Sw$, the body index and \code{ibmUb} are
+written at every write time%
+, and \code{ibmCentroidOffset} when the second-order treatment is on%
+. The forces of Section~\ref{sec:forces} are printed every step and written to
+\code{postProcessing/ibmForces/<time>/forces.dat} (time, then the pressure and viscous force of
+each body).
 \section{Verification}
 \label{sec:verif}
 
-All cases use a circular cylinder of radius $R=1$ in a $10\times10$ doubly periodic box
-discretised by $81\times81$ cells, $\nu=1$, $\alpha_{\min}=0.02$, central differencing for
-convection. The reference is an independent implementation of the same discretisation on a
-structured grid (direct sparse solves, exact pinning of the bulk velocity by superposition), so
-that the comparison isolates the OpenFOAM implementation from the formulation.
+Unless stated otherwise the cases use a circular cylinder of radius $R=1$ centred in a
+$10\times10$ doubly periodic box discretised by $81\times81$ cells ($h=0.1235$), $\nu=1$,
+$\alpha_{\min}=0.02$, $n_s=32$ and central differencing for convection. The reference is an
+independent implementation of the same discretisation on a structured grid (direct sparse
+solves, exact pinning of the bulk velocity by superposition), so that the comparison isolates
+the OpenFOAM implementation from the formulation. It differs from the OpenFOAM implementation
+in details that do not change the discrete fixed point: it uses the level set $r^2-R^2$, a
+penalty of $10^{12}$ instead of the blanking diagonal, floors $a_P$ instead of
+$A-H1$, and pins the bulk velocity exactly instead of by the controller of
+Section~\ref{sec:meanforce}. Forces are quoted per unit depth and density.
 
 \subsection{Body at rest}
 
 The flow is driven at bulk velocity $0.5$ ($Re_D=1$). Table~\ref{tab:static_verif} compares
-geometry, fields and drag. The fractions agree to round-off ($\alpha$ exactly, $\theta$ to
-$10^{-11}$, the bisection tolerance). The transient solver run with the reference's
-pseudo-time step ($\dt=65h^2/\nu$, Euler, one corrector, SIMPLEC, no \code{ddtCorr}) converges
-to the same discrete fixed point (velocity to $10^{-5}$, drag to $2\times10^{-6}$); the steady
-solver differs through the relaxation dependence of the Rhie--Chow dissipation. Bodies given as
-an STL (a 3600-gon) or as a fraction field give the expected accuracy of their geometry route.
-With two bodies of mixed wall conditions the forces sum to the driving force times the fluid
-volume to all digits.
+geometry, fields and drag. The fractions agree to $10^{-11}$ and the cell fractions exactly.
+The transient solver run with the reference's pseudo-time step ($\dt=65h^2/\nu$, Euler, one
+corrector, SIMPLEC, no \code{ddtCorr}) converges to the same discrete fixed point (velocity to
+$10^{-5}$, drag to $2\times10^{-6}$); the steady solver differs through the relaxation
+dependence of the Rhie--Chow dissipation, the pressure differences being concentrated in the
+cut cells. The body given as an STL (a 3600-gon) or as a fraction field gives the accuracy of
+its geometry route. With two bodies of mixed wall conditions (a no-slip cylinder of radius $1$
+and a free-slip one of radius $0.7$) the forces sum to the driving force times the fluid volume
+to all printed digits, $0.625915+0.202512=0.828427$, the check of
+Proposition~\ref{prop:conservation}; the free-slip body carries no viscous force. A four-rank
+parallel run reproduces the serial drag to all printed digits.
 
 \begin{table}[htbp]\centering\footnotesize
 \caption{Body at rest, no slip unless stated; reference drag $5.660008$ (no slip), $2.935529$
-(free slip), per unit depth and density.}
+(free slip).}
 \label{tab:static_verif}
 \setlength{\tabcolsep}{4pt}
 \begin{tabular}{@{}lccccc@{}}
 \toprule
-& steady & transient, ref.\ $\dt$ & STL body & fraction field & free slip\\
+& steady & transient, ref.\ $\dt$ & STL body & fraction field & free slip, transient\\
 \midrule
 $\alpha$, cell by cell & exact & exact & exact & exact & exact\\
-$\theta$, face by face, max diff. & $7.6\times10^{-11}$ & $7.6\times10^{-11}$ & $6.4\times10^{-6}$ & $0.11$ & $7.6\times10^{-11}$\\
-$u$, max diff.\,/\,max $u$ & $2.2\times10^{-4}$ & $9.4\times10^{-6}$ & $2.2\times10^{-4}$ & $3.3\times10^{-3}$ & $1.7\times10^{-5}$\\
+$\theta$, max.\ diff. & $7.6\times10^{-11}$ & $7.6\times10^{-11}$ & $6.4\times10^{-6}$ & $0.11$ & $7.6\times10^{-11}$\\
+$\dw$, max.\ diff. & $10^{-11}$ & $10^{-11}$ & $2.8\times10^{-6}$ & $2.2\times10^{-2}$ & $10^{-11}$\\
+$u$, max.\ diff.\,/\,max $u$ & $2.2\times10^{-4}$ & $9.4\times10^{-6}$ & $2.2\times10^{-4}$ & $3.3\times10^{-3}$ & $1.7\times10^{-5}$\\
+$p$, max.\ diff.\,/\,max $p$ & $3.0\times10^{-2}$ & $9.6\times10^{-4}$ & $3.0\times10^{-2}$ & $9.8\times10^{-2}$ & $1.9\times10^{-4}$\\
 drag & $5.660383$ & $5.659997$ & $5.660383$ & $5.651222$ & $2.935496$\\
 \bottomrule
 \end{tabular}
@@ -655,25 +1677,32 @@ drag & $5.660383$ & $5.659997$ & $5.660383$ & $5.651222$ & $2.935496$\\
 \caption{Body at rest, transient solver with the reference's pseudo-time step: streamwise
 velocity (top) and pressure (bottom) against the reference, difference field, and profiles
 through the cylinder centre.}
+\label{fig:static_field}
 \end{figure}
 
 \subsection{Moving body: free stream, oscillation, Galilean invariance}
 \label{sec:galilean}
 
-\emph{Free-stream preservation.} The domain is filled with $\uu=\ub$ and the body translates
-at $\ub$ for five steps of $\dt=0.025$ (Proposition~\ref{prop:freestream}). The maximum
-departure from $\ub$ over the fluid is $0.0$ in $u$ and below $2\times10^{-15}$ in $v$ for
-$u_b=0.37$ and $u_b=2.0$ and for one or three outer iterations; the reference gives
-$6\times10^{-16}$ and $4\times10^{-15}$. The test exercises the two-level unsteady term, the
-mass source, the moving-wall traction, the blanking and the flux re-interpolation
-simultaneously; a sign error in any of them gives an $O(1)$ result.
+The moving cases use $\dt=0.025$, three outer iterations, one corrector, SIMPLEC and no
+transient Rhie--Chow correction (\code{ddtCorr no}), as the reference.
 
-\emph{Oscillating cylinder.} $x_c=5+\sin(2\pi\cdot0.05\,t)$, $t\in[0,10]$, 400 steps, three
-outer iterations, bulk velocity pinned to zero. The force histories agree to
-$4.4\times10^{-4}$ after the impulsive first ten steps ($7\times10^{-5}$ of the peak force; the
-first step, $F=-60.6$, agrees to $0.2\%$), the driving force to $10^{-6}$, and the final
-fields to $2\times10^{-7}$ in velocity (Fig.~\ref{fig:osc}). The mass-source sum and the
-continuity error $\max_P|\sum_f\phi_f+S_P|$ are at round-off at every step.
+\emph{Free-stream preservation.} The domain, solid included, is filled with $\uu=\ub$ and the
+body translates at $\ub$ for five steps, with the forcing targeting $\ub$
+(Proposition~\ref{prop:freestream}). The maximum departure from $\ub$ over the fluid is $0.0$
+in $u$ and below $2\times10^{-15}$ in $v$ for $u_b=0.37$ and $u_b=2.0$ and for one or three
+outer iterations; the reference gives $5.6\times10^{-16}$ and $3.6\times10^{-15}$. The test
+exercises the two-level unsteady term, the mass source, the moving-wall traction, the blanking
+and the flux re-interpolation simultaneously; a sign error in any of them gives an $O(1)$
+result.
+
+\emph{Oscillating cylinder.} $x_c=5+\sin(2\pi\cdot0.05\,t)$, $t\in[0,10]$, 400 steps, bulk
+velocity held at zero. The force histories agree to $4.4\times10^{-4}$ after the impulsive
+first ten steps ($7\times10^{-5}$ of the peak force; the first step, $F=-60.6$, agrees to
+$0.2\%$), the driving force to $2.6\times10^{-6}$, and the final fields to $2\times10^{-7}$ in
+velocity (Fig.~\ref{fig:osc}). The domain sum of the mass source is below $5\times10^{-18}$
+and the continuity error below $2\times10^{-16}$ at every step (Fig.~\ref{fig:movingdiag}); in
+25 of the 400 steps one or two cells at the rear of the body have $\alpha^n_P<0$, without
+consequence. A four-rank run reproduces the serial forces to $2\times10^{-12}$.
 
 \begin{figure}[htbp]\centering
 \includegraphics[width=0.8\textwidth]{fig_oscillating_vs_notebook.png}
@@ -682,24 +1711,35 @@ their difference (bottom).}
 \label{fig:osc}
 \end{figure}
 
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.95\textwidth]{fig_moving_diag.pdf}
+\caption{Oscillating cylinder, per-step diagnostics of the solver. (a)~Domain sum of the mass
+source and continuity error (volume-weighted mean of $|\sum_f\phi_f+S_P|\dt$ over the
+correctors). (b)~Smallest swept fraction $\alpha^n_P$; red dots mark the steps with cells
+where the step restriction is violated.}
+\label{fig:movingdiag}
+\end{figure}
+
 \emph{Galilean invariance.} A body translating at $u_b=0.5$ through a fluid of zero bulk
 velocity is the Galilean image of the body at rest in a bulk flow of $0.5$, but is computed
 through entirely different terms. Over $t\in[0,30]$ the body crosses the periodic seam twice.
-The mean force over the last 400 steps is $-5.69099\pm0.0883$, against $-5.69103\pm0.0884$
-for the reference and $+5.66038$ for the body at rest: the $0.5\%$ difference between moving
-and fixed body is the first-order signature of the $O(\dt)$ swept-volume integration, and the
-$\pm1.5\%$ ripple is the body sliding from one cut pattern to the next, the characteristic
-signature of a cut-cell method on a non body-fitted mesh. The histories agree to
-$1.3\times10^{-3}$ at every step after the impulsive start (Fig.~\ref{fig:gal}).
+The mean force over the last 400 steps is $-5.69099$ with standard deviation $0.0883$, against
+$-5.69103\pm0.0884$ for the reference; the steady solver gives $+5.66038$ for the body at
+rest. The standard deviation ($1.5\%$) is the body sliding from one cut pattern to the next,
+the characteristic signature of a cut-cell method on a non body-fitted mesh; the $0.5\%$
+difference between the moving and the fixed body is not analysed further here (the swept-volume
+integration is first order in time, and the moving body averages the first-order wall error
+over all cut patterns while the fixed one sees a single pattern). The histories agree with the
+reference to $1.3\times10^{-3}$ at every step after the impulsive start (Fig.~\ref{fig:gal}).
 
-This test exposed a subtlety of the seam treatment. The reference, as published, copies
+This test exposed a subtlety of the seam treatment. The reference, as first written, copied
 $\theta$ across the periodic seam \emph{before} absorbing slivers, so an absorbed cell at
-$x=L$ closes its face on that side while the same face stays open for the cell at $x=0$;
-while the body front or back crosses the seam its force deviates by up to $2.7\%$ for a few
-steps. Synchronising the coupled faces with the minimum \emph{after} absorption
-(Section~\ref{sec:geomcomp}) keeps closure exact, the mass-source sum being $10^{-19}$
-throughout; applying the same rule to the reference removes the deviations, and the numbers
-above are against that reference.
+$x=L$ closed its face on that side while the same face stayed open for the cell at $x=0$
+(Fig.~\ref{fig:sliver}c); while the body front or back crosses the seam its force deviates by
+up to $2.7\%$ for a few steps. Synchronising the coupled faces with the minimum \emph{after}
+absorption (Section~\ref{sec:absorb}) keeps closure exact, the mass-source sum being
+$10^{-19}$ throughout; applying the same rule to the reference removes the deviations, and the
+numbers above are against that reference.
 
 \begin{figure}[htbp]\centering
 \includegraphics[width=0.8\textwidth]{fig_galilean_vs_notebook.png}
@@ -712,16 +1752,21 @@ reference (top) and their difference (bottom).}
 \label{sec:verifscalar}
 
 A scalar initially zero is injected at unit rate in a disk of radius $0.5$ centred at
-$(5,8.5)$, away from the path of the body, with $D=0.1$, and the budget \eqref{eq:budget} is
-followed (Table~\ref{tab:scalar}, Fig.~\ref{fig:scalar}). With zero-flux walls and a body
-at rest the content equals the injected amount to $4\times10^{-12}$ after 200 steps and the
-solid stays exactly at zero: nothing is lost into the solid. With fixed-value walls the amount
-that left through the wall closes the budget to $6\times10^{-11}$, and in the steady solver
-the source rate equals the wall flux rate to $10^{-11}$. With a moving body the content differs
-from the injected amount by the swept-volume defect only, $3\times10^{-5}$ of the content for
-the oscillating cylinder and $8\times10^{-5}$ for the translating one, the solid stays at the
-wall value, and the residual budget errors of $10^{-10}$ are accumulated linear-solver
-tolerance. The flow is unaffected by the scalar.
+$(5,8.5)$, away from the path of the body (52 cells, injection rate $0.0978472$), with $D=0.1$
+(cell P\'eclet number about $0.6$), and the budget \eqref{eq:budget} is followed
+(Table~\ref{tab:scalar}, Figs.~\ref{fig:scalar} and~\ref{fig:scalarbudget}). With zero-flux walls
+and a body at rest the content equals the injected amount to $4\times10^{-12}$ after 202 steps
+and the solid stays exactly at zero: nothing is lost into the solid. With fixed-value walls the
+amount that left through the wall closes the budget to $6\times10^{-11}$, and in the steady
+solver the source rate equals the wall flux rate to $10^{-11}$.
+With a moving body the content differs from the injected amount by the swept-volume defect only,
+$3\times10^{-5}$ of the content for the oscillating cylinder and $8\times10^{-5}$ for the
+translating one, the solid stays at the wall value (to $10^{-12}$), and the residual budget
+errors of $10^{-10}$ are accumulated linear-solver tolerance.
+With three scalars in one run --- one with fixed-value walls, one with zero-flux walls, and one
+with zero-flux walls and a first-order decay $s=-0.05\,d$ from a finite-volume option --- the
+first two reproduce the single-scalar runs and the third closes its budget, decay included,
+to $2\times10^{-12}$. The flow is unaffected by the scalars.
 
 \begin{table}[htbp]\centering\footnotesize
 \caption{Scalar budget \eqref{eq:budget} at the end of each run.}
@@ -749,89 +1794,221 @@ blanked.}
 \label{fig:scalar}
 \end{figure}
 
-\section{Second-order wall treatment}
-\label{sec:secondorder}
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.98\textwidth]{fig_scalar_budget.pdf}
+\caption{Scalar budget over the moving runs. (a)~Content, injected amount and amount that
+left through the fixed-value wall. (b)~Swept-volume defect and budget error, relative to the
+content: the defect is the only term that does not close, and it stays below $10^{-4}$.}
+\label{fig:scalarbudget}
+\end{figure}
 
-The no-slip treatment of Section~\ref{sec:static} is first order. An order study on
-manufactured solutions (Poisson and convection--diffusion problems on the interior of a disk
-with Dirichlet and Neumann walls, \code{doc/secondOrderStudy.md}) shows that the limiting
-error is not the two-point wall gradient but the diffusive flux across the faces of a cut cell,
-$\theta_f\Gamma_f(u_N-u_P)/h$, which assumes the two cell values to sit $h$ apart along the
-face normal whereas they represent fluid parts whose centroids are neither. Two ingredients
-restore second order: (i) the wall distance $d_c$ of the fluid centroid to the wall instead of
-\eqref{eq:dwall}, and (ii) a face flux consistent with the centroids,
-\begin{equation}
-\nn\!\cdot\!\nabla u\big|_f=\frac{u_N-u_P}{\nn\!\cdot\!\bm d}
-+\Big[\bm g_f\!\cdot\!\nn-\frac{\bm g_f\!\cdot\!\bm d}{\nn\!\cdot\!\bm d}\Big],
-\label{eq:f1}
-\end{equation}
-with $\bm d$ the centroid-to-centroid vector and $\bm g_f$ the interpolated least-squares
-gradient on the centroids; the first term is implicit, the bracket explicit (the over-relaxed
-non-orthogonal form, exact for a linear field and zero on uncut cells). No probe into the
-fluid, no ghost value and no stencil growth are needed, and the free-slip wall is already
-second order. In OpenFOAM, \eqref{eq:f1} is one \code{snGradScheme} (\code{cutCellCorrected})
-supplying the delta coefficients $1/(\nn\cdot\bm d)$ and the explicit remainder, which the
-Gauss Laplacian, its flux and \code{fvc::snGrad} then use consistently; the cut-cell gradient
-\eqref{eq:grad} evaluates $p_f$ at the wet-face centroid and $p_{\rm wall}$ by extrapolation
-from the centroid. The treatment is a run-time switch and leaves the first-order path
-bit-identical.
+\subsection{Second-order wall treatment}
+\label{sec:verifsecond}
 
-On the manufactured problems ($N=20\ldots160$) the $L_2$ orders become $1.92,2.06,2.09$
-(Dirichlet Laplacian) and $1.76,1.94,1.99$ (Dirichlet convection--diffusion) against
-$0.65,1.22,1.04$ and $0.55,1.04,1.21$ before, with errors two orders of magnitude smaller at
-$N=160$; the Neumann problems stay at $1.8$--$2.5$. In the coupled problem, Taylor--Couette
-flow between two immersed cylinders (inner rotating, no slip; $N=40,80,160$), the velocity
-error drops by $5$--$16$ times and converges at order $1.7$ in the bulk ($1.8$ then $1.4$
-overall), while the pressure of the cut cells does not converge: the mobility of a cut cell
-scales with $\alpha_P\theta_f$ because the wall term dominates its diagonal, so its pressure is
-set by tiny flux residuals --- the small-cell problem of the pressure. It pollutes the
-near-wall pressure and the forces at first order: the cylinder drag of Section~\ref{sec:verif}
-converges with order $1.7$ (no slip) and $0.8$ (free slip) by Richardson extrapolation on
-$N=41,81,161$, against $0.3$ and $0.8$ before, and the no-slip sequence does not keep its rate
-on a fourth mesh. Second-order forces need a cut-cell pressure that is not determined by the
-cut cell alone (cell merging, or a wall pressure formed from the full cells), which is the
-natural next step. The same test exposed and fixed a defect of the moving-body path: the wall
-velocity of a rotating body must be evaluated at the wall segment, not at the cell centre,
-or $\ub\cdot\Sw$ does not vanish for a tangential motion.
+\emph{Operators.} The manufactured problems have the fluid inside a disk of radius $1$ in a
+$3\times3$ periodic box, $N\times N$ cells, $h=3/N$:
+\begin{center}\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+test & equation & wall & exact solution\\
+\midrule
+LD & $\nabla^2w=1$ & $w=0$ & $w=-(R^2-r^2)/4$\\
+LN & $\nabla^2w=16r^2-8R^2$ & $\partial_nw=0$ & $w=r^4-2R^2r^2$\\
+CD & $\uu\cdot\nabla T-\nabla^2T=q$, $\uu=\Omega(-y,x)$ & $T=0$ & $T=(R^2-r^2)xy$\\
+CN & same, $\Omega=10$ & $\partial_nT=0$ & $T=(R^2-r^2)^2xy$\\
+\bottomrule
+\end{tabular}
+\end{center}
+Solid-body rotation is tangential to the wall and divergence-free, so the convection tests
+exercise the wall treatment with convection without a flow solve; the cell P\'eclet number is
+$1.5$ at $N=20$. The prescribed flux is evaluated at the wet-face centroids, errors are
+$\alpha$-weighted norms at the fluid centroids, and for the Neumann problems the source is
+projected onto the compatible space (otherwise the incompatibility created by sliver
+absorption is deposited at the reference cell, Lemma~\ref{lem:reference}). With the first-order
+treatment the Dirichlet problems converge at order about one and the Neumann problems at order
+two; with the second-order treatment all four converge at order two, with errors 100 (LD) and
+20 (CD) times smaller at $N=160$ (Fig.~\ref{fig:order_operators}). The OpenFOAM operators
+reproduce an independent Python implementation of the same schemes to the printed digits for
+the variants both compute. The
+ablation of Fig.~\ref{fig:order_ablation}, computed with the Python implementation, isolates the
+ingredients: the centroid wall distance alone (V1/F0) does not raise the order, the
+centroid-consistent face flux does, a normal probe (V3) adds nothing and the row scaling (V2) is
+inconsistent.
 
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth]{fig_order_operators.pdf}
+\caption{Manufactured problems with the OpenFOAM operators (\code{ibmOrderTest}): $L_2$ and
+$L_\infty$ errors with the first-order treatment (V0/F0) and the second-order treatment
+(V1/F1); convection uses the face-centre value (C0) in both.}
+\label{fig:order_operators}
+\end{figure}
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.85\textwidth]{fig_order_ablation.pdf}
+\caption{Ablation of the ingredients on the Dirichlet problems (Python implementation, up to
+$N=320$): V0/V1 wall distance \eqref{eq:dwall}/\eqref{eq:dc}; F0/F1 face flux of cell centres /
+\eqref{eq:f1}; V2 row scaling with the cell Laplacian; V3 three-point normal probe; C1 convective
+value at the wet-face centroid.}
+\label{fig:order_ablation}
+\end{figure}
+
+\emph{Taylor--Couette flow}\label{sec:tc} between an inner cylinder of radius $0.5$ rotating at
+$\Omega=1$ (no slip) and an outer cylinder of radius $1.5$ at rest (no slip, fluid inside), both
+immersed in a $3.2\times3.2$ box, $\nu=1$, transient to steady state ($\dt=0.02$, $t=6$, two
+outer iterations). The exact solution is $u_\theta=Ar+B/r$,
+$p=A^2r^2/2+2AB\ln r-B^2/(2r^2)$ with $A=-0.125$, $B=0.28125$. With the second-order treatment
+the velocity error drops by a factor of 5--16 and converges at order $1.8$ then $1.4$
+(Fig.~\ref{fig:order_coupled}a); the pressure converges at order $0.4$, its error being dominated
+by the cut cells (Section~\ref{sec:smallcellp}). The first-order runs are evaluated at the cell
+centres, the second-order runs at the fluid centroids.
+
+\emph{Forces.} The drag of the periodic cylinder at $Re_D=1$ on $N=41,81,161,321$
+(Fig.~\ref{fig:order_coupled}b,c) shows the limitation quantitatively. For the no-slip wall the
+second-order treatment brings the drag much closer to its limit (the first-order value at
+$N=161$ is still $1.3\%$ below the second-order value at $N=321$) and the total converges at an
+apparent order of $1.7$--$1.9$; but the components show that this is largely cancellation: the
+pressure drag increases and converges at order about one, the viscous drag decreases. The
+free-slip drag, a pure pressure force, converges at order $0.5$--$0.8$ with both treatments. The
+forces are thus limited by the cut-cell pressure and by the $O(\alpha_{\min}h)$ boundary
+displacement of sliver absorption, not by the operators. (The $N=321$ runs, and the free-slip
+runs at $N=161$, stopped at the iteration limit with residuals between $2\times10^{-9}$ and $2\times10^{-8}$.)
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth]{fig_order_coupled.pdf}
+\caption{Coupled problems. (a)~Taylor--Couette flow: $L_2$ errors of velocity and pressure.
+(b)~No-slip cylinder at $Re_D=1$: pressure and viscous drag. (c)~Total drag of the no-slip and
+free-slip cylinder relative to the second-order value at $N=321$.}
+\label{fig:order_coupled}
+\end{figure}
 \section{Limitations}
 \label{sec:limits}
 
 \begin{itemize}\itemsep2pt
-\item \emph{Order.} First order in time (implicit Euler, inherited by the swept-volume
-      integration); first order in space for no slip with the treatment of
+\item \emph{Order.} First order in time (implicit Euler%
+      , inherited by the swept-volume integration%
+      ).
+      First order in space for no-slip walls with the treatment of
       Section~\ref{sec:static}, second order for the operators and the bulk velocity with that
-      of Section~\ref{sec:secondorder}, forces first order in both. A second-order extension in
-      time would need $\alpha$ at three levels and a three-level form of \eqref{eq:candB}.
+      of Section~\ref{sec:secondorder}; cut-cell pressure and forces first order in both.
+      A second-order extension in time would need $\alpha$ at three levels and a
+      three-level form of \eqref{eq:candB}.
+\item \emph{Cut-cell pressure.} The mobility of a cut cell scales with its fluid fraction, so
+      its pressure is poorly determined%
+      \ (Section~\ref{sec:smallcellp})%
+      ; the wall pressure is taken as the cell pressure%
+      \ (extrapolated from the centroid with the second-order treatment, whose
+      gradient is not exact for a linear pressure, Section~\ref{sec:grad2})%
+      . Cell merging or a wall pressure from the full cells is the remedy.
 \item \emph{Slivers.} Absorption below $\alpha_{\min}$ displaces the boundary by
-      $O(\alpha_{\min}h)$, and a cell crossing the threshold hands over no momentum or scalar
-      content; mass conservation is unaffected. Cell merging is the clean remedy and would
-      also relax the step restriction.
+      $O(\alpha_{\min}h)$ and removes the fluid volume of the absorbed cell%
+      ; a cell crossing the threshold hands over no momentum%
+      \ or scalar content%
+      . Mass conservation of the flow is unaffected. Cell merging is the clean remedy%
+      \ and would also relax the step restriction%
+      . A cut cell whose faces all close (thin features, or after coupled-face
+      synchronisation) while its $\alpha$ stays above $\alpha_{\min}$ is not guarded against.
+      $\alpha_{\min}$ must be positive, otherwise cells with $\alpha=0$ from a fraction field keep
+      open faces.
+\item \emph{Sub-cell features.} Faces are classified by their vertices and cells by their
+      vertices, face centres and centre; a feature that passes between them is not seen.
 \item \emph{Laminar.} Turbulence models are constructed for their effective viscosity only;
-      their own transport equations would need the same treatment as the scalar.
+      their own transport equations would need the same treatment as%
+      \ the scalars.
 \item \emph{Fraction-field bodies.} Reconstructing $\theta$ from the $0.5$ iso-surface of the
       point-interpolated fraction smears the wall over one cell (drag $-0.16\%$ on the
-      cylinder); a per-cell iso-value search reproducing each cell's $\alpha$ would bring it to
-      $O(h^2)$.
+      cylinder, $\theta$ errors up to $0.11$); a per-cell iso-value reproducing each cell's
+      $\alpha$ would bring it to $O(h^2)$.
+      These bodies have no centroids and stay first order.
 \item \emph{One fluid region.} A single pressure reference; a body splitting the fluid would
       need one per region.
+\item \emph{Rotating bodies.} The mass source of a wall moving tangentially is zero only if the
+      body velocity is evaluated on the line through the rotation centre along $\Sw$
+      (Section~\ref{sec:ubpoint});
+      the centroid point \eqref{eq:ubpoint} reduces but does not remove the spurious
+      local source. Evaluating at the chord midpoint (the vector-area centroid of the
+      wall segment in three dimensions) would remove it.
+      The domain sum of the source is exact for translation and, with cell-centre evaluation,
+      for rotation on orthogonal meshes.
 \item \emph{Cost of moving bodies.} The level set is evaluated at all points, face and cell
       centres every step, and $n_s^d$ samples per cut cell; for three-dimensional
       triangulated bodies a smaller $n_s$ or a band around the previous position is advisable.
 \end{itemize}
 
+\section{Planned extension: reacting scalars and deposit growth}
+\label{sec:fouling}
+
+The branch this document belongs to adds, so far, only the plan of an extension to fouling:
+reacting species transported in the fluid, a temperature field conducted through fluid,
+deposit and wall, and a deposit that grows from the reacting species and is fed back to the
+geometry as a fraction-field body. None of it is implemented yet; this section records the
+intended formulation and how it builds on the method above. The detailed plan, the reference
+solver it replaces and the open questions are in \code{doc/foulingPlan.md}.
+
+\paragraph{Reactions.} For a reaction $c_r\to c_p$ with Arrhenius rate per unit fluid volume
+$r=k_0\exp(-E_a/(\mathcal RT))\,c_r^m$, the reactant equation receives the implicit sink
+$-\alpha_Pr/c_r$ times $c_r$ and the product the explicit source $+\alpha_Pr$. Weighting with
+$\alpha_P$ keeps the solid free of reactions and makes $\sum_P\alpha_PV_Pr$ appear with opposite
+signs in the two budgets \eqref{eq:budget}, so the sum over a reaction chain closes.
+
+\paragraph{Conjugate temperature.} For the temperature the wall treatment is replaced by
+conduction through the solid: no wall coefficient, no blanking, no $\theta$ in the Laplacian,
+and cell properties blended from fluid and body values,
+$k_P=\alpha_Pk_f+(1-\alpha_P)k_b$, $C_P=\alpha_PC_f+(1-\alpha_P)C_b$, with the body of the solid
+part given by the attribution of Section~\ref{sec:bodies}. Convection still stops at the wall,
+since the flux is the cut-cell flux. This is first order at the wall.
+
+\paragraph{Deposition.} In the wall cells of the deposit or the pipe, the deposition flux per
+unit wall area is $r_w=(k_0-s_\tau\tau_w)\exp(-E_{a,d}/(\mathcal RT_P))\,c_P^m$ with the local
+wall shear $\tau_w=\nu|\uu_{P,t}|/\dw$, the traction that the no-slip term already applies. The
+deposited mass per cell grows by $r_w\Aw\dt_f$, the body fluid fraction is
+$1-m/(\rho_{\rm dep}\epsilon V_P)$, and the species loses $r_w\Aw$ (optionally). The deposit is a
+fraction-field body re-read by the geometry update.
+
+\paragraph{Conservation across sliver absorption.} Absorbing a sliver as the deposit grows
+must not lose species. Before the cell $P$ is closed, its content $\alpha_PV_Pc_P$ is handed to
+its wet face neighbours in proportion to the wet face areas,
+\begin{equation}
+c_N\;\mathrel{+}=\;\frac{\alpha_PV_Pc_P}{\alpha_NV_N}\,
+\frac{\theta_f|\Sf|}{\sum_{f'\in P}\theta_{f'}|\bm S_{f'}|},
+\end{equation}
+which adds content, not concentration, so the sum $\sum_P\alpha_PV_Pc_P$ is unchanged and the
+swept-volume defect of the budget becomes zero to round-off. The check is a non-reacting tracer
+of uniform concentration that must stay uniform and constant in content while the deposit grows
+through several cell layers.
+
+\paragraph{Time decoupling.} The fouling time scale is much longer than that of the flow. Per
+fouling step the flow and the temperature are converged with the steady solver, then the
+species, then the deposit is advanced with an adaptive step limiting the change of the deposit
+fraction, and the geometry is updated when the deposit has changed.
+
+\paragraph{Second order.} Fraction-field bodies have no centroids yet; they will be computed from
+the reconstructed geometry (wet-face centroids and the wall segment by the divergence theorem),
+so that the treatment of Section~\ref{sec:secondorder} applies to the deposit.
+
 \section{Conclusions}
 
-The method rests on one geometric statement, the closure identity of a cut cell, and on one
-choice for moving bodies, the wall flux as the primary quantity. From the first follow
-exactness for uniform tangential flow, the absence of spurious pressure forces and
-no-penetration itself; from the second follow exact compatibility of the pressure system and
-a discrete geometric conservation law that preserves a free stream to machine precision. The
-whole boundary treatment adds to the interior scheme two scalar fields, $\theta_f$ and
-$\alpha_P$, one diagonal coefficient for a no-slip or fixed-value wall, and one source term
-for a moving wall. Implemented in OpenFOAM with explicit operators on an unmodified mesh, it
-reproduces an independent reference implementation to the level of the linear-solver
-tolerances for a body at rest, oscillating and translating through a periodic boundary, and
-transports a passive scalar with a budget that closes to round-off.
+The method rests on one geometric statement, the closure identity of a cut cell%
+, and on one choice for moving bodies, the wall flux as the primary quantity%
+. From the closure identity follow exactness for uniform flow, the absence of spurious pressure
+forces, no-penetration itself, discrete conservation of momentum and exact compatibility of
+the pressure system%
+; from the flux-first choice follows a discrete geometric conservation law that
+preserves a free stream to machine precision%
+. The whole boundary treatment adds to the interior scheme two scalar fields, $\theta_f$ and
+$\alpha_P$, one diagonal coefficient for a no-slip%
+\ or fixed-value%
+\ wall%
+, and one source term for a moving wall%
+.
+Moving the cell values to the fluid centroids, with a centroid-consistent diffusive flux and
+the centroid wall distance, makes the operators and the velocity second order without ghost
+values or stencil growth; the pressure of the cut cells, and with it the forces, remains the
+open problem.
+Implemented in OpenFOAM with explicit operators on an unmodified mesh, it reproduces an
+independent reference implementation to the level of the linear-solver tolerances for a body
+at rest%
+, oscillating and translating through a periodic boundary%
+, and transports passive scalars with budgets that close to round-off%
+.
 
 \end{document}
