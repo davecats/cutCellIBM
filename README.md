@@ -14,6 +14,76 @@ A body moving through the fixed mesh changes exactly one equation: continuity ac
 the wall flux `S = u_b · Sw` as a source, and that source *is* the moving-wall boundary
 condition.
 
+## Branches
+
+Each branch builds on the previous one; each carries its own methods document
+`doc/cutCellIBM.pdf` (source `doc/cutCellIBM.tex`) describing exactly the features it contains.
+You are on **`movingBody`**.
+
+```
+main ── movingBody ── scalar ── scalar_secondOrder ── fouling
+```
+
+| branch | adds | verified by |
+|---|---|---|
+| `main` | static cut-cell IBM: steady and transient solvers, analytic / STL / fraction-field bodies, no-slip and free-slip walls, constant-flow-rate forcing, forces | reference implementation of the same scheme: cylinder at Re_D = 1 (drag to 2e-6 transient, 7e-5 steady), STL and fraction-field bodies, two bodies (force balance exact), 4-rank parallel |
+| `movingBody` | rigid bodies moving through the fixed mesh (translating, oscillating, `Function1`, external, constant rotation), periodic crossing | free stream preserved to 1e-15, oscillating cylinder force history to 7e-5 of the peak, Galilean-translated cylinder mean force to 1e-5 |
+| `scalar` | passive scalars (any number), fixed-value or zero-flux walls per body and per scalar, disk sources, `fvOptions`, running budget | budgets close to 1e-11 (static) and 1e-10 (moving); moving bodies leave a swept-volume defect below 1e-4 of the content |
+| `scalar_secondOrder` | optional second-order wall treatment (`secondOrder true`, `cutCellCorrected` scheme), `ibmOrderTest` | manufactured Laplace / convection–diffusion problems: order 1 → 2 for Dirichlet walls; Taylor–Couette velocity order 1.4–1.8; forces and cut-cell pressure remain first order |
+| `fouling` | plan only (`doc/foulingPlan.md`): reacting scalars, conjugate temperature, deposit growth with conservative sliver handover | — |
+
+**`main`** — static bodies
+- Geometry from a level set: face fractions θ from edge crossings found by bisection, cell
+  fractions α by sub-sampling, slivers (α < `alphaMin`) absorbed with all faces closed,
+  coupled faces synchronised with the minimum after absorption.
+- Wall segment defined by closure, `Sw = −Σ θ_f S_f`: no ghost cells, the wall pressure force is
+  absorbed into the gradient, no-penetration follows from continuity, free slip vs no slip is one
+  diagonal term `ν A_wall/d_wall`.
+- Bodies: `cylinder`, `sphere`, `box`, `plane`, any closed `searchableSurface` (STL), `alphaField`;
+  several bodies with mixed wall types.
+- `ibmSimpleFoam`, `ibmPimpleFoam` (SIMPLEC, θ-weighted Rhie–Chow and pressure Laplacian,
+  decoupled solid rows), `ibmSetGeometry`, `ibmMeanVelocityForce` (gain 1/(A − H1)), per-body
+  forces in `postProcessing/ibmForces`.
+
+**`movingBody`** — moving rigid bodies (`ibmPimpleFoam` only)
+- Geometry rebuilt every step; continuity gets the wall flux `S = u_b·Sw` as a source and the old
+  fluid fraction is taken from it, `α^n V = α^{n+1} V − Δt S` (discrete geometric conservation
+  law by construction), stored as `alpha.oldTime()`.
+- Moving-wall traction and blanking sources, flux re-interpolation onto the new wet faces,
+  rescaled `ddtCorr`, pressure reference relocated when swallowed, step-restriction diagnostics.
+- Motions `none | translating | oscillating | prescribed | external` plus `angularVelocity`;
+  `periodicLengths` for bodies crossing periodic boundaries; `alphaField` bodies with
+  `moving true` are re-read each step (hook for a deposit or particle model).
+- `ibmMeanVelocityForce` standalone, `flowDir` allows a zero target.
+
+**`scalar`** — passive scalars (one-way coupled)
+- `ibmScalarTransport(List)`: `constant/scalarTransportProperties` with
+  `scalars { T { DT; source; walls { <body> { type fixedValue|zeroGradient; value; } } } }`
+  (body names may be regexes; fallback `scalarWall` in `ibmProperties`).
+- Same θ-weighted fluxes as the flow, wall term `D A_wall/d_wall` for fixed value, nothing for
+  zero flux, solid blanked; `fvOptions` sources per scalar.
+- Budget printed every step: content, injected, through walls, swept-volume defect, error.
+
+**`scalar_secondOrder`** — second-order wall treatment
+- Cell values at fluid centroids; centroid-consistent diffusive face flux (implicit
+  `1/(n·d)` + explicit least-squares correction, exact for linear fields) as the `snGradScheme`
+  `cutCellCorrected`; centroid wall distance from the level set; wall pressure extrapolated
+  from the centroid. Off by default and bit-identical when off.
+- `ibmOrderTest` and `tutorials/order` (laplaceDisk, taylorCouette); raw results in
+  `validation/data/secondOrder`, study in `doc/secondOrderStudy.md`.
+
+**`fouling`** — planned, not implemented: Arrhenius reactions between scalars, conjugate
+temperature through deposit and wall, deposition driven by local wall shear into an
+`alphaField` body, conservative handover of species when slivers are absorbed, quasi-steady
+outer loop (`doc/foulingPlan.md`, and the last chapter of `doc/cutCellIBM.pdf`).
+
+Known limitations common to all branches: first order in time; cut-cell pressure and forces
+first order (small-cell problem of the pressure; cell merging is the next step); laminar only;
+one fluid region. On `movingBody` and `scalar` the mass source of a body rotating in place is
+not zero locally (the wall-velocity point only differs from the cell centre along the normal);
+on `scalar_secondOrder` the centroid evaluation reduces it. The second-order pressure gradient
+is not exact for a linear pressure.
+
 Contents
 
 1. [Layout, build, run](#1-layout-build-and-run)
