@@ -255,6 +255,11 @@ as follows.
       \emph{fluid-connected}: the walk yields one polygon joining both fluid corners. The
       wet part of the face is thus approximated by the polygon whose edges are chords of the
       wall's trace on the face, a second-order approximation in the mesh spacing.
+      The centroid $\xx'_f$ of the polygon, by fan triangulation with the triangles weighted
+      by their area projected on the face normal, and the fraction are kept as computed,
+      before absorption and synchronisation (the geometric cut, $\theta^{\rm geo}_f$), for the
+      rotating-wall source of Section~\ref{sec:ubpoint}%
+      .
 \item \emph{Cell fractions.} A cell is a candidate for sub-sampling when the level set
       at its centre, its face centres and its vertices does not have one sign; the others
       have $\alpha_P=1$ or $0$. For a candidate, $\alpha_P$ is the fraction of fluid points
@@ -820,10 +825,12 @@ condition,
 \begin{equation}
 0=\oint_{\partial\Omega_P}\uu\cdot\nn\dd S=\sum_f\phi_f+\int_{\rm wall}\ub\cdot\nn_w\dd S
 \quad\Longrightarrow\quad
-\boxed{\;\sum_f\phi_f=-\,\ub\cdot\Sw\equiv-S_P ,\;}
+\boxed{\;\sum_f\phi_f=-\int_{\rm wall}\ub\cdot\nn_w\dd S\equiv-S_P ,\;}
 \label{eq:continuity}
 \end{equation}
-with $\phi_f=\theta_f\bar\uu_f\cdot\Sf$ the wet face flux as before. The sign is as it must be:
+with $\phi_f=\theta_f\bar\uu_f\cdot\Sf$ the wet face flux as before. For a translation $\ub$ is
+uniform and $S_P=\ub\cdot\Sw$ exactly; a rotation needs more care
+(Section~\ref{sec:ubpoint}). The sign is as it must be:
 a body advancing into the fluid has $\ub\cdot\nn_w<0$ ($\nn_w$ points into the body), the cell
 loses volume, $S_P<0$, and the net outflow through its faces is positive.
 
@@ -834,7 +841,7 @@ loses volume, $S_P<0$, and the net outflow through its faces is positive.
 \toprule
 term & body at rest & body moving\\
 \midrule
-continuity & $\sum_f\phi_f=0$ & $\sum_f\phi_f=-S_P$, $\;S_P=\ub\cdot\Sw$\\
+continuity & $\sum_f\phi_f=0$ & $\sum_f\phi_f=-S_P$, $\;S_P=\bm U\cdot\Sw+S^{\rm rot}_P$\\
 convective & no wall term & no wall term\\
 pressure & $p_P\Sw$, absorbed by closure & same\\
 viscous, free slip & no wall term & no wall term\\
@@ -882,29 +889,29 @@ it is a wrong fixed point, not a splitting error.
 
 \emph{Flux first.} Compute $\Sw$ from $\theta^{n+1}$, set
 \begin{equation}
-S_P=\ub\cdot\Sw ,\qquad\text{then}\qquad
-\alpha^n_PV_P:=\alpha^{n+1}_PV_P-\dt\,S_P .
+S_P=\bm U\cdot\Sw+S^{\rm rot}_P ,\qquad\text{then}\qquad
+\alpha^n_PV_P:=\alpha^{n+1}_PV_P-\dt\,S_P ,
 \label{eq:candB}
 \end{equation}
+with $\bm U$ the translational velocity of the body and $S^{\rm rot}_P$ the flux of its rotation
+through the wall faces, \eqref{eq:srot} below (zero for a translating body).
 Nothing is differentiated, and three properties follow.
 \begin{enumerate}\itemsep2pt
 \item \emph{Consistency with the flux.} For a uniform $\uu\equiv\ub$ the discrete divergence
       equals $-S_P$ \emph{identically} (Proposition~\ref{prop:uniformu}), because $\Sw$ is
       assembled from the same $\theta_f$ that the flux uses.
-\item \emph{Compatibility.} Extending $\ub$ to all cells (its value off the wall cells is
-      irrelevant since $\Sw=\bm 0$ there),
+\item \emph{Compatibility.} For the translational part, with $\bm U$ extended to all cells
+      (its value off the wall cells is irrelevant since $\Sw=\bm 0$ there),
       \begin{equation}
-      \sum_PS_P=\sum_P\uu_{b,P}\cdot\bm S_{w,P}=\sum_{f\,\rm internal}\theta_f\Sf\cdot(\uu_{b,N}-\uu_{b,O}),
+      \sum_P\bm U\cdot\bm S_{w,P}=\sum_{f\,\rm internal}\theta_f\Sf\cdot(\bm U_N-\bm U_O)=0,
       \label{eq:sumS}
       \end{equation}
-      with $O$ and $N$ the owner and neighbour of $f$. For a translating body $\ub$ is uniform
-      and every term vanishes: $\sum_PS_P$ is zero to round-off for every body position and
-      every pattern of absorbed slivers (an absorbed cell has $\Sw=\bm 0$, coupled faces carry
-      the same $\theta_f$ on both sides). For a rotation $\uu_{b,N}-\uu_{b,O}=\bm\omega\times(\xx^e_N-
-      \xx^e_O)$ with $\xx^e$ the evaluation points of $\ub$ (Section~\ref{sec:ubpoint}); with
-      cell centres the terms are $\theta_f\bm\omega\cdot(\bm d_f\times\Sf)$ and vanish on
-      orthogonal meshes. The sum is also not exact when two bodies with different velocities
-      share a cut cell, or when a moving body is cut by a non-periodic domain boundary.
+      with $O$ and $N$ the owner and neighbour of $f$: $\sum_PS_P$ is zero to round-off for
+      every body position and every pattern of absorbed slivers (an absorbed cell has
+      $\Sw=\bm 0$, coupled faces carry the same $\theta_f$ on both sides). The rotational part
+      is a sum of face fluxes and telescopes in the same way (Proposition~\ref{prop:srot}). The
+      sum is not exact when two bodies with different velocities share a cut cell or a face,
+      or when a moving body is cut by a non-periodic domain boundary.
 \item \emph{Geometric conservation law.} The second half of \eqref{eq:candB} is a backward
       Euler integration of \eqref{eq:volume}: the classical resolution of the discrete
       geometric conservation law, \emph{take the volume from the flux, not the flux from the
@@ -944,8 +951,8 @@ Rhie--Chow correction vanishes because the rescaled old flux is the free-stream 
 \end{proof}
 
 A rotating or accelerating body has no uniform exact solution, so the proposition does not
-apply to it; the construction still guarantees consistency (item~1) and, for translation,
-compatibility.
+apply to it; the construction still guarantees consistency (item~1) and compatibility
+(item~2).
 
 \begin{remark}
 With central differencing the diagonal contribution of the convective operator is
@@ -961,40 +968,95 @@ outer iteration on.
 \subsection{Where the body velocity is evaluated}
 \label{sec:ubpoint}
 
-For a translating body $\ub$ is uniform and the question does not arise. For a rotating one
-the evaluation point $\xx^e_P$ of $\ub$ in a wall cell matters, because the mass source
-should vanish for a motion tangential to the wall: for a circle rotating about its centre,
-$\int_{\rm wall}\ub\cdot\nn\dd S=0$ on every wall segment. Two observations settle what a
-point can achieve.
+For a translating body $\ub$ is uniform, $S_P=\bm U\cdot\Sw$ is exact and the question does not
+arise. For a rotating one, $\ub(\xx)=\bm U+\bm\omega\times(\xx-\bm c)$ with $\bm c(t)$ the current
+centre of rotation, no single evaluation point gives the flux through the wall.
 
 \begin{lemma}[Rigid motion along the normal]
-For $\ub(\xx)=\bm U+\bm\omega\times(\xx-\bm c)$ and any $s$,
-$\ub(\xx+s\nn_w)\cdot\nn_w=\ub(\xx)\cdot\nn_w$.
+\label{lem:rignormal}
+For any $\xx$ and $s$, $\ub(\xx+s\nn_w)\cdot\nn_w=\ub(\xx)\cdot\nn_w$.
 \end{lemma}
 \begin{proof}
 $(\bm\omega\times s\nn_w)\cdot\nn_w=0$.
 \end{proof}
 
-Hence the normal velocity, and with it $S_P$, depends only on the position of $\xx^e_P$
-\emph{across} the normal; shifting the point along $\nn_w$ changes only the tangential
-velocity, which enters the no-slip traction and the viscous force. For a circle $\Sw$ is
-normal to the chord joining the two edge crossings (Fig.~\ref{fig:geometry}c), and the line
-through the centre along $\Sw$ passes through the chord midpoint; any point on that line
-gives $S_P=0$ exactly. The cell centre does not lie on it in general, and the resulting
-spurious sources, of order $|\bm\omega|h\Aw$ and alternating in sign around the body,
-checkerboard the pressures of the cut cells.
+\begin{lemma}[Planar surfaces]
+\label{lem:planar}
+For a planar surface $\Gamma$ with area vector $\bm S_\Gamma$ and centroid $\xx_\Gamma$ and any
+field $q$ linear in $\xx$, $\int_\Gamma q\,\nn\dd S=q(\xx_\Gamma)\bm S_\Gamma$; in particular
+$\int_\Gamma\ub\cdot\nn\dd S=\ub(\xx_\Gamma)\cdot\bm S_\Gamma$.
+\end{lemma}
 
-In the implementation, solid cells use their centre and wall cells the point
+In two dimensions the wall of a cut cell is the chord between two edge crossings and $\Sw$ is
+normal to it (Fig.~\ref{fig:geometry}c). For a body of revolution turning about its axis the
+chord midpoint $\xx_m$ lies on the line through $\bm c$ along $\Sw$, so the exact flux through the
+chord vanishes, while a point evaluation gives
+$\ub(\xx^e)\cdot\Sw=\bm\omega\cdot\big((\xx^e-\xx_m)\times\Sw\big)$, which by
+Lemma~\ref{lem:rignormal} depends only on the offset of $\xx^e$ \emph{across} the normal. The
+cell centre, the centre moved along the normal and the fluid centroid all lie off that line in
+general: each leaves spurious local sources of order $|\bm\omega|h\Aw$, alternating in sign
+around the body, which checkerboard the cut-cell pressure. (An earlier version of the code
+evaluated $\ub$ at such a point; for a cylinder turning in place the source was non-zero in
+every wall cell.)
+
+The source is therefore split into the translational part, which is kept, and the flux of the
+rotation computed from the faces:
+\begin{equation}
+\boxed{\;S_P=\bm U\cdot\Sw+S^{\rm rot}_P,\qquad
+S^{\rm rot}_P=-\sum_{f\in P,\ \theta_f>0}\theta_f\,\big(\bm\omega\times(\xx'_f-\bm c)\big)\cdot\Sf ,\;}
+\label{eq:srot}
+\end{equation}
+with $\Sf$ pointing out of $P$, $\theta_f$ the fraction after post-processing, and $\xx'_f$ the
+centroid of the geometric wet part of the face (the fan-triangulated polygon of
+Section~\ref{sec:geomcomp}, before absorption); in periodic directions $\xx'_f-\bm c$ is the minimum
+image. Because $\bm\omega\times(\xx-\bm c)$ is linear and divergence-free, the divergence theorem
+over the fluid part of the cell and Lemma~\ref{lem:planar} give
+$S^{\rm rot}_P=\int_{\rm wall}\bm\omega\times(\xx-\bm c)\cdot\nn\dd S$ exactly, where the wall is
+that of the post-processed cell: the chord(s) of the geometric cut and the geometric wet parts of
+the faces closed by sliver absorption (Section~\ref{sec:absorb}). The translational part sees the
+same wall, since $\Sw$ is formed with the post-processed $\theta_f$.
+
+\begin{proposition}[Rotating-wall source]
+\label{prop:srot}
+The source \eqref{eq:srot}
+\begin{enumerate}\itemsep1pt
+\item reduces to $\bm U\cdot\Sw$ for $\bm\omega=\bm 0$, so free-stream preservation
+      (Proposition~\ref{prop:freestream}) and every translating case are unchanged;
+\item is compatible for every rigid motion and every mesh, $\sum_PS_P=0$: every open face
+      enters its two cells with opposite $\Sf$ and the same $\theta_f$ and $\xx'_f$, and the two
+      copies of a periodic face map to the same minimum image about $\bm c$;
+\item vanishes, for a body of revolution turning about its axis, in every wall cell not next to
+      a cell removed by the post-processing; next to one it is the flux of the rotation through
+      the closed face, which moves with the body like the rest of the wall.
+\end{enumerate}
+\end{proposition}
+
+\noindent Item~3 is a compromise. The purely geometric alternative (all geometrically wet faces,
+with the flux of every removed cell handed to its fluid neighbours in proportion to the shared
+wet area) vanishes in every cell of a body turning in place, but it leaves in a cell next to a
+removed one the rotation flux through the closed face, $O(|\bm\omega|R\,\theta^{\rm geo}_fh)$,
+which that cell's continuity, with no flux through a closed face, cannot carry; an area-weighted
+share of the removed cell's flux does not cancel it face by face. The pressure takes up the
+mismatch in cells of small mobility: in the Taylor--Couette case of
+Section~\ref{sec:verifmoving}
+the cut-cell pressure errors at the rotating wall grew three- to sixfold%
+. With \eqref{eq:srot} the closed face is part of the moving wall, as in the translational part,
+and the continuity of a cell is consistent with a velocity that moves with the body near the
+wall. For a cylinder turning in place on an $81^2$ mesh, 5 of 63 wall cells carry a source.
+
+The body velocity at a point is still needed for the \emph{tangential} wall velocity of the
+no-slip traction $\nu(\ub-\uu_P)\Aw/\dw$, the viscous force and the blanking. Solid cells use their
+centre and wall cells the point
 \begin{equation}
 \xx^e_P=\xx_P+\dw\,\nn_w ,
 \label{eq:ubpoint}
 \end{equation}
-the cell centre moved by the wall distance towards the body. By the lemma this gives the same
-$S_P$ as the cell centre and changes only the tangential wall velocity used in the traction,
-which it moves to the wall side of the cell. The spurious mass source of a body rotating in
-place is therefore \emph{not} removed; the compatibility \eqref{eq:sumS} is unaffected (it holds
-on orthogonal meshes). Cases with rotating bodies are not part of the verification of this
-branch (Section~\ref{sec:limits}).
+the foot of the normal from the cell centre, which is what the two-point wall gradient
+differences against.
+For a nearly full cell with a very small wall segment, $\dw=\alpha_PV_P/(2\Aw)$ can exceed the
+cell size by orders of magnitude and the point lies far outside the cell, in a periodic domain
+possibly beyond the minimum image; the traction coefficient $\Aw/(\dw V_P)$ of such a cell is
+correspondingly small (Section~\ref{sec:limits}).
 
 \subsection{Algorithm}
 \label{sec:algo}
@@ -1064,14 +1126,16 @@ staircase wall $\alpha^n_P$ can exceed $1$ by the same mechanism; this is harmle
 A body is defined at rest and moved by a rigid motion: a translation $\bm d(t)$ with velocity
 $\bm U(t)$, and optionally a rotation with constant angular velocity $\bm\omega$ about the
 body's reference centre $\bm c_0$ (the centre of an analytical body, the bounding-box centre
-of a triangulated one), by the angle $|\bm\omega|t$ measured from $t=0$.
+of a triangulated one, or the point given as \code{centreOfRotation} in the motion
+dictionary), by the angle $|\bm\omega|t$ measured from $t=0$.
 Table~\ref{tab:motions} lists the motions. The velocity must be the exact derivative of the
 displacement: the first supplies the wall condition, the second, through the geometry, the
 mass source, and if they disagree the two halves of the boundary condition pull against each
 other (this is not checked for prescribed functions).
 
 \begin{table}[htbp]\centering\small
-\caption{Body motions; every type accepts in addition a constant \code{angularVelocity}.}
+\caption{Body motions; every type accepts in addition a constant \code{angularVelocity} and
+a \code{centreOfRotation}.}
 \label{tab:motions}
 \begin{tabular}{@{}lll@{}}
 \toprule
@@ -1480,6 +1544,60 @@ reference (top) and their difference (bottom).}
 \label{fig:gal}
 \end{figure}
 
+\subsection{Rotating bodies}
+\label{sec:verifmoving}
+
+\begin{sloppypar}
+Three tutorial cases check the rotational source \eqref{eq:srot}: a cylinder turning in place
+(\code{rotatingCylinder}), the same cylinder turning about a point off its axis
+(\code{eccentricRotation}) and Taylor--Couette flow
+(\code{taylorCouette}).
+At every step the solver logs the domain sum of the source, its largest value and the largest
+change of the fluid fraction, $\max|\alpha^{n+1}_P-\alpha^n_P|$. The three translating cases above
+are bit-identical before and after the change, in every field of every write time and in the
+force histories.
+\end{sloppypar}
+
+\emph{Cylinder turning in place} ($R=1$, $\omega=1$, centre off the mesh lines, $81^2$ cells,
+$h=0.123$). With the earlier point evaluation the source was non-zero in all 63 wall cells
+(largest $|S_P|=1.2\times10^{-3}$ per cell depth) and its domain sum was $-1.9\times10^{-4}$
+instead of zero, the latter from a single nearly full cell whose evaluation point
+$\xx_P+\dw\nn_w$ lay five units away and was wrapped by the minimum image. With \eqref{eq:srot}
+the source vanishes to round-off in 58 of the 63 wall cells; the 5 cells next to removed cells
+carry $|S_P|\le1.3\times10^{-3}$ and $|\alpha^{n+1}_P-\alpha^n_P|\le0.018$, the flux through
+their closed faces (Proposition~\ref{prop:srot}); the domain sum is $10^{-18}$.
+
+\emph{Eccentric rotation.} The same cylinder turning about a point $(0.3,-0.2)$ off its axis
+(motion entry \code{centreOfRotation}) sweeps, uncovers and absorbs cells every step. The domain
+sum of the source stays below $10^{-16}$ at every step for sources up to
+$9\times10^{-3}$; a four-rank run, with processor boundaries through the body, reproduces the
+serial largest source at every step.
+
+\emph{Taylor--Couette flow} between an inner cylinder of radius $0.5$ rotating at $\Omega=1$ (no
+slip) and an outer cylinder of radius $1.5$ at rest (no slip, fluid inside), both immersed in a
+$3.2\times3.2$ box, $\nu=1$, transient to steady state ($\dt=0.02$, $t=6$). The exact solution
+is $u_\theta=Ar+B/r$, $p=A^2r^2/2+2AB\ln r-B^2/(2r^2)$ with $A=-0.125$, $B=0.28125$; errors at the
+cell centres (\code{validation/taylorCouette\_error.py}):
+\begin{center}\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+$N$ & 40 & 80 & 160\\
+\midrule
+$L_2(\uu)$, point evaluation & $1.11\times10^{-2}$ & $7.61\times10^{-3}$ & $3.83\times10^{-3}$\\
+$L_2(\uu)$, \eqref{eq:srot} & $1.13\times10^{-2}$ & $7.65\times10^{-3}$ & $3.89\times10^{-3}$\\
+$L_2(p)$, point evaluation & $4.35\times10^{-2}$ & $3.48\times10^{-2}$ & $2.68\times10^{-2}$\\
+$L_2(p)$, \eqref{eq:srot} & $3.28\times10^{-2}$ & $3.12\times10^{-2}$ & $2.21\times10^{-2}$\\
+$L_2(p)$, geometric with handover & $1.22\times10^{-1}$ & $5.22\times10^{-2}$ & $1.48\times10^{-1}$\\
+\bottomrule
+\end{tabular}
+\end{center}
+The pressure range is $0.08$--$0.1$. The source \eqref{eq:srot} lowers the pressure error by
+$10$--$25\%$ and leaves the velocity unchanged; the largest pointwise pressure error, in a cut
+cell next to the rotating wall, stays of order one ($0.53$, $1.4$, $0.96$ against $0.38$, $0.88$,
+$0.97$) --- the small-cell problem of the cut-cell pressure (Section~\ref{sec:limits}). The
+geometric variant with handover (last row, Section~\ref{sec:ubpoint}) gives a pressure error
+two to seven times larger.
+
 \subsection{Passive scalar}
 \label{sec:verifscalar}
 
@@ -1570,13 +1688,19 @@ content: the defect is the only term that does not close, and it stays below $10
       $\alpha$ would bring it to $O(h^2)$.
 \item \emph{One fluid region.} A single pressure reference; a body splitting the fluid would
       need one per region.
-\item \emph{Rotating bodies.} The mass source of a wall moving tangentially is zero only if the
-      body velocity is evaluated on the line through the rotation centre along $\Sw$
-      (Section~\ref{sec:ubpoint});
-      the evaluation point \eqref{eq:ubpoint} gives the cell-centre value, so bodies
-      rotating in place carry spurious local mass sources of order $|\bm\omega|h\Aw$.
-      The domain sum of the source is exact for translation and, with cell-centre evaluation,
-      for rotation on orthogonal meshes.
+\item \emph{Rotating bodies.} The mass source is the exact flux of the rigid motion through
+      the wall of the post-processed cell, compatible for every rigid motion
+      (Section~\ref{sec:ubpoint}). A face closed by sliver absorption belongs to that wall and
+      moves with the body, so a body of revolution turning in place still has a source, and
+      $\alpha^n\neq\alpha^{n+1}$, in the cells next to removed ones; a uniform field is
+      nevertheless preserved and the domain sum is zero. The source is not compatible on faces
+      between cells of two different rotating bodies. In three dimensions the wall of a cut
+      cell is the polyhedral approximation of the surface, so the source of a sphere turning
+      about a diameter is not exactly zero but converges with the geometry. The wall velocity
+      of the no-slip traction is still a point value, at \eqref{eq:ubpoint}; for a nearly full
+      cell with a tiny wall segment the point can lie far outside the cell and, in a periodic
+      domain, beyond the minimum image, which gives a wrong tangential wall velocity weighted by
+      a small traction coefficient.
 \item \emph{Cost of moving bodies.} The level set is evaluated at all points, face and cell
       centres every step, and $n_s^d$ samples per cut cell; for three-dimensional
       triangulated bodies a smaller $n_s$ or a band around the previous position is advisable.

@@ -1,0 +1,15 @@
+# validation/taylorCouette_error.py on tutorials/taylorCouette (movingBody, first order), N = 40 80 160, t = 6 (runs of 2026-09-29)
+# before: point evaluation u_b(x_P + d n_w).Sw (movingBody d27da2f); after: S = U.Sw + S_rot over the open faces (this commit);
+# handover: geometric S_rot over all wet faces with area-weighted handover of removed cells (rejected variant)
+before_tc_N40: N=40 t=6 all fluid cells: L2(U)=1.112e-02 Linf(U)=1.070e-01 L2(p)=4.348e-02 Linf(p)=3.842e-01 | cells with alpha>=0.5: L2(U)=1.072e-02 Linf(U)=3.721e-02 L2(p)=3.921e-02 Linf(p)=3.402e-01   (p range 0.105)
+before_tc_N80: N=80 t=6 all fluid cells: L2(U)=7.612e-03 Linf(U)=4.738e-02 L2(p)=3.483e-02 Linf(p)=8.757e-01 | cells with alpha>=0.5: L2(U)=7.542e-03 Linf(U)=2.538e-02 L2(p)=2.883e-02 Linf(p)=4.342e-01   (p range 0.089)
+before_tc_N160: N=160 t=6 all fluid cells: L2(U)=3.826e-03 Linf(U)=2.245e-02 L2(p)=2.681e-02 Linf(p)=9.749e-01 | cells with alpha>=0.5: L2(U)=3.794e-03 Linf(U)=1.488e-02 L2(p)=2.200e-02 Linf(p)=4.945e-01   (p range 0.084)
+handover_tc_N40: N=40 t=6 all fluid cells: L2(U)=1.082e-02 Linf(U)=1.072e-01 L2(p)=1.217e-01 Linf(p)=1.689e+00 | cells with alpha>=0.5: L2(U)=1.042e-02 Linf(U)=4.171e-02 L2(p)=9.153e-02 Linf(p)=1.004e+00   (p range 0.105)
+handover_tc_N80: N=80 t=6 all fluid cells: L2(U)=7.528e-03 Linf(U)=4.739e-02 L2(p)=5.220e-02 Linf(p)=1.472e+00 | cells with alpha>=0.5: L2(U)=7.454e-03 Linf(U)=2.774e-02 L2(p)=4.012e-02 Linf(p)=8.446e-01   (p range 0.089)
+handover_tc_N160: N=160 t=6 all fluid cells: L2(U)=3.534e-03 Linf(U)=2.277e-02 L2(p)=1.484e-01 Linf(p)=7.370e+00 | cells with alpha>=0.5: L2(U)=3.493e-03 Linf(U)=1.945e-02 L2(p)=9.719e-02 Linf(p)=3.557e+00   (p range 0.084)
+after_tc_N40: N=40 t=6 all fluid cells: L2(U)=1.131e-02 Linf(U)=1.070e-01 L2(p)=3.275e-02 Linf(p)=5.309e-01 | cells with alpha>=0.5: L2(U)=1.093e-02 Linf(U)=3.576e-02 L2(p)=3.114e-02 Linf(p)=2.106e-01   (p range 0.105)
+#   last mass source: sum over the domain 3.25260651746e-19 (zero to roundoff by closure), max |S| 0.00024, max |alpha^{n+1} - alpha^n| 0.00937499999999
+after_tc_N80: N=80 t=6 all fluid cells: L2(U)=7.648e-03 Linf(U)=4.741e-02 L2(p)=3.120e-02 Linf(p)=1.412e+00 | cells with alpha>=0.5: L2(U)=7.578e-03 Linf(U)=2.427e-02 L2(p)=2.525e-02 Linf(p)=3.623e-01   (p range 0.089)
+#   last mass source: sum over the domain 1.08420217249e-19 (zero to roundoff by closure), max |S| 2.40000000002e-05, max |alpha^{n+1} - alpha^n| 0.00750000000005
+after_tc_N160: N=160 t=6 all fluid cells: L2(U)=3.885e-03 Linf(U)=2.235e-02 L2(p)=2.213e-02 Linf(p)=9.558e-01 | cells with alpha>=0.5: L2(U)=3.855e-03 Linf(U)=1.471e-02 L2(p)=1.935e-02 Linf(p)=3.839e-01   (p range 0.084)
+#   last mass source: sum over the domain -2.11758236814e-20 (zero to roundoff by closure), max |S| 1.6e-05, max |alpha^{n+1} - alpha^n| 0.0400000000001
