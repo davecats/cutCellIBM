@@ -183,7 +183,10 @@ bit-identical results otherwise):
 
 ### Operators (`tutorials/order/laplaceDisk/Allrun`)
 
-L2 errors and orders, N = 20/40/80/160, identical to the Python study to the printed digits:
+L2 errors and orders, N = 20/40/80/160 (raw lines in `validation/data/secondOrder/orderTest.txt`),
+identical to the Python study to the printed digits for the variants both compute (the
+second-order CD/CN rows here are V1/C0/F1: the C1 convective value is not implemented in
+OpenFOAM, whereas the CD row of the Python table above is V1/C1/F1):
 
 | test | secondOrder false | secondOrder true |
 |---|---|---|
@@ -197,8 +200,12 @@ L2 errors and orders, N = 20/40/80/160, identical to the Python study to the pri
 Taylor–Couette flow between an inner cylinder of radius 0.5 rotating at Ω = 1 (no slip) and
 an outer cylinder of radius 1.5 at rest (no slip, fluid inside), both immersed, ν = 1,
 transient to steady state (`ibmPimpleFoam`, Δt = 0.02, t = 6). Exact solution
-u_θ = A r + B/r, p = A²r²/2 + 2AB ln r − B²/(2r²). Errors at the fluid centroids
-(`validation/taylorCouette_error.py`):
+u_θ = A r + B/r, p = A²r²/2 + 2AB ln r − B²/(2r²). Errors from
+`validation/taylorCouette_error.py` (output in `validation/data/secondOrder/taylorCouette.txt`),
+at the fluid centroids for the second-order runs and at the cell centres for the first-order
+runs (which do not write `ibmCentroidOffset`). The bulk and cut-cell columns come from an
+ad-hoc analysis that was not saved; the script's own subset (cells with α ≥ 0.5) gives
+L2(U) orders 1.80 and 1.40 and L2(p) orders 0.35 and 0.39 (second order):
 
 | N | L2(U), first order | L2(U), second order | bulk U rms, 1st / 2nd | bulk p rms, 1st / 2nd | cut-cell p rms, 1st / 2nd |
 |---|---|---|---|---|---|
@@ -224,20 +231,24 @@ x_w = x_c + d_wall n_w; translating bodies are unaffected.
 ### Forces by Richardson extrapolation (`validation/richardson_drag.sh`)
 
 Periodic cylinder at Re_D = 1 (`tutorials/cylinderRe1`), drag per unit depth from the
-solver's force, `ibmSimpleFoam` converged to 1e-9, N = 41/81/161; N = 321 in brackets was
-stopped before reaching that residual and is indicative only:
+solver's force, `ibmSimpleFoam` (at most 8000 iterations), N = 41/81/161/321; the N = 321 runs
+and the free-slip N = 161 runs stopped at the iteration limit with residuals of 2e-9 to 2e-8
+(final log lines in `validation/data/secondOrder/richardson.txt`; the N = 321 values below
+are the final ones and replace earlier snapshots taken during the runs):
 
-| wall | treatment | N = 41 | 81 | 161 | [321] | order (41/81/161) |
-|---|---|---|---|---|---|---|
-| no slip | first | 5.5431 | 5.6604 | 5.7577 | [5.798] | 0.27 |
-| no slip | second | 5.7834 | 5.8205 | 5.8322 | [5.848] | 1.66 |
-| free slip | first | 2.8377 | 2.9421 | 3.0004 | [3.035] | 0.84 |
-| free slip | second | 2.9161 | 2.9848 | 3.0237 | [3.052] | 0.82 |
+| wall | treatment | N = 41 | 81 | 161 | 321 | order (41/81/161) | order (81/161/321) |
+|---|---|---|---|---|---|---|---|
+| no slip | first | 5.5431 | 5.6604 | 5.7577 | 5.7952 | 0.27 | 1.37 |
+| no slip | second | 5.7834 | 5.8205 | 5.8322 | 5.8354 | 1.66 | 1.89 |
+| free slip | first | 2.8377 | 2.9421 | 3.0004 | 3.0354 | 0.84 | 0.73 |
+| free slip | second | 2.9161 | 2.9848 | 3.0237 | 3.0511 | 0.82 | 0.51 |
 
 The second-order treatment brings the no-slip drag much closer to its limit (the first-order
 sequence is still 1.5 % away at N = 161) and its increments shrink faster, but the free-slip
-drag, a pure pressure force, converges at first order with both treatments, and the N = 321
-no-slip value does not continue the second-order trend. Consistently with the Taylor–Couette
+drag, a pure pressure force, converges at first order or below with both treatments. The
+no-slip total converges at an apparent order of 1.7–1.9, but largely by cancellation: with
+the second-order treatment the pressure drag (2.802, 2.860, 2.890, 2.907) increases at order
+about one and the viscous drag (2.982, 2.961, 2.942, 2.929) decreases. Consistently with the Taylor–Couette
 diagnosis, the forces are limited by the cut-cell pressure and by the O(α_min h) boundary
 displacement of sliver absorption, not by the operators.
 
