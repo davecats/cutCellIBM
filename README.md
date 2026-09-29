@@ -22,9 +22,9 @@ main ── movingBody ── scalar ── scalar_secondOrder ── fouling
 | branch | adds | verified by |
 |---|---|---|
 | `main` | static cut-cell IBM: steady and transient solvers, analytic / STL / fraction-field bodies, no-slip and free-slip walls, constant-flow-rate forcing, forces | reference implementation of the same scheme: cylinder at Re_D = 1 (drag to 2e-6 transient, 7e-5 steady), STL and fraction-field bodies, two bodies (force balance exact), 4-rank parallel |
-| `movingBody` | rigid bodies moving through the fixed mesh (translating, oscillating, `Function1`, external, constant rotation), periodic crossing | free stream preserved to 1e-15, oscillating cylinder force history to 7e-5 of the peak, Galilean-translated cylinder mean force to 1e-5 |
+| `movingBody` | rigid bodies moving through the fixed mesh (translating, oscillating, `Function1`, external, constant rotation about any point), periodic crossing | free stream preserved to 1e-15, oscillating cylinder force history to 7e-5 of the peak, Galilean-translated cylinder mean force to 1e-5; rotating wall: Σ S at round-off, Taylor–Couette |
 | `scalar` | passive scalars (any number), fixed-value or zero-flux walls per body and per scalar, disk sources, `fvOptions`, running budget | budgets close to 1e-11 (static) and 1e-10 (moving); moving bodies leave a swept-volume defect below 1e-4 of the content |
-| `scalar_secondOrder` | optional second-order wall treatment (`secondOrder true`, `cutCellCorrected` scheme), `ibmOrderTest` | manufactured Laplace / convection–diffusion problems: order 1 → 2 for Dirichlet walls; Taylor–Couette velocity order 1.4–1.8; forces and cut-cell pressure remain first order |
+| `scalar_secondOrder` | optional second-order wall treatment (`secondOrder true`, `cutCellCorrected` scheme, linearly exact pressure gradient), `ibmOrderTest` | manufactured Laplace / convection–diffusion problems: order 1 → 2 for Dirichlet walls; pressure gradient of a linear p exact to 4e-13; Taylor–Couette velocity order 1.9; forces and cut-cell pressure remain first order |
 | `fouling` | plan only (`doc/foulingPlan.md`): reacting scalars, conjugate temperature, deposit growth with conservative sliver handover | — |
 
 **`main`** — static bodies
@@ -41,7 +41,9 @@ main ── movingBody ── scalar ── scalar_secondOrder ── fouling
   forces in `postProcessing/ibmForces`.
 
 **`movingBody`** — moving rigid bodies (`ibmPimpleFoam` only)
-- Geometry rebuilt every step; continuity gets the wall flux `S = u_b·Sw` as a source and the old
+- Geometry rebuilt every step; continuity gets the wall flux `S = U·Sw + S_rot` as a source
+  (`S_rot = −Σ_{open f} θ_f (ω×(x'_f − c))·S_f`, exact through the wall faces, Σ S = 0 for any
+  rigid motion) and the old
   fluid fraction is taken from it, `α^n V = α^{n+1} V − Δt S` (discrete geometric conservation
   law by construction), stored as `alpha.oldTime()`.
 - Moving-wall traction and blanking sources, flux re-interpolation onto the new wet faces,
@@ -62,10 +64,12 @@ main ── movingBody ── scalar ── scalar_secondOrder ── fouling
 **`scalar_secondOrder`** — second-order wall treatment
 - Cell values at fluid centroids; centroid-consistent diffusive face flux (implicit
   `1/(n·d)` + explicit least-squares correction, exact for linear fields) as the `snGradScheme`
-  `cutCellCorrected`; centroid wall distance from the level set; wall pressure extrapolated
-  from the centroid. Off by default and bit-identical when off.
-- `ibmOrderTest` and `tutorials/order` (laplaceDisk, taylorCouette); raw results in
-  `validation/data/secondOrder`, study in `doc/secondOrderStudy.md`.
+  `cutCellCorrected`; centroid wall distance from the level set; pressure gradient exact for a
+  linear pressure (face values at the wet-face centroids, wall pressure integrated over the
+  pieces of the geometric wall). Off by default and bit-identical when off.
+- `ibmOrderTest` (including the gradient problems GL, GQ) and `tutorials/order` (laplaceDisk,
+  taylorCouette, hydrostatic); raw results in `validation/data/secondOrder` and
+  `validation/data/fixes`, study in `doc/secondOrderStudy.md`.
 
 **`fouling`** — planned, not implemented: Arrhenius reactions between scalars, conjugate
 temperature through deposit and wall, deposition driven by local wall shear into an
@@ -74,10 +78,8 @@ outer loop (`doc/foulingPlan.md`, and the last chapter of `doc/cutCellIBM.pdf`).
 
 Known limitations common to all branches: first order in time; cut-cell pressure and forces
 first order (small-cell problem of the pressure; cell merging is the next step); laminar only;
-one fluid region. On `movingBody` and `scalar` the mass source of a body rotating in place is
-not zero locally (the wall-velocity point only differs from the cell centre along the normal);
-on `scalar_secondOrder` the centroid evaluation reduces it. The second-order pressure gradient
-is not exact for a linear pressure.
+one fluid region. The mass source of a body rotating in place is zero except in the cells next
+to an absorbed sliver, whose closed face moves with the body.
 
 ## Layout
 
