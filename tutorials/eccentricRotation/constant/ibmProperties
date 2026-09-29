@@ -1,0 +1,30 @@
+FoamFile { version 2.0; format ascii; class dictionary; object ibmProperties; }
+
+// A cylinder turning about a point off its axis (centreOfRotation): the
+// geometry changes every step, cells are swept, absorbed and uncovered. The
+// wall flux must still sum to zero over the domain to round-off.
+alphaMin      0.02;
+nSubSamples   32;
+nBisect       40;
+writeFields   true;
+writeForces   true;
+
+periodicLengths (10 10 0);
+
+bodies
+{
+    cylinder
+    {
+        type      cylinder;
+        centre    (5 5 0);
+        axis      (0 0 1);
+        radius    1;
+        wallType  noSlip;
+        motion
+        {
+            type             none;
+            angularVelocity  (0 0 1);
+            centreOfRotation (5.3 4.8 0);
+        }
+    }
+}
