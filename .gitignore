@@ -1,13 +1,14 @@
 # build products
 platforms/
 lnInclude/
-Make/linux*/
+**/Make/linux*/
 # external reference code (not part of this project)
 ibm_secondOrder
 # tutorial cases: keep only mesh dictionaries, initial conditions and settings
 tutorials/*/constant/polyMesh/
 tutorials/*/log.*
 tutorials/*/[1-9]*/
+tutorials/*/0.[0-9]*/
 tutorials/*/0/ibm*
 tutorials/*/0/C
 tutorials/*/0/Cf
