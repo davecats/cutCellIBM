@@ -249,6 +249,7 @@ void Foam::cutCellGeometry::calcGeometry()
     // fractions, exact wherever they do not share a cell.
     scalarField alpha(mesh_.nCells(), 1.0);
     scalarField theta(mesh_.nFaces(), 1.0);
+    pointField wetCentre(mesh_.faceCentres());
     cellBody_ = -1;
     nearestBody_ = -1;
     vectorField centroidOffset(mesh_.nCells(), Zero);
@@ -256,7 +257,7 @@ void Foam::cutCellGeometry::calcGeometry()
     wetOffsetAll_ = Zero;
 
     auto merge = [&](const scalarField& a, const scalarField& t,
-                     const labelList& body)
+                     const pointField& xw, const labelList& body)
     {
         forAll(alpha, celli)
         {
@@ -268,7 +269,11 @@ void Foam::cutCellGeometry::calcGeometry()
         }
         forAll(theta, facei)
         {
-            theta[facei] = min(theta[facei], t[facei]);
+            if (t[facei] < theta[facei])
+            {
+                theta[facei] = t[facei];
+                wetCentre[facei] = xw[facei];
+            }
         }
     };
 
@@ -281,9 +286,10 @@ void Foam::cutCellGeometry::calcGeometry()
     if (nLevelSet > 0)
     {
         scalarField a, t;
+        pointField xw;
         labelList body;
-        calcFromLevelSet(a, t, body, centroidOffset);
-        merge(a, t, body);
+        calcFromLevelSet(a, t, xw, body, centroidOffset);
+        merge(a, t, xw, body);
         unionLevelSet(mesh_.cellCentres(), cellLevelSet_);
     }
 
@@ -292,13 +298,19 @@ void Foam::cutCellGeometry::calcGeometry()
         if (!bodies_[bodyi].hasLevelSet())
         {
             scalarField a, t;
+            pointField xw;
             calcFromAlphaField
             (
-                refCast<const alphaFieldBody>(bodies_[bodyi]), a, t
+                refCast<const alphaFieldBody>(bodies_[bodyi]), a, t, xw
             );
-            merge(a, t, labelList(mesh_.nCells(), bodyi));
+            merge(a, t, xw, labelList(mesh_.nCells(), bodyi));
         }
     }
+
+    // The geometric cut as computed, before any post-processing: the exact
+    // wet faces of the fluid polygon of every cell (rotational wall flux)
+    thetaGeo_ = theta;
+    wetCentreGeo_ = wetCentre;
 
     // Absorb slivers (C1): a deactivated cell also has its faces closed, or
     // the discrete divergence would see a flux into a cell without equation
@@ -416,7 +428,8 @@ void Foam::cutCellGeometry::faceFractions
 (
     const scalarField& pointPhi,
     const pointField& edgeCross,
-    scalarField& theta
+    scalarField& theta,
+    pointField& wetCentre
 ) const
 {
     const faceList& faces = mesh_.faces();
@@ -426,6 +439,7 @@ void Foam::cutCellGeometry::faceFractions
     const vectorField& Sf = mesh_.faceAreas();
 
     theta.setSize(faces.size());
+    wetCentre = mesh_.faceCentres();
 
     DynamicList<point> poly(16);
 
@@ -485,6 +499,25 @@ void Foam::cutCellGeometry::faceFractions
             const vector a(0.5*((poly[i] - p0) ^ (poly[i+1] - p0)));
             area += a;
             moment += mag(a)*(p0 + poly[i] + poly[i+1])/3.0;
+        }
+
+        // Centroid of the wet polygon by fan triangulation, the triangles
+        // weighted by their area projected on the face normal
+        {
+            const vector n(Sf[facei]/max(mag(Sf[facei]), VSMALL));
+            scalar sumA = 0;
+            vector sumAx(Zero);
+            for (label i = 1; i + 1 < poly.size(); ++i)
+            {
+                const scalar a =
+                    0.5*(((poly[i] - p0) ^ (poly[i+1] - p0)) & n);
+                sumA += a;
+                sumAx += a*(p0 + poly[i] + poly[i+1])/3.0;
+            }
+            if (mag(sumA) > VSMALL)
+            {
+                wetCentre[facei] = sumAx/sumA;
+            }
         }
 
         const scalar magSf = mag(Sf[facei]);
@@ -585,6 +618,7 @@ void Foam::cutCellGeometry::calcFromLevelSet
 (
     scalarField& alpha,
     scalarField& theta,
+    pointField& wetCentre,
     labelList& cellBody,
     vectorField& centroidOffset
 ) const
@@ -655,7 +689,7 @@ void Foam::cutCellGeometry::calcFromLevelSet
     }
 
     // Face fractions
-    faceFractions(pointPhi, edgeCross, theta);
+    faceFractions(pointPhi, edgeCross, theta, wetCentre);
 
     // Cell fractions. A cell is a candidate for cutting if its vertices, face
     // centres or centre do not all lie on the same side; otherwise it is
@@ -735,7 +769,8 @@ void Foam::cutCellGeometry::calcFromAlphaField
 (
     const alphaFieldBody& body,
     scalarField& alpha,
-    scalarField& theta
+    scalarField& theta,
+    pointField& wetCentre
 ) const
 {
     const tmp<volScalarField> talpha(body.alpha());
@@ -764,7 +799,7 @@ void Foam::cutCellGeometry::calcFromAlphaField
         }
     }
 
-    faceFractions(pointPhi, edgeCross, theta);
+    faceFractions(pointPhi, edgeCross, theta, wetCentre);
 }
 
 

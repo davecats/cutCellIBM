@@ -45,7 +45,10 @@ Description
     Moving bodies (doc/moving_ibm.pdf): the mesh never moves, the fractions
     do. update(), called at the start of every time step, moves the bodies
     to the current time, recomputes the geometry and forms
-        S = u_b . Sw                  (wall flux, volume-integrated),
+        S = U . Sw + S_rot            (wall flux, volume-integrated;
+                                       S_rot the flux of omega x (x - c)
+                                       through the wall, from the open
+                                       wet faces),
         alpha^n V = alpha^{n+1} V - dt S   (swept volume, stored as
                                             alpha.oldTime()),
         u_b at the cell centres.
@@ -128,6 +131,11 @@ class cutCellGeometry
         //- sum_f |Sf| deltaCoeff_f / V in solid cells, 0 elsewhere [1/m^2]
         volScalarField blankCoeff_;
 
+        //- Face fractions and wet-face centroids of the geometric cut, over
+        //  all mesh faces, before sliver absorption and coupled-face sync
+        scalarField thetaGeo_;
+        pointField wetCentreGeo_;
+
         //- Index of the body owning each cut/solid/wall cell (-1: fluid)
         volScalarField bodyIndex_;
 
@@ -182,7 +190,7 @@ class cutCellGeometry
         //- Body velocity at the cell centres
         autoPtr<volVectorField> UbPtr_;
 
-        //- Mass source per unit volume, S/V = u_b . Sw / V  [1/s]
+        //- Mass source per unit volume, S/V = (U . Sw + S_rot)/V  [1/s]
         autoPtr<volScalarField> massSourcePtr_;
 
         //- Face fractions of the previous geometry (for ddtCorr)
@@ -199,13 +207,15 @@ class cutCellGeometry
         //- Minimum over the level sets of all level-set bodies
         void unionLevelSet(const pointField& pts, scalarField& phi) const;
 
-        //- Fluid fraction of every face from the level set at the mesh points
-        //  and the crossing point on every cut edge
+        //- Fluid fraction and centroid of the wet part of every face from
+        //  the level set at the mesh points and the crossing point on every
+        //  cut edge
         void faceFractions
         (
             const scalarField& pointPhi,
             const pointField& edgeCross,
-            scalarField& theta
+            scalarField& theta,
+            pointField& wetCentre
         ) const;
 
         //- Fluid fractions from the level-set bodies
@@ -213,6 +223,7 @@ class cutCellGeometry
         (
             scalarField& alpha,
             scalarField& theta,
+            pointField& wetCentre,
             labelList& cellBody,
             vectorField& centroidOffset
         ) const;
@@ -222,7 +233,8 @@ class cutCellGeometry
         (
             const alphaFieldBody& body,
             scalarField& alpha,
-            scalarField& theta
+            scalarField& theta,
+            pointField& wetCentre
         ) const;
 
         //- Fluid fraction of one cell by sub-sampling the level set, and the
@@ -242,6 +254,10 @@ class cutCellGeometry
 
         //- Mass source, swept old volume and body velocity (moving only)
         void calcMovingTerms();
+
+        //- Flux of the rotational body velocity through the wall of every
+        //  cell (chord and closed faces), from its open wet faces
+        void rotationalWallFlux(scalarField& Srot) const;
 
         void report() const;
 
@@ -283,6 +299,14 @@ public:
             const bitSet& cutCells() const { return cutCells_; }
             const bitSet& wallCells() const { return wallCells_; }
             scalar alphaMin() const { return alphaMin_; }
+
+            //- Face fractions of the geometric cut (all mesh faces), before
+            //  sliver absorption and coupled-face synchronisation
+            const scalarField& thetaGeo() const { return thetaGeo_; }
+
+            //- Centroids of the geometric wet faces (all mesh faces; the
+            //  face centre where the face is wholly wet or dry)
+            const pointField& wetCentreGeo() const { return wetCentreGeo_; }
 
             //- Total fluid volume, sum(alpha V), global
             scalar fluidVolume() const { return fluidVolume_; }

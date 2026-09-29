@@ -154,13 +154,37 @@ public:
         //- Update the motion state to time t
         virtual void moveTo(const scalar t);
 
-        //- Current centre, initial centre plus displacement
-        point currentCentre() const { return centre() + displacement_; }
+        //- Initial reference point of the motion: the centre of rotation
+        //  if the motion gives one, otherwise the body centre
+        point referencePoint() const
+        {
+            return motion_->hasCentreOfRotation()
+                 ? motion_->centreOfRotation() : centre();
+        }
+
+        //- Current centre (of rotation and of the periodic image), initial
+        //  reference point plus displacement
+        point currentCentre() const { return referencePoint() + displacement_; }
 
         const vector& displacement() const { return displacement_; }
 
         //- Translational velocity of the body
         const vector& velocityOfCentre() const { return velocity_; }
+
+        //- Angular velocity about the current centre
+        const vector& omega() const { return motion_->omega(); }
+
+        //- True if the body rotates: a level-set body with a non-zero
+        //  angular velocity (the wall flux then needs the rotational part,
+        //  see cutCellGeometry::calcMovingTerms)
+        bool rotating() const
+        {
+            return hasLevelSet() && moving() && mag(omega()) > 0;
+        }
+
+        //- Position relative to the current centre, x - c, with the minimum
+        //  image in the periodic directions
+        vector relativePosition(const point& x) const;
 
         //- Body velocity at the given points (rigid: U + omega x r)
         virtual void velocity(const pointField& pts, vectorField& U) const;
