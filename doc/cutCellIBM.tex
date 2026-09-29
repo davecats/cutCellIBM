@@ -1065,10 +1065,11 @@ centre and wall cells the point
 the foot of the normal from the fluid centroid $\xx_{c,P}$ (Section~\ref{sec:centroids}), which
 is what the two-point wall gradient differences against; the centroid is computed whether or
 not the second-order treatment is switched on.
-For a nearly full cell with a very small wall segment, $\dw=\alpha_PV_P/(2\Aw)$ can exceed the
-cell size by orders of magnitude and the point lies far outside the cell, in a periodic domain
-possibly beyond the minimum image; the traction coefficient $\Aw/(\dw V_P)$ of such a cell is
-correspondingly small (Section~\ref{sec:limits}).
+For a nearly full cell with a very small wall segment, $\dw=\alpha_PV_P/(2\Aw)$ is an effective
+distance that can exceed the cell size by orders of magnitude; taken literally, the point would
+lie far outside the cell, in a periodic domain possibly beyond the minimum image. Since the wall
+of such a cell lies inside it, the distance along $\nn_w$ is limited to where the normal leaves
+the bounding box of the cell; the traction coefficient $\Aw/(\dw V_P)$ keeps $\dw$.
 
 \subsection{Algorithm}
 \label{sec:algo}
@@ -1873,7 +1874,9 @@ instead of zero, the latter from a single nearly full cell whose evaluation poin
 $\xx_P+\dw\nn_w$ lay five units away and was wrapped by the minimum image. With \eqref{eq:srot}
 the source vanishes to round-off in 58 of the 63 wall cells; the 5 cells next to removed cells
 carry $|S_P|\le1.3\times10^{-3}$ and $|\alpha^{n+1}_P-\alpha^n_P|\le0.018$, the flux through
-their closed faces (Proposition~\ref{prop:srot}); the domain sum is $10^{-18}$.
+their closed faces (Proposition~\ref{prop:srot}); the domain sum is $10^{-18}$. That nearly full
+cell now also receives the right wall velocity for its traction, $|\ub|=1.01$ instead of $4.5$,
+the evaluation point being limited to the cell in 16 wall cells (Section~\ref{sec:ubpoint}).
 
 \emph{Eccentric rotation.} The same cylinder turning about a point $(0.3,-0.2)$ off its axis
 (motion entry \code{centreOfRotation}) sweeps, uncovers and absorbs cells every step. The domain
@@ -2029,7 +2032,7 @@ $N$ & 40 & 80 & 160 & 40 & 80 & 160\\
 before (centroid-point source, previous gradient) & 11.6 & 3.35 & 1.27 & 21.7 & 17.0 & 13.0\\
 source \eqref{eq:srot} only & 11.7 & 3.04 & 0.809 & 12.0 & 8.97 & 4.94\\
 gradient \eqref{eq:grad2} only & 11.5 & 3.60 & 1.43 & 22.2 & 17.2 & 13.0\\
-both & 11.7 & 3.04 & 0.821 & 12.3 & 9.58 & 5.13\\
+both & 11.7 & 3.04 & 0.812 & 12.3 & 9.58 & 5.13\\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -2038,11 +2041,12 @@ $N=160$, at order $1.8$ against $0.4$ before), and the pressure error halves. Th
 responsible for all of it; the linearly exact gradient changes the errors by at most $7\%$, so
 the remaining pressure error, which converges at order $0.4$ then $0.9$ and sits in the cut cells
 (largest $0.19$ at $N=160$), is the small-cell problem of Section~\ref{sec:smallcellp} and not the
-consistency of the gradient. The geometric source with handover (Section~\ref{sec:ubpoint})
+consistency of the gradient (the row `both' includes the evaluation point limited to the cell,
+which changes it only at $N=160$, in the fourth digit). The geometric source with handover (Section~\ref{sec:ubpoint})
 gives instead $10^4L_2(\uu)=28.2$, $6.32$, $8.93$ and $10^3L_2(p)=98.7$, $40.2$, $124$: the
-velocity loses its second order. Without the second-order treatment the source \eqref{eq:srot} lowers
-$L_2(p)$ from $2.3\times10^{-2}$ to $1.6\times10^{-2}$ at $N=160$ and leaves the velocity
-unchanged (Fig.~\ref{fig:order_coupled}a).
+velocity loses its second order. Without the second-order treatment the source \eqref{eq:srot} and the limited
+evaluation point lower $L_2(p)$ from $2.3\times10^{-2}$ to $1.5\times10^{-2}$ at $N=160$ and
+$L_2(\uu)$ from $2.10\times10^{-3}$ to $2.05\times10^{-3}$ (Fig.~\ref{fig:order_coupled}a).
 
 \emph{Hydrostatic balance.} Fluid at rest inside an immersed container (an inverted cylinder of
 radius $1.1$) around an immersed obstacle of radius $0.4$, under $\bm g=(0,-1,0)$ applied to the
@@ -2132,10 +2136,7 @@ free-slip cylinder relative to the second-order value at $N=321$.}
       between cells of two different rotating bodies. In three dimensions the wall of a cut
       cell is the polyhedral approximation of the surface, so the source of a sphere turning
       about a diameter is not exactly zero but converges with the geometry. The wall velocity
-      of the no-slip traction is still a point value, at \eqref{eq:ubpoint}; for a nearly full
-      cell with a tiny wall segment the point can lie far outside the cell and, in a periodic
-      domain, beyond the minimum image, which gives a wrong tangential wall velocity weighted by
-      a small traction coefficient.
+      of the no-slip traction is a point value, at \eqref{eq:ubpoint} limited to the cell.
 \item \emph{Cost of moving bodies.} The level set is evaluated at all points, face and cell
       centres every step, and $n_s^d$ samples per cut cell; for three-dimensional
       triangulated bodies a smaller $n_s$ or a band around the previous position is advisable.
