@@ -20,7 +20,10 @@ Description
     motion { type prescribed;   displacement table (...); velocity table (...); }
     motion { type external; }   // state set from code, see setState()
     \endverbatim
-    Any type accepts "angularVelocity (0 0 w)" (rad/s, about the body centre).
+    Any type accepts "angularVelocity (0 0 w)" (rad/s, about the body centre)
+    and "centreOfRotation (x y z)", the initial position of the point the
+    body rotates about and is translated with (default: the body centre).
+    The level set is periodic about this point.
 
     The "external" type is the hook for bodies driven by the solver itself,
     e.g. a point particle integrated with the flow: the driver calls
@@ -32,7 +35,7 @@ Description
 #define bodyMotion_H
 
 #include "dictionary.H"
-#include "vector.H"
+#include "point.H"
 #include "runTimeSelectionTables.H"
 #include "autoPtr.H"
 #include "Function1.H"
@@ -46,6 +49,10 @@ protected:
 
     const dictionary dict_;
     vector omega_;
+
+    //- Initial centre of rotation, if given
+    bool hasCentreOfRotation_;
+    point centreOfRotation_;
 
 public:
 
@@ -78,6 +85,12 @@ public:
 
     //- Angular velocity about the body centre
     const vector& omega() const { return omega_; }
+
+    //- True if the centre of rotation is given (else the body centre)
+    bool hasCentreOfRotation() const { return hasCentreOfRotation_; }
+
+    //- Initial centre of rotation
+    const point& centreOfRotation() const { return centreOfRotation_; }
 
     //- Rotation angle about omega/|omega| at time t
     virtual scalar angle(const scalar t) const { return mag(omega_)*t; }
