@@ -13,3 +13,10 @@ after_tc_N80: N=80 t=6 all fluid cells: L2(U)=7.648e-03 Linf(U)=4.741e-02 L2(p)=
 #   last mass source: sum over the domain 1.08420217249e-19 (zero to roundoff by closure), max |S| 2.40000000002e-05, max |alpha^{n+1} - alpha^n| 0.00750000000005
 after_tc_N160: N=160 t=6 all fluid cells: L2(U)=3.885e-03 Linf(U)=2.235e-02 L2(p)=2.213e-02 Linf(p)=9.558e-01 | cells with alpha>=0.5: L2(U)=3.855e-03 Linf(U)=1.471e-02 L2(p)=1.935e-02 Linf(p)=3.839e-01   (p range 0.084)
 #   last mass source: sum over the domain -2.11758236814e-20 (zero to roundoff by closure), max |S| 1.6e-05, max |alpha^{n+1} - alpha^n| 0.0400000000001
+# after, with the wall-velocity evaluation point limited to the cell (b1aabee):
+afterLimited_tc_N40: N=40 t=6 all fluid cells: L2(U)=1.131e-02 Linf(U)=1.070e-01 L2(p)=3.275e-02 Linf(p)=5.309e-01 | cells with alpha>=0.5: L2(U)=1.093e-02 Linf(U)=3.576e-02 L2(p)=3.114e-02 Linf(p)=2.106e-01   (p range 0.105)
+#   wall velocity: evaluation point limited to the cell in 16 wall cells (tiny wall segments)
+afterLimited_tc_N80: N=80 t=6 all fluid cells: L2(U)=7.299e-03 Linf(U)=4.737e-02 L2(p)=2.888e-02 Linf(p)=1.359e+00 | cells with alpha>=0.5: L2(U)=7.223e-03 Linf(U)=2.300e-02 L2(p)=2.316e-02 Linf(p)=3.044e-01   (p range 0.089)
+#   wall velocity: evaluation point limited to the cell in 80 wall cells (tiny wall segments)
+afterLimited_tc_N160: N=160 t=6 all fluid cells: L2(U)=3.757e-03 Linf(U)=2.231e-02 L2(p)=2.139e-02 Linf(p)=9.277e-01 | cells with alpha>=0.5: L2(U)=3.725e-03 Linf(U)=1.335e-02 L2(p)=1.866e-02 Linf(p)=3.836e-01   (p range 0.084)
+#   wall velocity: evaluation point limited to the cell in 124 wall cells (tiny wall segments)
