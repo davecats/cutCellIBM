@@ -563,6 +563,36 @@ public:
             template<class Type>
             void groupAverage(Field<Type>& f) const;
 
+            //- Replace the values of every merged group by their
+            //  cell-volume-weighted average: for per-cell-volume quantities
+            //  such as ibm.grad(p) (a force over V).
+            //  No-op unless mergeAlpha > 0.
+            template<class Type>
+            void groupMean(GeometricField<Type, fvPatchField, volMesh>& f)
+            const;
+
+            //- Diagonal coefficient A (or H1) of the merged control volumes
+            //  from the unlinked matrix: (sum_i V_i A_i + sum_l (upper_l
+            //  + lower_l))/sum_i V_i over the cells i and the internal link
+            //  faces l of the group, on every cell of the group. With mergeH,
+            //  the pressure-velocity coupling of the merged cell; rAU from
+            //  the linked matrix would hold the penalty and decouple the
+            //  pressure along a strip of linked cells.
+            //  No-op unless mergeAlpha > 0.
+            template<class Type>
+            void mergeA(const fvMatrix<Type>& eqn, volScalarField& A) const;
+
+            //- H of the merged control volumes from the unlinked matrix,
+            //  (sum_i V_i H_i + sum_l (upper_l psi_nei + lower_l psi_own))
+            //  /sum_i V_i: the coupling through the internal link faces
+            //  removed. No-op unless mergeAlpha > 0.
+            template<class Type>
+            void mergeH
+            (
+                const fvMatrix<Type>& eqn,
+                GeometricField<Type, fvPatchField, volMesh>& H
+            ) const;
+
             //- Master of every linked cell, -1 otherwise
             const labelList& linkMaster() const { return linkMaster_; }
 

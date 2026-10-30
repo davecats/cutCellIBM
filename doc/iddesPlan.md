@@ -258,8 +258,20 @@ wall distance and was removed in 8a2d288.)
 On the wall-resolved mesh (first cell 1.8e-3) every run, body-fitted `simpleFoam` included, ends in
 a period-2 oscillation of SIMPLE (G amplitude 6.5e-5 body-fitted, up to 7e-4 IBM); wall-resolved
 values are means over it (`results.txt`, correction section). Finer meshes and all wall-function
-runs converge to round-off. Pressure linking had no effect in the channel (uniform pressure); its
-value is to be judged on the airfoil. Not yet linked: the passive scalars, and links across processor boundaries (a cell whose only candidate master is on
+runs converge to round-off. Pressure linking had no effect in the channel (uniform pressure).
+
+Pressure-velocity coupling of the merged cells (found on the airfoil): rAU = 1/A taken from the
+linked momentum matrix holds the penalty, on the master as well as on the slaves, so rAU was ~10⁻⁴
+of its value in every linked cell. Along a strip of linked cells (the surface nearly parallel to a
+grid line, e.g. near the maximum thickness of the airfoil) the pressure Laplacian and the Rhie-Chow
+damping between neighbouring groups vanished and a long-wave mode appeared (C_p ±1.5 over 20 cells,
+reaching 10 cells into the flow; SIMPLE did not converge). Now the penalty enters only the momentum
+predictor solve (on a copy of the matrix); pEqn takes A, H (and H1 for SIMPLEC) of the merged
+control volume from the unlinked matrix, A_g = (Σ V_i A_i + Σ_l (upper_l + lower_l))/Σ V_i over the
+cells and internal link faces of a group, H_g likewise with the coupling through the internal faces
+removed (`mergeA`, `mergeH`), and the momentum corrector the V-weighted group mean of ibm.grad(p)
+(`groupMean`). The channel is unchanged (u_τ to 2·10⁻⁴), laminar runs byte-identical, the airfoil
+converges to round-off without the mode. Not yet linked: the passive scalars, and links across processor boundaries (a cell whose only candidate master is on
 another processor stays unlinked; counted in the log).
 
 WP5, option A (wall-law face viscosity, no linking) for comparison: `wallFunctionAlpha a` gives a

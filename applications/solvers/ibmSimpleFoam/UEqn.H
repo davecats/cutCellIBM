@@ -51,14 +51,23 @@
 
     UEqn.relax();
 
-    // Small cut cells linked to their masters (mergeAlpha > 0 only)
-    ibm.linkCells(UEqn);
-
     fvOptions.constrain(UEqn);
 
     if (simple.momentumPredictor())
     {
-        solve(UEqn == -ibm.grad(p));
+        if (ibm.linking())
+        {
+            // Small cut cells linked to their masters for the solution only:
+            // pEqn takes the coefficients of the merged control volumes from
+            // the unlinked matrix (ibm.mergeA, ibm.mergeH)
+            fvVectorMatrix UEqnLinked(UEqn);
+            ibm.linkCells(UEqnLinked);
+            solve(UEqnLinked == -ibm.grad(p));
+        }
+        else
+        {
+            solve(UEqn == -ibm.grad(p));
+        }
 
         fvOptions.correct(U);
     }

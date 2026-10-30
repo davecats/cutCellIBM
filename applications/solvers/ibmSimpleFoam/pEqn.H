@@ -1,6 +1,11 @@
 {
-    volScalarField rAU(1.0/UEqn.A());
-    volVectorField HbyA(constrainHbyA(rAU*UEqn.H(), U, p));
+    // A and H of the merged control volumes for linked small cut cells
+    tmp<volScalarField> tA(UEqn.A());
+    tmp<volVectorField> tH(UEqn.H());
+    ibm.mergeA(UEqn, tA.ref());
+    ibm.mergeH(UEqn, tH.ref());
+    volScalarField rAU(1.0/tA);
+    volVectorField HbyA(constrainHbyA(rAU*tH, U, p));
     surfaceScalarField phiHbyA("phiHbyA", ibm.flux(HbyA));
     adjustPhi(phiHbyA, U, p);
 
@@ -10,10 +15,14 @@
     {
         // SIMPLEC mobility 1/(A - H1); the floor only guards against a
         // vanishing denominator (simpleFoam has none)
-        rAtU = 1.0/max(1.0/rAU - UEqn.H1(), 1e-3/rAU);
+        tmp<volScalarField> H1(UEqn.H1());
+        ibm.mergeA(UEqn, H1.ref());
+        rAtU = 1.0/max(1.0/rAU - H1, 1e-3/rAU);
         phiHbyA +=
             ibm.thetaInterpolate(rAtU() - rAU)*fvc::snGrad(p)*mesh.magSf();
-        HbyA -= (rAU - rAtU())*ibm.grad(p);
+        volVectorField gradp(ibm.grad(p));
+        ibm.groupMean(gradp);
+        HbyA -= (rAU - rAtU())*gradp;
     }
 
     tUEqn.clear();
@@ -49,7 +58,10 @@
     p.relax();
 
     // Momentum corrector
-    U = HbyA - rAtU()*ibm.grad(p);
+    // Pressure force over the cell volume, merged for linked small cut cells
+    volVectorField gradp(ibm.grad(p));
+    ibm.groupMean(gradp);
+    U = HbyA - rAtU()*gradp;
     U.correctBoundaryConditions();
     fvOptions.correct(U);
 }

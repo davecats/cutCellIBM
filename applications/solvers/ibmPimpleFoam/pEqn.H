@@ -1,5 +1,10 @@
-volScalarField rAU(1.0/UEqn.A());
-volVectorField HbyA(constrainHbyA(rAU*UEqn.H(), U, p));
+// A and H of the merged control volumes for linked small cut cells
+tmp<volScalarField> tA(UEqn.A());
+tmp<volVectorField> tH(UEqn.H());
+ibm.mergeA(UEqn, tA.ref());
+ibm.mergeH(UEqn, tH.ref());
+volScalarField rAU(1.0/tA);
+volVectorField HbyA(constrainHbyA(rAU*tH, U, p));
 surfaceScalarField phiHbyA("phiHbyA", ibm.flux(HbyA));
 
 if (pimple.ddtCorr())
@@ -18,10 +23,14 @@ if (pimple.consistent())
 {
     // SIMPLEC mobility 1/(A - H1), floored at the transient diagonal
     // alpha/deltaT as in the reference implementation
-    rAtU = 1.0/max(1.0/rAU - UEqn.H1(), ibm.alpha()/runTime.deltaT());
+    tmp<volScalarField> H1(UEqn.H1());
+    ibm.mergeA(UEqn, H1.ref());
+    rAtU = 1.0/max(1.0/rAU - H1, ibm.alpha()/runTime.deltaT());
     phiHbyA +=
         ibm.thetaInterpolate(rAtU() - rAU)*fvc::snGrad(p)*mesh.magSf();
-    HbyA -= (rAU - rAtU())*ibm.grad(p);
+    volVectorField gradp(ibm.grad(p));
+    ibm.groupMean(gradp);
+    HbyA -= (rAU - rAtU())*gradp;
 }
 
 if (pimple.nCorrPISO() <= 1)
@@ -66,6 +75,9 @@ while (pimple.correctNonOrthogonal())
 // Explicitly relax pressure for momentum corrector
 p.relax();
 
-U = HbyA - rAtU*ibm.grad(p);
+// Pressure force over the cell volume, merged for linked small cut cells
+volVectorField gradp(ibm.grad(p));
+ibm.groupMean(gradp);
+U = HbyA - rAtU*gradp;
 U.correctBoundaryConditions();
 fvOptions.correct(U);

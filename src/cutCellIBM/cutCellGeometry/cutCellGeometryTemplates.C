@@ -267,3 +267,116 @@ void Foam::cutCellGeometry::groupAverage(Field<Type>& f) const
         }
     }
 }
+
+
+template<class Type>
+void Foam::cutCellGeometry::groupMean
+(
+    GeometricField<Type, fvPatchField, volMesh>& f
+) const
+{
+    if (mergeAlpha_ <= 0)
+    {
+        return;
+    }
+
+    const scalarField& V = mesh_.V();
+    Field<Type>& fI = f.primitiveFieldRef();
+    Field<Type> sum(fI.size(), Zero);
+    scalarField vol(fI.size(), Zero);
+    forAll(linkMaster_, celli)
+    {
+        const label m = (linkMaster_[celli] >= 0) ? linkMaster_[celli] : celli;
+        sum[m] += V[celli]*fI[celli];
+        vol[m] += V[celli];
+    }
+    forAll(linkMaster_, celli)
+    {
+        const label m = (linkMaster_[celli] >= 0) ? linkMaster_[celli] : celli;
+        fI[celli] = sum[m]/vol[m];
+    }
+    f.correctBoundaryConditions();
+}
+
+
+template<class Type>
+void Foam::cutCellGeometry::mergeA
+(
+    const fvMatrix<Type>& eqn,
+    volScalarField& A
+) const
+{
+    if (mergeAlpha_ <= 0)
+    {
+        return;
+    }
+
+    const scalarField& V = mesh_.V();
+    const scalarField& upper = eqn.upper();
+    const scalarField& lower = eqn.lower();
+    scalarField& AI = A.primitiveFieldRef();
+    scalarField sum(AI.size(), Zero);
+    scalarField vol(AI.size(), Zero);
+    forAll(linkMaster_, celli)
+    {
+        const label m = (linkMaster_[celli] >= 0) ? linkMaster_[celli] : celli;
+        sum[m] += V[celli]*AI[celli];
+        vol[m] += V[celli];
+        const label facei = linkFace_[celli];
+        if (linkMaster_[celli] >= 0 && facei >= 0)
+        {
+            // The coefficients of the internal face drop out of the merged
+            // diagonal (A_i holds -sum of the off-diagonals of its row)
+            sum[m] += upper[facei] + lower[facei];
+        }
+    }
+    forAll(linkMaster_, celli)
+    {
+        const label m = (linkMaster_[celli] >= 0) ? linkMaster_[celli] : celli;
+        AI[celli] = sum[m]/vol[m];
+    }
+    A.correctBoundaryConditions();
+}
+
+
+template<class Type>
+void Foam::cutCellGeometry::mergeH
+(
+    const fvMatrix<Type>& eqn,
+    GeometricField<Type, fvPatchField, volMesh>& H
+) const
+{
+    if (mergeAlpha_ <= 0)
+    {
+        return;
+    }
+
+    const labelUList& own = mesh_.owner();
+    const labelUList& nei = mesh_.neighbour();
+    const scalarField& V = mesh_.V();
+    const scalarField& upper = eqn.upper();
+    const scalarField& lower = eqn.lower();
+    const Field<Type>& psi = eqn.psi().primitiveField();
+    Field<Type>& HI = H.primitiveFieldRef();
+    Field<Type> sum(HI.size(), Zero);
+    scalarField vol(HI.size(), Zero);
+    forAll(linkMaster_, celli)
+    {
+        const label m = (linkMaster_[celli] >= 0) ? linkMaster_[celli] : celli;
+        sum[m] += V[celli]*HI[celli];
+        vol[m] += V[celli];
+        const label facei = linkFace_[celli];
+        if (linkMaster_[celli] >= 0 && facei >= 0)
+        {
+            // H_own holds -upper psi_nei, H_nei -lower psi_own: inside the
+            // merged cell, not a coupling to a neighbour
+            sum[m] += upper[facei]*psi[nei[facei]] + lower[facei]*psi[own[facei]];
+        }
+    }
+    forAll(linkMaster_, celli)
+    {
+        const label m = (linkMaster_[celli] >= 0) ? linkMaster_[celli] : celli;
+        HI[celli] = sum[m]/vol[m];
+    }
+    H.correctBoundaryConditions();
+}
