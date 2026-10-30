@@ -176,11 +176,36 @@ fallback to get started.
 | 7 | `ibmSpalartAllmarasIDDES`; T3.1 shielding, T3.2 channel WMLES | 2–6 |
 | 8 | moving bodies (nuTilda swept volume as for the scalars), docs (methods doc section, tutorials) | 7 |
 
-## 5. Open questions
+## 5. Decisions (2026-10-30)
 
-1. Target application: the wall-function emphasis (high Re, Cartesian meshes) versus wall-resolved
-   IDDES (moderate Re) decides how much of WP5 is needed.
-2. Reynolds number of the airfoil case: 10⁶ (cheap, body-fitted comparison only) or 6·10⁶ (TMR and
-   experimental data, at least four times the cells)?
-3. Moving bodies with turbulence in scope now, or static bodies first?
-4. Mesh budget for the 3-D IDDES tests (cores, wall time).
+1. General-purpose software: both wall functions (wall-modelled) and wall-resolved meshes must
+   work, with RANS in the near-wall region in both cases (IDDES in its DDES/WMLES branches, never
+   wall-resolved LES). Both `wallFunction spalding` and `none` are first-class; WP5 (image point,
+   tangential-only ν_w) is in scope if T1/T2 show cut-cell sensitivity.
+2. Airfoil at Re = 10⁶, compared with our own body-fitted runs only (no TMR/experiment needed).
+3. Static bodies first, no scalars. Keep the design open for both: nuTilda assembled with
+   `fvm::ddt(ibm.alpha(), …)` so that the swept volume works once bodies move, and the IBM pieces
+   factored so that scalar transport can reuse the wall functions (wall heat/mass transfer) later.
+4. Smallest possible cases first (2-D, ≤ 10⁵ cells, workstation); larger 3-D IDDES runs later on
+   the workstations (istmio2, istmeridanus, istmhydra) or HoreKa (partition `cpuonly`, account
+   `hk-project-exasim`).
+
+## 6. Why the 2-D SA airfoil does not validate IDDES completely
+
+SA-IDDES solves the same nuTilda equation as SA; it differs only in the length scale d̃, which
+blends the wall distance y with the grid scale through the IDDES functions (f_d shielding, f_e,
+f_B, with r_d and r_dt built from y and ∇U), and it runs transient. The IBM pieces (operators,
+Dirichlet wall, wall function, wall distance) are shared, so a working SA airfoil validates most of
+the machinery. Three things are not covered and are checked by T3.1 (cheap, 2-D/thin slab):
+
+- y enters IDDES far from the wall as well (blending functions); the IBM distance must be right
+  everywhere, not only in the wall cells, and so must h_max at cut cells;
+- the grid scale: Cartesian IBM meshes have near-isotropic cells at the wall, whereas body-fitted
+  boundary-layer meshes are stretched along the wall. With small isotropic cells the LES branch can
+  switch on inside an attached boundary layer (modelled-stress depletion, grid-induced separation)
+  where the body-fitted run stays RANS. Whether the f_d shielding keeps the near-wall region in RANS
+  on IBM meshes is the IDDES-specific question; the `LESRegion` and blending fields are written and
+  compared with the body-fitted run;
+- the transient path (`ibmPimpleFoam`, ddtCorr) with a variable ν_t.
+
+Real LES content (resolved turbulence) needs 3-D and is tested by T3.2 (channel, WMLES branch).
