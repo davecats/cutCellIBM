@@ -240,21 +240,26 @@ WP5, option C (cell linking), done: `mergeAlpha a` in `ibmProperties` links ever
 sparsity: a conductance c = mergePenalty·max(diagonals) (default 10⁴) on the link face of every
 assembled equation (momentum, pressure, nuTilda), so that the sum of the two rows is the merged
 cell's equation and the values coincide. A group (master and slaves) is then treated as one control
-volume wherever the equations are nonlinear or geometric: wall distance (also for the turbulence
-model) and wall coefficients from the merged centroid, wall function sampled at the master, SA
-sources evaluated once at the master with the group's fluid volume (`mergedAlpha`), and the
-gradients (∇U, ∇ν̃) averaged over the group. Linking the values alone was not enough (−2.5 % with
-the sources at the slave's own distance and gradient; ν̃ 5× too small in the merged cell).
+volume wherever the equations are nonlinear or geometric: every cell of a group gets the wall
+distance of the merged centroid (wall coefficients, wall function, turbulence wall distance), and
+the gradients (∇U, ∇ν̃) are averaged over the group. With its common distance, gradients and linked
+values, every cell of a group has the source density of the merged cell, so the SA sources need no
+special weighting. Linking the values alone was not enough (−2.5 % with the sources at the slave's
+own distance and gradient; ν̃ 5× too small in the merged cell). (A first version evaluated the
+sources only at the master with a group-volume weight; that weight only hid a bug in the slaves'
+wall distance and was removed in 8a2d288.)
 
 | u_τ vs body-fitted, f = 0.3 / 0.15 / 0.05 | first order | second order |
 |---|---|---|
 | wall functions, unlinked | −1.5 / +0.8 / +6.8 % | +2.8 / +7.5 / +24 % |
 | wall functions, linked (mergeAlpha 0.5) | +0.08 / +0.06 / +0.17 % | +0.44 / +0.22 / +0.09 % |
-| wall-resolved, linked | +0.06 / – / +0.01 % | +0.37 / – / +0.05 % |
+| wall-resolved, linked (oscillation means) | +0.07 / – / +0.02 % | +0.38 / – / +0.06 % |
 
-Known issue: the wall-resolved first-order case with f = 0.05 does not converge fully (G wanders
-by ±0.04 %, independent of the penalty and of the inner solver tolerances). Not yet linked: the
-passive scalars, and links across processor boundaries (a cell whose only candidate master is on
+On the wall-resolved mesh (first cell 1.8e-3) every run, body-fitted `simpleFoam` included, ends in
+a period-2 oscillation of SIMPLE (G amplitude 6.5e-5 body-fitted, up to 7e-4 IBM); wall-resolved
+values are means over it (`results.txt`, correction section). Finer meshes and all wall-function
+runs converge to round-off. Pressure linking had no effect in the channel (uniform pressure); its
+value is to be judged on the airfoil. Not yet linked: the passive scalars, and links across processor boundaries (a cell whose only candidate master is on
 another processor stays unlinked; counted in the log).
 
 WP5, option A (wall-law face viscosity, no linking) for comparison: `wallFunctionAlpha a` gives a
@@ -267,12 +272,11 @@ momentum equation changes; the SA equation of the thin cell is left as it is.
 |---|---|---|
 | wall functions, first order | −2.0 / −1.6 / −1.1 % | +0.08 / +0.06 / +0.17 % |
 | wall functions, second order | −1.6 / −1.5 / −1.0 % | +0.44 / +0.22 / +0.09 % |
-| wall-resolved, first order | −0.35 / – / −0.07 % (not converged) | +0.06 / – / +0.01 % |
-| wall-resolved, second order | −0.01 / – / −0.02 % (not converged) | +0.37 / – / +0.05 % |
+| wall-resolved, first order | −0.35 / – / −0.07 % | +0.07 / – / +0.02 % |
+| wall-resolved, second order | −0.01 / – / −0.02 % | +0.38 / – / +0.06 % |
 
 A removes most of the cut-position sensitivity of the unlinked scheme (spread 1 % instead of 8–22 %)
-but keeps a bias of −1 to −2 % and a spread of 1 %, and its wall-resolved runs settle into limit
-cycles (G spread up to 5.5e-4). C is about ten times more accurate and less sensitive. The likely
+but keeps a bias of −1 to −2 % and a spread of 1 % with wall functions. C is about ten times more accurate and less sensitive. The likely
 reason is that A leaves the thin cell's own SA equation (sources at its tiny distance and large
 gradient) and the interpolated viscosities of its other faces untouched; fixing those would turn
 A into C. Option A was removed again (commit after 3bc5a33); cell linking is the treatment.
