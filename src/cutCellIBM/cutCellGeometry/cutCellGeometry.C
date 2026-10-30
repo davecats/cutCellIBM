@@ -163,10 +163,6 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     linkFace_(),
     linkMaster_(),
     linkWallDist_(),
-    wallFunctionAlpha_(getOrDefault<scalar>("wallFunctionAlpha", 0)),
-    wfPartner_(),
-    wfFace_(),
-    centroidWallDist_(),
     mergedAlpha_
     (
         IOobject("ibmMergedAlpha", mesh.time().timeName(), mesh,
@@ -461,7 +457,6 @@ void Foam::cutCellGeometry::calcGeometry()
         calcWallPieces();
     }
     calcLinks();
-    calcWallFunctionPartners();
 }
 
 
@@ -493,61 +488,6 @@ Foam::label Foam::cutCellGeometry::outwardFace(const label celli) const
         }
     }
     return bestFace;
-}
-
-
-void Foam::cutCellGeometry::calcWallFunctionPartners()
-{
-    const label nCells = mesh_.nCells();
-    wfPartner_.setSize(nCells);
-    wfPartner_ = -1;
-    wfFace_.setSize(nCells);
-    wfFace_ = -1;
-
-    if (wallFunctionAlpha_ <= 0)
-    {
-        return;
-    }
-
-    const labelUList& own = mesh_.owner();
-    const labelUList& nei = mesh_.neighbour();
-    const scalarField& alpha = alpha_.primitiveField();
-
-    bool levelSetOnly = true;
-    forAll(bodies_, bodyi)
-    {
-        if (!bodies_[bodyi].hasLevelSet()) levelSetOnly = false;
-    }
-    centroidWallDist_ = dWall_.primitiveField();
-    if (levelSetOnly)
-    {
-        wallDistance(fluidCentroids(), centroidWallDist_);
-    }
-
-    label nPartner = 0;
-    for (const label celli : wallCells_)
-    {
-        const label bodyi = cellBody_[celli];
-        if
-        (
-            alpha[celli] >= wallFunctionAlpha_
-         || bodyi < 0
-         || bodies_[bodyi].wall() != ibmBody::NOSLIP
-         || bodies_[bodyi].wallFunction() != ibmBody::SPALDING
-         || (linkMaster_.size() == nCells && linkMaster_[celli] >= 0)
-        )
-        {
-            continue;
-        }
-        const label facei = outwardFace(celli);
-        if (facei < 0) continue;
-        wfFace_[celli] = facei;
-        wfPartner_[celli] = (own[facei] == celli) ? nei[facei] : own[facei];
-        ++nPartner;
-    }
-    reduce(nPartner, sumOp<label>());
-    Info<< "    wall-function partners: " << nPartner << " wall cells with alpha < "
-        << wallFunctionAlpha_ << endl;
 }
 
 

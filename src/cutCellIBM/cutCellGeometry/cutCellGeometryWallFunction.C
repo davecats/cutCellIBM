@@ -34,30 +34,6 @@ Foam::scalar spaldingUPlus(const Foam::scalar Rey)
     return 0.5*(lo + hi);
 }
 
-// Inverse: u+ of Spalding's law at a given y+ (g(u+) = u+ + f(u+) - y+ is
-// increasing, with the root in [0, y+] since f >= 0)
-Foam::scalar spaldingUPlusOfYPlus(const Foam::scalar yp)
-{
-    using namespace Foam;
-    const scalar kappa = 0.41, E = 9.8;
-    if (yp <= 0) return 0;
-
-    auto g = [&](const scalar up)
-    {
-        const scalar ku = kappa*up;
-        if (ku > 50) return GREAT;
-        return up + (::exp(ku) - 1 - ku - 0.5*sqr(ku) - pow3(ku)/6)/E - yp;
-    };
-
-    scalar lo = 0, hi = yp;
-    for (label it = 0; it < 100 && hi - lo > 1e-12*hi; ++it)
-    {
-        const scalar mid = 0.5*(lo + hi);
-        if (g(mid) > 0) hi = mid; else lo = mid;
-    }
-    return 0.5*(lo + hi);
-}
-
 } // End anonymous namespace
 
 
@@ -79,19 +55,13 @@ Foam::scalar Foam::cutCellGeometry::wallFunctionUTau
         return 0;
     }
 
-    // Sample: the cell itself at dWall; a linked cell's master (the merged
-    // cell's value) at dWall, the merged centroid's distance; a thin cell's
-    // wall-function partner at the distance of its own centroid
+    // Sample: the cell itself at dWall, or a linked cell's master (the
+    // merged cell's value) at dWall, the merged centroid's distance
     label sample = celli;
-    scalar y = dWall_[celli];
+    const scalar y = dWall_[celli];
     if (linkMaster_.size() == mesh_.nCells() && linkMaster_[celli] >= 0)
     {
         sample = linkMaster_[celli];
-    }
-    else if (wfPartner_.size() == mesh_.nCells() && wfPartner_[celli] >= 0)
-    {
-        sample = wfPartner_[celli];
-        y = centroidWallDist_[sample];
     }
 
     const vector n(Sw_[celli]/max(Awall_[celli], VSMALL));
@@ -133,44 +103,4 @@ Foam::tmp<Foam::volScalarField> Foam::cutCellGeometry::wallViscosity
 
     tnuW.ref().correctBoundaryConditions();
     return tnuW;
-}
-
-
-void Foam::cutCellGeometry::correctWallFaceViscosity
-(
-    const volVectorField& U,
-    const volScalarField& nu,
-    surfaceScalarField& nuF
-) const
-{
-    if (wallFunctionAlpha_ <= 0)
-    {
-        return;
-    }
-
-    const vectorField& Sf = mesh_.faceAreas();
-    const scalarField& deltaCoeffs =
-        secondOrder_
-      ? cutDeltaCoeffs_.primitiveField()
-      : mesh_.nonOrthDeltaCoeffs().primitiveField();
-
-    forAll(wfPartner_, celli)
-    {
-        const label n = wfPartner_[celli];
-        if (n < 0) continue;
-        const label facei = wfFace_[celli];
-
-        const scalar uTau = wallFunctionUTau(U, nu, celli);
-        if (uTau <= 0) continue;
-        const scalar nuc = nu[celli];
-        const scalar dUp =
-            spaldingUPlusOfYPlus(centroidWallDist_[n]*uTau/nuc)
-          - spaldingUPlusOfYPlus(centroidWallDist_[celli]*uTau/nuc);
-        if (dUp <= SMALL) continue;
-
-        const scalar nuLaw = max(nuc, uTau/(deltaCoeffs[facei]*dUp));
-        const vector nw(Sw_[celli]/max(Awall_[celli], VSMALL));
-        const scalar w = sqr(nw & Sf[facei]/max(mag(Sf[facei]), VSMALL));
-        nuF[facei] = (1 - w)*nuF[facei] + w*theta_[facei]*nuLaw;
-    }
 }

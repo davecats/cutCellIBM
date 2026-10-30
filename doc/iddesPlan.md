@@ -275,4 +275,4 @@ but keeps a bias of −1 to −2 % and a spread of 1 %, and its wall-resolved ru
 cycles (G spread up to 5.5e-4). C is about ten times more accurate and less sensitive. The likely
 reason is that A leaves the thin cell's own SA equation (sources at its tiny distance and large
 gradient) and the interpolated viscosities of its other faces untouched; fixing those would turn
-A into C. Option A stays in the code as an experimental switch (off by default).
+A into C. Option A was removed again (commit after 3bc5a33); cell linking is the treatment.

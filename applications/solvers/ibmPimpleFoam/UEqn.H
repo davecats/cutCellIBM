@@ -13,19 +13,11 @@ if (ibmTurbulent)
 }
 const volScalarField& nuWall = ibmTurbulent ? tnuWall() : nuEff;
 
-// Face viscosity of the momentum laplacian: theta-weighted nuEff, with the
-// wall-law viscosity on the faces of thin wall cells (wallFunctionAlpha)
-tmp<surfaceScalarField> tnuEffF(ibm.thetaInterpolate(nuEff));
-if (ibmTurbulent)
-{
-    ibm.correctWallFaceViscosity(U, turbulence->nu(), tnuEffF.ref());
-}
-
 tmp<fvVectorMatrix> tUEqn
 (
     fvm::ddt(ibm.alpha(), U)
   + fvm::div(phi, U)
-  - fvm::laplacian(tnuEffF(), U)
+  - fvm::laplacian(ibm.thetaInterpolate(nuEff), U)
   + fvm::Sp(nuWall*ibm.noSlipCoeff(), U)
   + fvm::Sp(nuEff*ibm.blankCoeff(), U)
  ==
