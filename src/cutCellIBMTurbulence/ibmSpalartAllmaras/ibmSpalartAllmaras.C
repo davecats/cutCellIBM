@@ -77,18 +77,16 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
 
         volScalarField& nuTilda = this->nuTilda_;
         const volScalarField& alpha = ibm_.alpha();
-
-        // Fluid fraction of the nonlinear sources: alpha, or with linked small
-        // cut cells the volume of the merged group on its master (sources
-        // evaluated once per merged cell) and 0 on its slaves
-        const volScalarField& alphaS = ibm_.mergedAlpha();
         const volScalarField nu(this->nu());
 
         const volScalarField chi(this->chi());
         const volScalarField fv1(this->fv1(chi));
 
         // Vorticity from the velocity gradient over the fluid, with the
-        // wall velocity on the immersed wall
+        // wall velocity on the immersed wall. With linked small cut cells
+        // the gradients are averaged over each merged group; with its
+        // common wall distance and its linked values, every cell of a group
+        // then has the source density of the merged cell
         // (over the merged control volume for linked small cut cells)
         volTensorField gradU(ibm_.fluidGrad(this->U_, wallVelocity()()));
         ibm_.groupAverage(gradU.primitiveFieldRef());
@@ -120,12 +118,12 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
           - fvm::laplacian(ibm_.thetaInterpolate(this->DnuTildaEff()), nuTilda)
           + fvm::Sp(nu/this->sigmaNut_*ibm_.noSlipCoeff(), nuTilda)
           + fvm::Sp(nu/this->sigmaNut_*ibm_.blankCoeff(), nuTilda)
-          - this->Cb2_/this->sigmaNut_*alphaS*magSqr(gradNuTilda)
+          - this->Cb2_/this->sigmaNut_*alpha*magSqr(gradNuTilda)
          ==
-            this->Cb1_*alphaS()*Stilda*nuTilda()
+            this->Cb1_*alpha()*Stilda*nuTilda()
           - fvm::Sp
             (
-                this->Cw1_*alphaS()*this->fw(Stilda)*nuTilda()/sqr(this->y_),
+                this->Cw1_*alpha()*this->fw(Stilda)*nuTilda()/sqr(this->y_),
                 nuTilda
             )
           + fvOptions(nuTilda)

@@ -162,13 +162,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     mergePenalty_(getOrDefault<scalar>("mergePenalty", 1e4)),
     linkFace_(),
     linkMaster_(),
-    linkWallDist_(),
-    mergedAlpha_
-    (
-        IOobject("ibmMergedAlpha", mesh.time().timeName(), mesh,
-                 IOobject::NO_READ, IOobject::NO_WRITE),
-        mesh, dimensionedScalar(dimless, 1.0), "zeroGradient"
-    )
+    linkWallDist_()
 {
     Info<< "Cut-cell immersed boundary: reading " << name() << nl
         << "    alphaMin " << alphaMin_
@@ -500,11 +494,9 @@ void Foam::cutCellGeometry::calcLinks()
     linkMaster_ = -1;
     linkWallDist_.setSize(nCells);
     linkWallDist_ = 0;
-    mergedAlpha_.primitiveFieldRef() = alpha_.primitiveField();
 
     if (mergeAlpha_ <= 0)
     {
-        mergedAlpha_.correctBoundaryConditions();
         return;
     }
 
@@ -576,7 +568,6 @@ void Foam::cutCellGeometry::calcLinks()
         volSum[m] += alpha[celli]*V[celli];
         momSum[m] += alpha[celli]*V[celli]*wd[celli];
     }
-    scalarField& mergedAlpha = mergedAlpha_.primitiveFieldRef();
     scalarField& dWall = dWall_.primitiveFieldRef();
     scalarField& wallCoeff = wallCoeff_.primitiveFieldRef();
     scalarField& noSlip = noSlipCoeff_.primitiveFieldRef();
@@ -587,8 +578,6 @@ void Foam::cutCellGeometry::calcLinks()
         const scalar yGroup = momSum[m]/max(volSum[m], VSMALL);
         linkWallDist_[celli] = yGroup;
         linkWallDist_[m] = yGroup;
-        mergedAlpha[celli] = 0;
-        mergedAlpha[m] = volSum[m]/V[m];
 
         // The wall of a slave belongs to the merged cell, whose value sits at
         // the merged centroid: wall distance and wall coefficients from it
@@ -600,7 +589,6 @@ void Foam::cutCellGeometry::calcLinks()
             if (noSlip[celli] > 0) noSlip[celli] = c;
         }
     }
-    mergedAlpha_.correctBoundaryConditions();
     dWall_.correctBoundaryConditions();
     wallCoeff_.correctBoundaryConditions();
     noSlipCoeff_.correctBoundaryConditions();

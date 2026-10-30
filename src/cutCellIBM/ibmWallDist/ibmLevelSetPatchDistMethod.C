@@ -58,24 +58,26 @@ bool Foam::patchDistMethods::ibmLevelSet::correct(volScalarField& y)
 
     scalarField d;
     ibm.wallDistance(ibm.fluidCentroids(), d);
+
+    // Cells of a merged group (small cut cells linked to a master) are one
+    // control volume: every cell of the group gets the distance of its
+    // centroid
+    if (ibm.linking())
+    {
+        const scalarField& yGroup = ibm.linkWallDist();
+        forAll(d, celli)
+        {
+            if (yGroup[celli] > 0)
+            {
+                d[celli] = yGroup[celli];
+            }
+        }
+    }
+
     scalarField& yI = y.primitiveFieldRef();
     forAll(yI, celli)
     {
         yI[celli] = min(yI[celli], max(d[celli], floor));
-    }
-
-    // Cells of a merged group (small cut cells linked to a master) are one
-    // control volume: the distance of its centroid
-    if (ibm.linking())
-    {
-        const scalarField& yGroup = ibm.linkWallDist();
-        forAll(yI, celli)
-        {
-            if (yGroup[celli] > 0)
-            {
-                yI[celli] = min(yI[celli], yGroup[celli]);
-            }
-        }
     }
 
     forAll(mesh_.boundary(), patchi)

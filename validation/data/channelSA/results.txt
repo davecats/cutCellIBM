@@ -157,3 +157,19 @@ wr_f0.05_A_so            u_tau 0.05438  Re_tau 543.8  d(u_tau) -0.016%
     top    first cell y+ 0.47 (alpha 0.94)  u+(5)=4.950 u+(30)=13.435 u+(100)=16.600 u+(300)=19.639  u+ max 20.705
 # option A wall-resolved runs do not converge: G spread over the last 2000 iterations 2.4e-4 (f 0.3), 6.5e-5 (f 0.05),
 # 5.5e-4 (second order, both); the wall-function runs converge.
+
+## CORRECTION (2026-10-30): the convergence remarks above mixed the two pressure-gradient prints of each SIMPLE
+## iteration (after the momentum predictor and after the pressure correction). Per iteration (final print only),
+## every run on the wall-resolved mesh with first cell 1.8e-3 - body-fitted simpleFoam included - ends in a period-2
+## oscillation; finer meshes and all wall-function runs converge to round-off. Wall-resolved values as oscillation means,
+## simplified cell linking (commit after db343a2; identical to 92cf8b2 within 3e-5 in u_tau):
+# wall-resolved runs (first cell 1.8e-3): period-2 SIMPLE oscillation; u_tau from the mean of the final pressure gradient
+# of the last 2000 iterations, relative to the body-fitted mean; amplitude = spread of G over those iterations
+body-fitted                        u_tau +0.0000%   G amplitude 6.5e-05
+IBM unlinked, f 0.3                u_tau -1.1358%   G amplitude 2.4e-04
+IBM unlinked, f 0.05               u_tau -1.0877%   G amplitude 7.8e-05
+IBM unlinked, f 0.3, 2nd order     u_tau +0.0008%   G amplitude 5.5e-04
+IBM linked, f 0.3                  u_tau +0.0737%   G amplitude 3.4e-04
+IBM linked, f 0.05                 u_tau +0.0222%   G amplitude 7.1e-04
+IBM linked, f 0.3, 2nd order       u_tau +0.3817%   G amplitude 3.4e-04
+IBM linked, f 0.05, 2nd order      u_tau +0.0640%   G amplitude 7.2e-04

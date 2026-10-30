@@ -55,20 +55,14 @@ Foam::scalar Foam::cutCellGeometry::wallFunctionUTau
         return 0;
     }
 
-    // Sample: the cell itself at dWall, or a linked cell's master (the
-    // merged cell's value) at dWall, the merged centroid's distance
-    label sample = celli;
+    // Sample: the cell at dWall (a linked cell has the value of the merged
+    // cell and the distance of its centroid)
     const scalar y = dWall_[celli];
-    if (linkMaster_.size() == mesh_.nCells() && linkMaster_[celli] >= 0)
-    {
-        sample = linkMaster_[celli];
-    }
-
     const vector n(Sw_[celli]/max(Awall_[celli], VSMALL));
-    vector slip(U[sample]);
+    vector slip(U[celli]);
     if (moving_)
     {
-        slip -= UbPtr_()[sample];
+        slip -= UbPtr_()[celli];
     }
     const scalar magUt = mag(slip - (slip & n)*n);
     const scalar up = spaldingUPlus(magUt*y/nu[celli]);

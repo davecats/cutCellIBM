@@ -238,11 +238,6 @@ class cutCellGeometry
         //  (master and slaves), on every cell of a group (0 elsewhere)
         scalarField linkWallDist_;
 
-        //- Fluid fraction for the nonlinear sources of a merged group:
-        //  sum of the group's fluid volume over V on the master, 0 on the
-        //  slaves, alpha elsewhere
-        volScalarField mergedAlpha_;
-
 
     // Private member functions
 
@@ -302,9 +297,9 @@ class cutCellGeometry
         //  large wet areas; -1 if there is none
         label outwardFace(const label celli) const;
 
-        //- u_tau of a wall cell from Spalding's law at its sample point
-        //  (itself, or its master if linked); 0 if the cell has no wall
-        //  function
+        //- u_tau of a wall cell from Spalding's law with its tangential
+        //  slip at dWall (for a linked cell the merged centroid's distance);
+        //  0 if the cell has no wall function
         scalar wallFunctionUTau
         (
             const volVectorField& U,
@@ -577,11 +572,6 @@ public:
             //- Wall distance of the merged centroid on the cells of a group
             //  (master and slaves), 0 elsewhere
             const scalarField& linkWallDist() const { return linkWallDist_; }
-
-            //- Fluid fraction for nonlinear sources evaluated once per merged
-            //  group (at the master): alpha, the group's fluid volume over
-            //  V on the master, 0 on the slaves
-            const volScalarField& mergedAlpha() const { return mergedAlpha_; }
 
             //- Force on every body (per unit density): pressure and viscous
             void forces
