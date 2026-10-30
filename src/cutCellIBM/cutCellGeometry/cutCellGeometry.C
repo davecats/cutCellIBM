@@ -157,7 +157,18 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     massSourcePtr_(nullptr),
     thetaOldPtr_(nullptr),
     alphaOldMin_(1),
-    nSwept_(0)
+    nSwept_(0),
+    mergeAlpha_(getOrDefault<scalar>("mergeAlpha", 0)),
+    mergePenalty_(getOrDefault<scalar>("mergePenalty", 1e4)),
+    linkFace_(),
+    linkMaster_(),
+    linkWallDist_(),
+    mergedAlpha_
+    (
+        IOobject("ibmMergedAlpha", mesh.time().timeName(), mesh,
+                 IOobject::NO_READ, IOobject::NO_WRITE),
+        mesh, dimensionedScalar(dimless, 1.0), "zeroGradient"
+    )
 {
     Info<< "Cut-cell immersed boundary: reading " << name() << nl
         << "    alphaMin " << alphaMin_
@@ -445,6 +456,154 @@ void Foam::cutCellGeometry::calcGeometry()
         calcCentroidGeometry();
         calcWallPieces();
     }
+    calcLinks();
+}
+
+
+void Foam::cutCellGeometry::calcLinks()
+{
+    const label nCells = mesh_.nCells();
+    linkFace_.setSize(nCells);
+    linkFace_ = -1;
+    linkMaster_.setSize(nCells);
+    linkMaster_ = -1;
+    linkWallDist_.setSize(nCells);
+    linkWallDist_ = 0;
+    mergedAlpha_.primitiveFieldRef() = alpha_.primitiveField();
+
+    if (mergeAlpha_ <= 0)
+    {
+        mergedAlpha_.correctBoundaryConditions();
+        return;
+    }
+
+    const labelUList& own = mesh_.owner();
+    const labelUList& nei = mesh_.neighbour();
+    const cellList& cells = mesh_.cells();
+    const vectorField& Sf = mesh_.faceAreas();
+    const scalarField& alpha = alpha_.primitiveField();
+    const vectorField& Sw = Sw_.primitiveField();
+    const scalarField& V = mesh_.V();
+
+    auto isSlave = [&](const label celli)
+    {
+        return alpha[celli] > 0 && alpha[celli] < mergeAlpha_;
+    };
+
+    // Link face of every small cell: the open internal face to a fluid
+    // neighbour with more fluid, preferring the direction away from the wall
+    // (-n_w) and large wet areas
+    label nOrphan = 0;
+    forAll(alpha, celli)
+    {
+        if (!isSlave(celli)) continue;
+        const vector nw(Sw[celli]/max(Awall_[celli], VSMALL));
+        scalar best = -GREAT;
+        for (const label facei : cells[celli])
+        {
+            if (facei >= mesh_.nInternalFaces()) continue;
+            if (theta_[facei] <= 0) continue;
+            const label other = (own[facei] == celli) ? nei[facei] : own[facei];
+            if (alpha[other] <= alpha[celli]) continue;
+            const vector sOut((own[facei] == celli ? 1 : -1)*Sf[facei]);
+            const scalar wet = theta_[facei]*mag(Sf[facei]);
+            const scalar score =
+                wet*(1 + max(scalar(0), -(nw & sOut)/max(mag(sOut), VSMALL)))
+               *alpha[other];
+            if (score > best)
+            {
+                best = score;
+                linkFace_[celli] = facei;
+            }
+        }
+        if (linkFace_[celli] < 0) ++nOrphan;
+    }
+
+    // Masters: follow the links to a cell that is not linked
+    label nLinked = 0;
+    forAll(alpha, celli)
+    {
+        if (linkFace_[celli] < 0) continue;
+        label c = celli;
+        for (label it = 0; it < 10 && linkFace_[c] >= 0; ++it)
+        {
+            const label f = linkFace_[c];
+            c = (own[f] == c) ? nei[f] : own[f];
+        }
+        if (linkFace_[c] < 0)
+        {
+            linkMaster_[celli] = c;
+            ++nLinked;
+        }
+        else
+        {
+            linkFace_[celli] = -1;
+            ++nOrphan;
+        }
+    }
+
+    // Wall distance of the centroid of each merged group (master and all its
+    // slaves), from the level sets at the fluid centroids
+    bool levelSetOnly = true;
+    forAll(bodies_, bodyi)
+    {
+        if (!bodies_[bodyi].hasLevelSet()) levelSetOnly = false;
+    }
+    const pointField xc(fluidCentroids());
+    scalarField wd(nCells, 0);
+    if (levelSetOnly)
+    {
+        wallDistance(xc, wd);
+    }
+    else
+    {
+        wd = dWall_.primitiveField();
+    }
+    scalarField volSum(nCells, 0), momSum(nCells, 0);
+    forAll(alpha, celli)
+    {
+        const label m = (linkMaster_[celli] >= 0) ? linkMaster_[celli] : celli;
+        volSum[m] += alpha[celli]*V[celli];
+        momSum[m] += alpha[celli]*V[celli]*wd[celli];
+    }
+    scalarField& mergedAlpha = mergedAlpha_.primitiveFieldRef();
+    scalarField& dWall = dWall_.primitiveFieldRef();
+    scalarField& wallCoeff = wallCoeff_.primitiveFieldRef();
+    scalarField& noSlip = noSlipCoeff_.primitiveFieldRef();
+    forAll(alpha, celli)
+    {
+        const label m = linkMaster_[celli];
+        if (m < 0) continue;
+        const scalar yGroup = momSum[m]/max(volSum[m], VSMALL);
+        linkWallDist_[celli] = yGroup;
+        linkWallDist_[m] = yGroup;
+        mergedAlpha[celli] = 0;
+        mergedAlpha[m] = volSum[m]/V[m];
+
+        // The wall of a slave belongs to the merged cell, whose value sits at
+        // the merged centroid: wall distance and wall coefficients from it
+        if (wallCells_.test(celli))
+        {
+            dWall[celli] = yGroup;
+            const scalar c = Awall_[celli]/(yGroup*V[celli]);
+            if (wallCoeff[celli] > 0) wallCoeff[celli] = c;
+            if (noSlip[celli] > 0) noSlip[celli] = c;
+        }
+    }
+    mergedAlpha_.correctBoundaryConditions();
+    dWall_.correctBoundaryConditions();
+    wallCoeff_.correctBoundaryConditions();
+    noSlipCoeff_.correctBoundaryConditions();
+
+    reduce(nLinked, sumOp<label>());
+    reduce(nOrphan, sumOp<label>());
+    Info<< "    cell linking: " << nLinked << " cells with alpha < "
+        << mergeAlpha_ << " linked to a master";
+    if (nOrphan > 0)
+    {
+        Info<< ", " << nOrphan << " without a master (left unlinked)";
+    }
+    Info<< endl;
 }
 
 

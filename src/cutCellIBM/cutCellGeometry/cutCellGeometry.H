@@ -218,6 +218,32 @@ class cutCellGeometry
         label nSwept_;
 
 
+    // Cell linking (merging) of small cut cells, mergeAlpha > 0 only
+
+        //- Cells with 0 < alpha < mergeAlpha_ are linked to a fluid face
+        //  neighbour (0: off)
+        scalar mergeAlpha_;
+
+        //- Link conductance relative to the larger diagonal of the pair
+        scalar mergePenalty_;
+
+        //- Face linking a cell to its neighbour on the way to its master
+        //  (-1: not linked)
+        labelList linkFace_;
+
+        //- Master of every linked cell (end of the chain), -1 otherwise
+        labelList linkMaster_;
+
+        //- Distance to the wall of the centroid of the merged fluid volume
+        //  (master and slaves), on every cell of a group (0 elsewhere)
+        scalarField linkWallDist_;
+
+        //- Fluid fraction for the nonlinear sources of a merged group:
+        //  sum of the group's fluid volume over V on the master, 0 on the
+        //  slaves, alpha elsewhere
+        volScalarField mergedAlpha_;
+
+
     // Private member functions
 
         //- Minimum over the level sets of all level-set bodies
@@ -267,6 +293,9 @@ class cutCellGeometry
 
         //- Wall pieces of every wall cell (wallMoment_, wallPieceSum_)
         void calcWallPieces();
+
+        //- Masters and link faces of the small cut cells (mergeAlpha > 0)
+        void calcLinks();
 
         //- Everything that follows from alpha and theta
         void calcDerived();
@@ -506,6 +535,38 @@ public:
                 const volVectorField& U,
                 const volScalarField& nu
             ) const;
+
+            //- Link the small cut cells to their masters in an assembled
+            //  equation: a conductance c on the link face, so that the sum of
+            //  the two rows is the equation of the merged cell (c cancels)
+            //  and the two values coincide as c grows (cell merging without
+            //  changing the matrix sparsity). Apply after relax(), before
+            //  solve(). No-op unless mergeAlpha > 0.
+            template<class Type>
+            void linkCells(fvMatrix<Type>& eqn) const;
+
+            //- Replace the values of every merged group (master and slaves)
+            //  by their fluid-volume-weighted average: for cell averages of
+            //  the merged control volume, e.g. a gradient over the fluid,
+            //  whose contributions of the faces inside the group cancel.
+            //  No-op unless mergeAlpha > 0.
+            template<class Type>
+            void groupAverage(Field<Type>& f) const;
+
+            //- Master of every linked cell, -1 otherwise
+            const labelList& linkMaster() const { return linkMaster_; }
+
+            //- True if small cut cells are linked (mergeAlpha > 0)
+            bool linking() const { return mergeAlpha_ > 0; }
+
+            //- Wall distance of the merged centroid on the cells of a group
+            //  (master and slaves), 0 elsewhere
+            const scalarField& linkWallDist() const { return linkWallDist_; }
+
+            //- Fluid fraction for nonlinear sources evaluated once per merged
+            //  group (at the master): alpha, the group's fluid volume over
+            //  V on the master, 0 on the slaves
+            const volScalarField& mergedAlpha() const { return mergedAlpha_; }
 
             //- Force on every body (per unit density): pressure and viscous
             void forces

@@ -233,5 +233,26 @@ Wall-resolved: correct and robust to the cut position; `none` and `spalding` coi
 Wall functions: sensitive to the cut position, as anticipated in 2.3: a thin cut cell (y⁺ ≈ 2)
 next to a full cell at y⁺ ≈ 60 carries the wall law at its own sample point, and the face shear
 between the two cells is not the wall shear; the centroid-consistent fluxes of the second-order
-treatment make it worse (they extrapolate a near-linear profile across a log layer). Next: WP5,
-the wall-function treatment for coarse cut cells (decision pending, see the report of 2026-10-30).
+treatment make it worse (they extrapolate a near-linear profile across a log layer).
+
+WP5, option C (cell linking), done: `mergeAlpha a` in `ibmProperties` links every cut cell with
+α < a to a fluid face neighbour (chains end at a cell with more fluid). Linking keeps the matrix
+sparsity: a conductance c = mergePenalty·max(diagonals) (default 10⁴) on the link face of every
+assembled equation (momentum, pressure, nuTilda), so that the sum of the two rows is the merged
+cell's equation and the values coincide. A group (master and slaves) is then treated as one control
+volume wherever the equations are nonlinear or geometric: wall distance (also for the turbulence
+model) and wall coefficients from the merged centroid, wall function sampled at the master, SA
+sources evaluated once at the master with the group's fluid volume (`mergedAlpha`), and the
+gradients (∇U, ∇ν̃) averaged over the group. Linking the values alone was not enough (−2.5 % with
+the sources at the slave's own distance and gradient; ν̃ 5× too small in the merged cell).
+
+| u_τ vs body-fitted, f = 0.3 / 0.15 / 0.05 | first order | second order |
+|---|---|---|
+| wall functions, unlinked | −1.5 / +0.8 / +6.8 % | +2.8 / +7.5 / +24 % |
+| wall functions, linked (mergeAlpha 0.5) | +0.08 / +0.06 / +0.17 % | +0.44 / +0.22 / +0.09 % |
+| wall-resolved, linked | +0.06 / – / +0.01 % | +0.37 / – / +0.05 % |
+
+Known issue: the wall-resolved first-order case with f = 0.05 does not converge fully (G wanders
+by ±0.04 %, independent of the penalty and of the inner solver tolerances). Not yet linked: the
+passive scalars, and links across processor boundaries (a cell whose only candidate master is on
+another processor stays unlinked; counted in the log). Next: option A for comparison.

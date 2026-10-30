@@ -77,6 +77,11 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
 
         volScalarField& nuTilda = this->nuTilda_;
         const volScalarField& alpha = ibm_.alpha();
+
+        // Fluid fraction of the nonlinear sources: alpha, or with linked small
+        // cut cells the volume of the merged group on its master (sources
+        // evaluated once per merged cell) and 0 on its slaves
+        const volScalarField& alphaS = ibm_.mergedAlpha();
         const volScalarField nu(this->nu());
 
         const volScalarField chi(this->chi());
@@ -84,7 +89,9 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
 
         // Vorticity from the velocity gradient over the fluid, with the
         // wall velocity on the immersed wall
-        const volTensorField gradU(ibm_.fluidGrad(this->U_, wallVelocity()()));
+        // (over the merged control volume for linked small cut cells)
+        volTensorField gradU(ibm_.fluidGrad(this->U_, wallVelocity()()));
+        ibm_.groupAverage(gradU.primitiveFieldRef());
         const volScalarField::Internal Omega
         (
             ::sqrt(scalar(2))*mag(skew(gradU()))
@@ -100,10 +107,11 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
         );
 
         // nuTilda vanishes on the immersed no-slip walls
-        const volVectorField gradNuTilda
+        volVectorField gradNuTilda
         (
             ibm_.fluidGrad(nuTilda, scalarField(this->mesh_.nCells(), Zero))
         );
+        ibm_.groupAverage(gradNuTilda.primitiveFieldRef());
 
         tmp<fvScalarMatrix> nuTildaEqn
         (
@@ -112,18 +120,19 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
           - fvm::laplacian(ibm_.thetaInterpolate(this->DnuTildaEff()), nuTilda)
           + fvm::Sp(nu/this->sigmaNut_*ibm_.noSlipCoeff(), nuTilda)
           + fvm::Sp(nu/this->sigmaNut_*ibm_.blankCoeff(), nuTilda)
-          - this->Cb2_/this->sigmaNut_*alpha*magSqr(gradNuTilda)
+          - this->Cb2_/this->sigmaNut_*alphaS*magSqr(gradNuTilda)
          ==
-            this->Cb1_*alpha()*Stilda*nuTilda()
+            this->Cb1_*alphaS()*Stilda*nuTilda()
           - fvm::Sp
             (
-                this->Cw1_*alpha()*this->fw(Stilda)*nuTilda()/sqr(this->y_),
+                this->Cw1_*alphaS()*this->fw(Stilda)*nuTilda()/sqr(this->y_),
                 nuTilda
             )
           + fvOptions(nuTilda)
         );
 
         nuTildaEqn.ref().relax();
+        ibm_.linkCells(nuTildaEqn.ref());
         fvOptions.constrain(nuTildaEqn.ref());
         solve(nuTildaEqn);
         fvOptions.correct(nuTilda);

@@ -60,11 +60,16 @@ Foam::tmp<Foam::volScalarField> Foam::cutCellGeometry::wallViscosity
             continue;
         }
 
-        // Tangential slip relative to the wall
-        vector slip(U[celli]);
+        // Tangential slip relative to the wall; for a linked cell its master
+        // (the value of the merged cell), at the distance dWall (the merged
+        // centroid's for a linked cell)
+        const label sample =
+            (linkMaster_.size() == mesh_.nCells() && linkMaster_[celli] >= 0)
+          ? linkMaster_[celli] : celli;
+        vector slip(U[sample]);
         if (moving_)
         {
-            slip -= UbPtr_()[celli];
+            slip -= UbPtr_()[sample];
         }
         const vector n(Sw[celli]/max(Awall_[celli], VSMALL));
         const scalar magUt = mag(slip - (slip & n)*n);

@@ -59,6 +59,9 @@ if (ibm.moving())
 
 UEqn.relax();
 
+// Small cut cells linked to their masters (mergeAlpha > 0 only)
+ibm.linkCells(UEqn);
+
 fvOptions.constrain(UEqn);
 
 if (pimple.momentumPredictor())

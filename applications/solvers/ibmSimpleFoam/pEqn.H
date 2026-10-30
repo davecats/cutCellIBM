@@ -32,6 +32,7 @@
         );
 
         ibm.constrainPressure(pEqn);
+        ibm.linkCells(pEqn);
         pEqn.setReference(pRefCell, pRefValue);
 
         pEqn.solve();

@@ -30,7 +30,8 @@ def grading(n, h1):
     """Expansion ratio last/first of n geometric cells of first size h1 over length 1."""
     if abs(h1 * n - 1) < 1e-12:
         return 1.0, 1.0
-    lo, hi = 1.0 + 1e-12, 2.0
+    # total length h1 (r^n - 1)/(r - 1) increases with r; r < 1 when h1 > 1/n
+    lo, hi = (1.0 + 1e-12, 2.0) if h1 * n < 1 else (0.05, 1.0 - 1e-12)
     for _ in range(200):
         r = 0.5 * (lo + hi)
         if h1 * (r**n - 1) / (r - 1) > 1:
@@ -59,6 +60,8 @@ def main():
     ap.add_argument("--wallFunction", choices=("spalding", "none"), default="spalding")
     ap.add_argument("--nh", type=int, help="cells per half-channel (overrides --mesh)")
     ap.add_argument("--h1", type=float, help="first cell size (overrides --mesh)")
+    ap.add_argument("--mergeAlpha", type=float, default=0.0,
+                    help="ibm: link cut cells with alpha below this to a neighbour")
     ap.add_argument("--secondOrder", action="store_true",
                     help="ibm: second-order wall treatment (cutCellCorrected schemes)")
     a = ap.parse_args()
@@ -161,6 +164,7 @@ momentumSource
     if a.kind == "ibm":
         write(os.path.join(d, "constant/ibmProperties"), header("dictionary", "ibmProperties") + """
 alphaMin      0.02;
+mergeAlpha    %g;
 secondOrder   %s;
 nSubSamples   32;
 nBisect       40;
@@ -171,7 +175,7 @@ bodies
     lowerWall { type plane; point (0 -1 0); normal (0 1 0); wallType noSlip; wallFunction %s; }
     upperWall { type plane; point (0 1 0); normal (0 -1 0); wallType noSlip; wallFunction %s; }
 }
-""" % ("true" if a.secondOrder else "false", a.wallFunction, a.wallFunction))
+""" % (a.mergeAlpha, "true" if a.secondOrder else "false", a.wallFunction, a.wallFunction))
 
     write(os.path.join(d, "system/controlDict"), header("dictionary", "controlDict") + """
 application     %s;

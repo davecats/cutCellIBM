@@ -50,6 +50,7 @@ while (pimple.correctNonOrthogonal())
     }
 
     ibm.constrainPressure(pEqn);
+    ibm.linkCells(pEqn);
     pEqn.setReference(pRefCell, pRefValue);
 
     pEqn.solve(mesh.solver(p.select(pimple.finalInnerIter())));

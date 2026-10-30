@@ -190,3 +190,80 @@ Foam::cutCellGeometry::fluidGrad
     tg.ref().correctBoundaryConditions();
     return tg;
 }
+
+
+template<class Type>
+void Foam::cutCellGeometry::linkCells(fvMatrix<Type>& eqn) const
+{
+    if (mergeAlpha_ <= 0)
+    {
+        return;
+    }
+
+    const labelUList& own = mesh_.owner();
+    const labelUList& nei = mesh_.neighbour();
+    scalarField& diag = eqn.diag();
+    const bool symmetric = eqn.symmetric();
+    scalarField& upper = eqn.upper();
+    scalarField* lowerPtr = symmetric ? nullptr : &eqn.lower();
+
+    forAll(linkFace_, celli)
+    {
+        const label facei = linkFace_[celli];
+        if (facei < 0) continue;
+        const label other = (own[facei] == celli) ? nei[facei] : own[facei];
+
+        // A conductance with the sign of the diagonal (positive for
+        // -laplacian, negative for the pressure laplacian)
+        const scalar sgn = (diag[celli] + diag[other] >= 0) ? 1 : -1;
+        const scalar c =
+            mergePenalty_*max(mag(diag[celli]), mag(diag[other]));
+
+        diag[celli] += sgn*c;
+        diag[other] += sgn*c;
+        upper[facei] -= sgn*c;
+        if (lowerPtr)
+        {
+            (*lowerPtr)[facei] -= sgn*c;
+        }
+    }
+}
+
+
+template<class Type>
+void Foam::cutCellGeometry::groupAverage(Field<Type>& f) const
+{
+    if (mergeAlpha_ <= 0)
+    {
+        return;
+    }
+
+    const scalarField& alpha = alpha_.primitiveField();
+    const scalarField& V = mesh_.V();
+    Field<Type> sum(f.size(), Zero);
+    scalarField vol(f.size(), Zero);
+    forAll(linkMaster_, celli)
+    {
+        const label m = linkMaster_[celli];
+        if (m < 0) continue;
+        sum[m] += alpha[celli]*V[celli]*f[celli];
+        vol[m] += alpha[celli]*V[celli];
+    }
+    forAll(vol, m)
+    {
+        if (vol[m] > 0)
+        {
+            sum[m] += alpha[m]*V[m]*f[m];
+            vol[m] += alpha[m]*V[m];
+            f[m] = sum[m]/vol[m];
+        }
+    }
+    forAll(linkMaster_, celli)
+    {
+        const label m = linkMaster_[celli];
+        if (m >= 0)
+        {
+            f[celli] = f[m];
+        }
+    }
+}
