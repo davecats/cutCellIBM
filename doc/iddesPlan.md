@@ -292,3 +292,43 @@ but keeps a bias of −1 to −2 % and a spread of 1 % with wall functions. C is
 reason is that A leaves the thin cell's own SA equation (sources at its tiny distance and large
 gradient) and the interpolated viscosities of its other faces untouched; fixing those would turn
 A into C. Option A was removed again (commit after 3bc5a33); cell linking is the treatment.
+
+T2 NACA 0012, Re = 10⁶ (`validation/data/naca0012/results.txt`). References: body-fitted
+`simpleFoam` on the NASA TMR grid n0012_449-129 (far field 500 c), wall-resolved, and with wall
+functions (wall grid lines removed up to a first cell of 2e-3). IBM: Cartesian core h = 2e-3
+(y⁺ ≈ 50), R = 500, linking mergeAlpha 0.5; 10⁴ SIMPLE iterations, all converged to round-off
+(dC_l/500 < 10⁻⁵).
+
+| | C_l | C_d (pressure / viscous) |
+|---|---|---|
+| α = 0, body-fitted wall-resolved | 0 | 0.01105 (0.00209 / 0.00897) |
+| α = 0, body-fitted wall functions | 0 | 0.01003 (0.00043 / 0.00959) |
+| α = 0, IBM first / second order | 0 | 0.01274 / 0.01282 (0.0024 / 0.0104) |
+| α = 10, body-fitted wall-resolved | 1.0477 | 0.01585 (0.00812 / 0.00773) |
+| α = 10, body-fitted wall functions | 0.51 (stalled, unsteady) | 0.146 |
+| α = 10, IBM first / second order | 0.9727 / 0.9839 (−7.2 / −6.1 %) | 0.02740 / 0.02603 (0.020 / 0.0074) |
+
+- Linking on the airfoil exposed the pressure-velocity defect described under WP5 above (C_p ±1.5
+  along strips of linked cells, no convergence); fixed in 07fca55.
+- C_p of the IBM runs matches the body-fitted ones (rms 0.011 at α = 0; suction peak at α = 10
+  −5.13 vs −5.39). IBM wall-function runs stay attached at α = 10, the body-fitted wall-function
+  reference does not (also on the blockMesh C-mesh), so at α = 10 only the wall-resolved reference
+  is usable.
+- C_f per wall cell (the applied wall shear) has a sawtooth of about 10 % following the staircase of
+  wall distances; the field is smooth: an image-point estimate (U, p at a fixed distance D along
+  the normal, Spalding at D; `naca0012_surface.py --image D`) has 1 % noise. It is biased where the
+  wall law does not hold to D (+9 % on the wall-resolved solution at D = 3e-3, invalid near the
+  nose). Compared with that estimator, the IBM C_f at α = 0 lies on the wall-resolved one for
+  x > 0.35 (0.00443 vs 0.00462 at mid-chord), the body-fitted wall-function one above (0.00518).
+- Wall-function weakness shared by body-fitted and IBM runs: in a wall cell of a wall-function mesh
+  the Gauss velocity gradient (U = 0 on the wall) is about 3× the log-law dU/dy at the cell centre,
+  so the SA production and ν_t there are too large (ν_t = 2.4 κ u_τ y in the body-fitted
+  wall-function cell at mid-chord, 0.85 wall-resolved); body-fitted wall functions give C_f +31 %
+  at mid-chord and a laminar-like region near the nose, and stall at α = 10. At α = 10 the IBM
+  upper-surface C_f is about half the wall-resolved one for x > 0.3 and the pressure drag 2.5×.
+
+Open, candidates before IDDES: (i) log-law-consistent SA production in wall-function wall cells
+(Ω or ν̃ of the wall cell from u_τ/(κ y)); (ii) wall-model input at a fixed matching distance
+(2–3 h, image point) instead of the wall cell: a smooth applied wall shear independent of the cut
+position, and the input WMLES needs for IDDES anyway (non-local stencil, processor halos, a
+fallback where the boundary layer is thinner than the matching distance).

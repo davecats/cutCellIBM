@@ -1,0 +1,28 @@
+# NACA 0012, Re = 1e6, SA; runs of 2026-10-30 (tutorials/turbulence/naca0012/makeCase.py)
+# tmr_wr/tmr_wf: body-fitted simpleFoam on the TMR grid n0012_449-129 (wf: wall lines removed to a first cell 2e-3)
+# ibm: ibmSimpleFoam, h = 2e-3, R = 500, mergeAlpha 0.5 (with the merged-cell pressure-velocity coupling, 07fca55); so = secondOrder
+## validation/naca0012_compare.py (dCd, dCl relative to the first case of each block)
+tmr_wr_a0              alpha  0.0  its 10000  Cl -0.00000 (p -0.00000 v +0.00000)  Cd 0.011054 (p 0.002087 v 0.008967)  dCl/500 2.5e-06 dCd/500 8.2e-06
+tmr_wf_a0              alpha  0.0  its 10000  Cl -0.00000 (p -0.00000 v +0.00000)  Cd 0.010027 (p 0.000434 v 0.009593)  dCl/500 8.7e-10 dCd/500 5.9e-10  dCd -9.29%
+ibm_a0                 alpha  0.0  its 10000  Cl -0.00001 (p -0.00001 v -0.00000)  Cd 0.012742 (p 0.002358 v 0.010384)  dCl/500 3.1e-07 dCd/500 8.4e-09  dCd +15.28%
+ibm_so_a0              alpha  0.0  its 10000  Cl 0.00010 (p 0.00010 v +0.00000)  Cd 0.012820 (p 0.002414 v 0.010407)  dCl/500 3.6e-07 dCd/500 1.1e-08  dCd +15.98%
+tmr_wr_a10             alpha 10.0  its 10000  Cl 1.04770 (p 1.04736 v +0.00034)  Cd 0.015852 (p 0.008119 v 0.007733)  dCl/500 4.8e-05 dCd/500 2.1e-06
+tmr_wf_a10             alpha 10.0  its 10000  Cl 0.51062 (p 0.51109 v -0.00047)  Cd 0.146347 (p 0.142161 v 0.004186)  dCl/500 2.3e-02 dCd/500 2.7e-04  dCd +823.18% dCl -51.26%
+ibm_a10                alpha 10.0  its 10000  Cl 0.97270 (p 0.97266 v +0.00004)  Cd 0.027402 (p 0.019968 v 0.007434)  dCl/500 4.6e-06 dCd/500 2.4e-07  dCd +72.86% dCl -7.16%
+ibm_so_a10             alpha 10.0  its 10000  Cl 0.98392 (p 0.98389 v +0.00003)  Cd 0.026029 (p 0.018244 v 0.007785)  dCl/500 8.8e-06 dCd/500 1.9e-06  dCd +64.20% dCl -6.09%
+## validation/naca0012_surface.py, cell values (IBM: the wall shear the solver applies; Cf noise = staircase sawtooth)
+tmr_wr_a0            wall points  256  min Cp -0.408  Cf noise 0.002  upper: Cf(0.5) 0.00423, rms dCf/Cf 0.000, rms dCp 0.0000  lower: Cf(0.5) 0.00423, rms dCf/Cf 0.000, rms dCp 0.0000
+tmr_wf_a0            wall points  256  min Cp -0.463  Cf noise 0.002  upper: Cf(0.5) 0.00554, rms dCf/Cf 0.329, rms dCp 0.0210  lower: Cf(0.5) 0.00554, rms dCf/Cf 0.329, rms dCp 0.0210
+ibm_a0               wall points 1062  min Cp -0.458  Cf noise 0.102  upper: Cf(0.5) 0.00529, rms dCf/Cf 0.267, rms dCp 0.0115  lower: Cf(0.5) 0.00529, rms dCf/Cf 0.267, rms dCp 0.0115
+ibm_so_a0            wall points 1064  min Cp -0.455  Cf noise 0.090  upper: Cf(0.5) 0.00528, rms dCf/Cf 0.264, rms dCp 0.0112  lower: Cf(0.5) 0.00528, rms dCf/Cf 0.264, rms dCp 0.0112
+tmr_wr_a10           wall points  256  min Cp -5.393  Cf noise 0.005  upper: Cf(0.5) 0.00336, rms dCf/Cf 0.000, rms dCp 0.0000  lower: Cf(0.5) 0.00373, rms dCf/Cf 0.000, rms dCp 0.0000
+ibm_a10              wall points 1062  min Cp -5.132  Cf noise 0.112  upper: Cf(0.5) 0.00212, rms dCf/Cf 0.374, rms dCp 0.0709  lower: Cf(0.5) 0.00484, rms dCf/Cf 0.305, rms dCp 0.0295
+ibm_so_a10           wall points 1064  min Cp -5.079  Cf noise 0.099  upper: Cf(0.5) 0.00239, rms dCf/Cf 0.291, rms dCp 0.0628  lower: Cf(0.5) 0.00482, rms dCf/Cf 0.302, rms dCp 0.0253
+## validation/naca0012_surface.py --image 3e-3 (the same estimator for all runs; not valid near the nose)
+tmr_wr_a0            wall points 7898  min Cp -0.400  Cf noise 0.005  upper: Cf(0.5) 0.00462, rms dCf/Cf 0.000, rms dCp 0.0000  lower: Cf(0.5) 0.00462, rms dCf/Cf 0.000, rms dCp 0.0000
+tmr_wf_a0            wall points 7898  min Cp -0.458  Cf noise 0.002  upper: Cf(0.5) 0.00518, rms dCf/Cf 0.195, rms dCp 0.0257  lower: Cf(0.5) 0.00518, rms dCf/Cf 0.195, rms dCp 0.0257
+ibm_a0               wall points 7898  min Cp -0.437  Cf noise 0.010  upper: Cf(0.5) 0.00443, rms dCf/Cf 0.084, rms dCp 0.0048  lower: Cf(0.5) 0.00443, rms dCf/Cf 0.084, rms dCp 0.0046
+ibm_so_a0            wall points 7898  min Cp -0.438  Cf noise 0.011  upper: Cf(0.5) 0.00441, rms dCf/Cf 0.083, rms dCp 0.0049  lower: Cf(0.5) 0.00441, rms dCf/Cf 0.083, rms dCp 0.0047
+tmr_wr_a10           wall points 7898  min Cp -4.246  Cf noise 0.011  upper: Cf(0.5) 0.00366, rms dCf/Cf 0.000, rms dCp 0.0000  lower: Cf(0.5) 0.00424, rms dCf/Cf 0.000, rms dCp 0.0000
+ibm_a10              wall points 7898  min Cp -3.960  Cf noise 0.016  upper: Cf(0.5) 0.00186, rms dCf/Cf 0.532, rms dCp 0.0625  lower: Cf(0.5) 0.00398, rms dCf/Cf 0.073, rms dCp 0.0279
+ibm_so_a10           wall points 7898  min Cp -4.062  Cf noise 0.016  upper: Cf(0.5) 0.00207, rms dCf/Cf 0.471, rms dCp 0.0540  lower: Cf(0.5) 0.00396, rms dCf/Cf 0.072, rms dCp 0.0232
