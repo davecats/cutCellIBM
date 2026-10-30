@@ -255,4 +255,24 @@ the sources at the slave's own distance and gradient; ν̃ 5× too small in the 
 Known issue: the wall-resolved first-order case with f = 0.05 does not converge fully (G wanders
 by ±0.04 %, independent of the penalty and of the inner solver tolerances). Not yet linked: the
 passive scalars, and links across processor boundaries (a cell whose only candidate master is on
-another processor stays unlinked; counted in the log). Next: option A for comparison.
+another processor stays unlinked; counted in the log).
+
+WP5, option A (wall-law face viscosity, no linking) for comparison: `wallFunctionAlpha a` gives a
+wall cell with α < a a partner (its outward fluid neighbour, the same rule as a link master); u_τ
+comes from Spalding at the partner's centroid, the thin cell's traction imposes u_τ², and the face
+between the two carries ν_f = u_τ Δ/(u⁺(y⁺_partner) − u⁺(y⁺_cell)), blended by (n_f·n_w)². Only the
+momentum equation changes; the SA equation of the thin cell is left as it is.
+
+| u_τ vs body-fitted, f = 0.3 / 0.15 / 0.05 | option A | option C |
+|---|---|---|
+| wall functions, first order | −2.0 / −1.6 / −1.1 % | +0.08 / +0.06 / +0.17 % |
+| wall functions, second order | −1.6 / −1.5 / −1.0 % | +0.44 / +0.22 / +0.09 % |
+| wall-resolved, first order | −0.35 / – / −0.07 % (not converged) | +0.06 / – / +0.01 % |
+| wall-resolved, second order | −0.01 / – / −0.02 % (not converged) | +0.37 / – / +0.05 % |
+
+A removes most of the cut-position sensitivity of the unlinked scheme (spread 1 % instead of 8–22 %)
+but keeps a bias of −1 to −2 % and a spread of 1 %, and its wall-resolved runs settle into limit
+cycles (G spread up to 5.5e-4). C is about ten times more accurate and less sensitive. The likely
+reason is that A leaves the thin cell's own SA equation (sources at its tiny distance and large
+gradient) and the interpolated viscosities of its other faces untouched; fixing those would turn
+A into C. Option A stays in the code as an experimental switch (off by default).

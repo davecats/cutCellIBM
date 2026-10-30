@@ -62,6 +62,8 @@ def main():
     ap.add_argument("--h1", type=float, help="first cell size (overrides --mesh)")
     ap.add_argument("--mergeAlpha", type=float, default=0.0,
                     help="ibm: link cut cells with alpha below this to a neighbour")
+    ap.add_argument("--wallFunctionAlpha", type=float, default=0.0,
+                    help="ibm: thin wall cells take u_tau from their outward neighbour (option A)")
     ap.add_argument("--secondOrder", action="store_true",
                     help="ibm: second-order wall treatment (cutCellCorrected schemes)")
     a = ap.parse_args()
@@ -165,6 +167,7 @@ momentumSource
         write(os.path.join(d, "constant/ibmProperties"), header("dictionary", "ibmProperties") + """
 alphaMin      0.02;
 mergeAlpha    %g;
+wallFunctionAlpha %g;
 secondOrder   %s;
 nSubSamples   32;
 nBisect       40;
@@ -175,7 +178,7 @@ bodies
     lowerWall { type plane; point (0 -1 0); normal (0 1 0); wallType noSlip; wallFunction %s; }
     upperWall { type plane; point (0 1 0); normal (0 -1 0); wallType noSlip; wallFunction %s; }
 }
-""" % (a.mergeAlpha, "true" if a.secondOrder else "false", a.wallFunction, a.wallFunction))
+""" % (a.mergeAlpha, a.wallFunctionAlpha, "true" if a.secondOrder else "false", a.wallFunction, a.wallFunction))
 
     write(os.path.join(d, "system/controlDict"), header("dictionary", "controlDict") + """
 application     %s;

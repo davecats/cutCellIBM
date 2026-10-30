@@ -238,6 +238,18 @@ class cutCellGeometry
         //  (master and slaves), on every cell of a group (0 elsewhere)
         scalarField linkWallDist_;
 
+        //- Wall-function partners (option A, no linking): a wall cell with
+        //  alpha < wallFunctionAlpha_ takes u_tau from its outward fluid
+        //  neighbour, and the face between them carries a wall-law
+        //  viscosity (0: off)
+        scalar wallFunctionAlpha_;
+        labelList wfPartner_;
+        labelList wfFace_;
+
+        //- Distance of the fluid centroid to the wall (level-set bodies;
+        //  dWall otherwise), for the wall-function partners
+        scalarField centroidWallDist_;
+
         //- Fluid fraction for the nonlinear sources of a merged group:
         //  sum of the group's fluid volume over V on the master, 0 on the
         //  slaves, alpha elsewhere
@@ -296,6 +308,24 @@ class cutCellGeometry
 
         //- Masters and link faces of the small cut cells (mergeAlpha > 0)
         void calcLinks();
+
+        //- Wall-function partners (wallFunctionAlpha > 0)
+        void calcWallFunctionPartners();
+
+        //- The open internal face from a cut cell to the fluid neighbour
+        //  with more fluid, preferring the direction away from the wall and
+        //  large wet areas; -1 if there is none
+        label outwardFace(const label celli) const;
+
+        //- u_tau of a wall cell from Spalding's law at its sample point
+        //  (itself, its master, or its wall-function partner); 0 if the
+        //  cell has no wall function
+        scalar wallFunctionUTau
+        (
+            const volVectorField& U,
+            const volScalarField& nu,
+            const label celli
+        ) const;
 
         //- Everything that follows from alpha and theta
         void calcDerived();
@@ -567,6 +597,19 @@ public:
             //  group (at the master): alpha, the group's fluid volume over
             //  V on the master, 0 on the slaves
             const volScalarField& mergedAlpha() const { return mergedAlpha_; }
+
+            //- Wall-law viscosity on the face between a thin wall cell and
+            //  its wall-function partner (wallFunctionAlpha > 0): nu_f =
+            //  u_tau Delta/(u+(y+_partner) - u+(y+_cell)), so that the
+            //  discrete shear between two values on the wall law is u_tau^2;
+            //  blended with the given face viscosity nuF (theta-weighted) by
+            //  the alignment (n_f . n_w)^2. No-op otherwise.
+            void correctWallFaceViscosity
+            (
+                const volVectorField& U,
+                const volScalarField& nu,
+                surfaceScalarField& nuF
+            ) const;
 
             //- Force on every body (per unit density): pressure and viscous
             void forces

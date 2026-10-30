@@ -112,3 +112,48 @@ wr_f0.05_m_so            u_tau 0.05442  Re_tau 544.2  d(u_tau) +0.054%
 # mergePenalty in 1e1..1e4 and with exact inner solves; all other runs converge to dG/G < 1e-8 per 1000 iterations.
 # mergePenalty sensitivity, f = 0.05, u_tau vs body-fitted: wall functions +0.117/+0.168/+0.173 % (1e1/1e2/1e3, 1e4: +0.174 %);
 # wall-resolved -0.061/+0.004/+0.011 %.
+
+## option A (wallFunctionAlpha 0.5: u_tau from the outward neighbour, wall-law face viscosity; no linking), 10000 iterations
+## wall functions, first/second order; wf_f0.05_C repeats a linked run after the refactoring (unchanged: +0.174 %)
+bf_wf                    u_tau 0.05675  Re_tau 567.5  d(u_tau) +0.000%
+    bottom first cell y+ 47.29 (alpha 1.00)  u+(100)=15.548 u+(300)=18.295  u+ max 19.418
+    top    first cell y+ 47.29 (alpha 1.00)  u+(100)=15.548 u+(300)=18.295  u+ max 19.418
+wf_f0.3_A                u_tau 0.05563  Re_tau 556.3  d(u_tau) -1.971%
+    bottom first cell y+ 13.33 (alpha 0.31)  u+(30)=11.519 u+(100)=16.077 u+(300)=19.030  u+ max 20.075
+    top    first cell y+ 33.03 (alpha 0.69)  u+(100)=15.738 u+(300)=18.826  u+ max 19.928
+wf_f0.15_A               u_tau 0.05584  Re_tau 558.4  d(u_tau) -1.608%
+    bottom first cell y+ 6.69 (alpha 0.16)  u+(30)=10.124 u+(100)=15.907 u+(300)=18.897  u+ max 19.963
+    top    first cell y+ 39.84 (alpha 0.84)  u+(100)=15.708 u+(300)=18.717  u+ max 19.868
+wf_f0.05_A               u_tau 0.05615  Re_tau 561.5  d(u_tau) -1.052%
+    bottom first cell y+ 1.75 (alpha 0.06)  u+(5)=2.679 u+(30)=9.060 u+(100)=15.739 u+(300)=18.717  u+ max 19.775
+    top    first cell y+ 45.04 (alpha 0.94)  u+(100)=15.667 u+(300)=18.541  u+ max 19.716
+wf_f0.3_A_so             u_tau 0.05582  Re_tau 558.2  d(u_tau) -1.635%
+    bottom first cell y+ 13.37 (alpha 0.31)  u+(30)=11.468 u+(100)=16.018 u+(300)=18.979  u+ max 20.006
+    top    first cell y+ 33.14 (alpha 0.69)  u+(100)=15.620 u+(300)=18.716  u+ max 19.847
+wf_f0.15_A_so            u_tau 0.05589  Re_tau 558.9  d(u_tau) -1.512%
+    bottom first cell y+ 6.70 (alpha 0.16)  u+(30)=10.095 u+(100)=15.885 u+(300)=18.890  u+ max 19.945
+    top    first cell y+ 39.88 (alpha 0.84)  u+(100)=15.685 u+(300)=18.675  u+ max 19.843
+wf_f0.05_A_so            u_tau 0.05618  Re_tau 561.8  d(u_tau) -1.002%
+    bottom first cell y+ 1.76 (alpha 0.06)  u+(5)=2.552 u+(30)=8.967 u+(100)=15.699 u+(300)=18.698  u+ max 19.761
+    top    first cell y+ 45.06 (alpha 0.94)  u+(100)=15.690 u+(300)=18.539  u+ max 19.707
+wf_f0.05_C               u_tau 0.05685  Re_tau 568.5  d(u_tau) +0.174%
+    bottom first cell y+ 1.78 (alpha 0.06)  u+(5)=14.616 u+(30)=14.616 u+(100)=15.570 u+(300)=18.263  u+ max 19.396
+    top    first cell y+ 45.60 (alpha 0.94)  u+(100)=15.457 u+(300)=18.257  u+ max 19.380
+## wall-resolved, first/second order
+bf_wr                    u_tau 0.05439  Re_tau 543.9  d(u_tau) +0.000%
+    bottom first cell y+ 0.49 (alpha 1.00)  u+(5)=4.947 u+(30)=13.433 u+(100)=16.597 u+(300)=19.636  u+ max 20.702
+    top    first cell y+ 0.49 (alpha 1.00)  u+(5)=4.947 u+(30)=13.433 u+(100)=16.597 u+(300)=19.635  u+ max 20.702
+wr_f0.3_A                u_tau 0.05420  Re_tau 542.0  d(u_tau) -0.349%
+    bottom first cell y+ 0.14 (alpha 0.31)  u+(5)=4.934 u+(30)=13.475 u+(100)=16.646 u+(300)=19.692  u+ max 20.763
+    top    first cell y+ 0.35 (alpha 0.69)  u+(5)=5.060 u+(30)=13.543 u+(100)=16.700 u+(300)=19.727  u+ max 20.766
+wr_f0.05_A               u_tau 0.05435  Re_tau 543.5  d(u_tau) -0.067%
+    bottom first cell y+ 0.02 (alpha 0.06)  u+(5)=4.915 u+(30)=13.443 u+(100)=16.608 u+(300)=19.648  u+ max 20.715
+    top    first cell y+ 0.47 (alpha 0.94)  u+(5)=4.963 u+(30)=13.451 u+(100)=16.614 u+(300)=19.652  u+ max 20.715
+wr_f0.3_A_so             u_tau 0.05438  Re_tau 543.8  d(u_tau) -0.014%
+    bottom first cell y+ 0.14 (alpha 0.31)  u+(5)=4.942 u+(30)=13.436 u+(100)=16.600 u+(300)=19.639  u+ max 20.705
+    top    first cell y+ 0.35 (alpha 0.69)  u+(5)=4.946 u+(30)=13.435 u+(100)=16.599 u+(300)=19.638  u+ max 20.705
+wr_f0.05_A_so            u_tau 0.05438  Re_tau 543.8  d(u_tau) -0.016%
+    bottom first cell y+ 0.02 (alpha 0.06)  u+(5)=4.947 u+(30)=13.436 u+(100)=16.600 u+(300)=19.639  u+ max 20.706
+    top    first cell y+ 0.47 (alpha 0.94)  u+(5)=4.950 u+(30)=13.435 u+(100)=16.600 u+(300)=19.639  u+ max 20.705
+# option A wall-resolved runs do not converge: G spread over the last 2000 iterations 2.4e-4 (f 0.3), 6.5e-5 (f 0.05),
+# 5.5e-4 (second order, both); the wall-function runs converge.

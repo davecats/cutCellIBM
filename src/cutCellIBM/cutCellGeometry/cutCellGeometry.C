@@ -163,6 +163,10 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     linkFace_(),
     linkMaster_(),
     linkWallDist_(),
+    wallFunctionAlpha_(getOrDefault<scalar>("wallFunctionAlpha", 0)),
+    wfPartner_(),
+    wfFace_(),
+    centroidWallDist_(),
     mergedAlpha_
     (
         IOobject("ibmMergedAlpha", mesh.time().timeName(), mesh,
@@ -457,6 +461,93 @@ void Foam::cutCellGeometry::calcGeometry()
         calcWallPieces();
     }
     calcLinks();
+    calcWallFunctionPartners();
+}
+
+
+Foam::label Foam::cutCellGeometry::outwardFace(const label celli) const
+{
+    const labelUList& own = mesh_.owner();
+    const labelUList& nei = mesh_.neighbour();
+    const vectorField& Sf = mesh_.faceAreas();
+    const scalarField& alpha = alpha_.primitiveField();
+    const vector nw(Sw_[celli]/max(Awall_[celli], VSMALL));
+
+    label bestFace = -1;
+    scalar best = -GREAT;
+    for (const label facei : mesh_.cells()[celli])
+    {
+        if (facei >= mesh_.nInternalFaces()) continue;
+        if (theta_[facei] <= 0) continue;
+        const label other = (own[facei] == celli) ? nei[facei] : own[facei];
+        if (alpha[other] <= alpha[celli]) continue;
+        const vector sOut((own[facei] == celli ? 1 : -1)*Sf[facei]);
+        const scalar wet = theta_[facei]*mag(Sf[facei]);
+        const scalar score =
+            wet*(1 + max(scalar(0), -(nw & sOut)/max(mag(sOut), VSMALL)))
+           *alpha[other];
+        if (score > best)
+        {
+            best = score;
+            bestFace = facei;
+        }
+    }
+    return bestFace;
+}
+
+
+void Foam::cutCellGeometry::calcWallFunctionPartners()
+{
+    const label nCells = mesh_.nCells();
+    wfPartner_.setSize(nCells);
+    wfPartner_ = -1;
+    wfFace_.setSize(nCells);
+    wfFace_ = -1;
+
+    if (wallFunctionAlpha_ <= 0)
+    {
+        return;
+    }
+
+    const labelUList& own = mesh_.owner();
+    const labelUList& nei = mesh_.neighbour();
+    const scalarField& alpha = alpha_.primitiveField();
+
+    bool levelSetOnly = true;
+    forAll(bodies_, bodyi)
+    {
+        if (!bodies_[bodyi].hasLevelSet()) levelSetOnly = false;
+    }
+    centroidWallDist_ = dWall_.primitiveField();
+    if (levelSetOnly)
+    {
+        wallDistance(fluidCentroids(), centroidWallDist_);
+    }
+
+    label nPartner = 0;
+    for (const label celli : wallCells_)
+    {
+        const label bodyi = cellBody_[celli];
+        if
+        (
+            alpha[celli] >= wallFunctionAlpha_
+         || bodyi < 0
+         || bodies_[bodyi].wall() != ibmBody::NOSLIP
+         || bodies_[bodyi].wallFunction() != ibmBody::SPALDING
+         || (linkMaster_.size() == nCells && linkMaster_[celli] >= 0)
+        )
+        {
+            continue;
+        }
+        const label facei = outwardFace(celli);
+        if (facei < 0) continue;
+        wfFace_[celli] = facei;
+        wfPartner_[celli] = (own[facei] == celli) ? nei[facei] : own[facei];
+        ++nPartner;
+    }
+    reduce(nPartner, sumOp<label>());
+    Info<< "    wall-function partners: " << nPartner << " wall cells with alpha < "
+        << wallFunctionAlpha_ << endl;
 }
 
 
@@ -479,10 +570,7 @@ void Foam::cutCellGeometry::calcLinks()
 
     const labelUList& own = mesh_.owner();
     const labelUList& nei = mesh_.neighbour();
-    const cellList& cells = mesh_.cells();
-    const vectorField& Sf = mesh_.faceAreas();
     const scalarField& alpha = alpha_.primitiveField();
-    const vectorField& Sw = Sw_.primitiveField();
     const scalarField& V = mesh_.V();
 
     auto isSlave = [&](const label celli)
@@ -497,25 +585,7 @@ void Foam::cutCellGeometry::calcLinks()
     forAll(alpha, celli)
     {
         if (!isSlave(celli)) continue;
-        const vector nw(Sw[celli]/max(Awall_[celli], VSMALL));
-        scalar best = -GREAT;
-        for (const label facei : cells[celli])
-        {
-            if (facei >= mesh_.nInternalFaces()) continue;
-            if (theta_[facei] <= 0) continue;
-            const label other = (own[facei] == celli) ? nei[facei] : own[facei];
-            if (alpha[other] <= alpha[celli]) continue;
-            const vector sOut((own[facei] == celli ? 1 : -1)*Sf[facei]);
-            const scalar wet = theta_[facei]*mag(Sf[facei]);
-            const scalar score =
-                wet*(1 + max(scalar(0), -(nw & sOut)/max(mag(sOut), VSMALL)))
-               *alpha[other];
-            if (score > best)
-            {
-                best = score;
-                linkFace_[celli] = facei;
-            }
-        }
+        linkFace_[celli] = outwardFace(celli);
         if (linkFace_[celli] < 0) ++nOrphan;
     }
 
