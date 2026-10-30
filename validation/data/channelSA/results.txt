@@ -1,0 +1,58 @@
+# validation/channelSA_compare.py, SA channel Re_b = 2e4 (tutorials/turbulence/channelSA/makeCase.py), runs of 2026-10-30
+# u_tau from the mean-velocity force; d(u_tau) relative to the first case of each block; f = offset of the wall in the wall cell
+## wall-resolved (y+ ~ 1): body-fitted vs IBM, first/second order, two resolutions
+bf_wr                    u_tau 0.05439  Re_tau 543.9  d(u_tau) +0.000%
+    bottom first cell y+ 0.49 (alpha 1.00)  u+(5)=4.947 u+(30)=13.433 u+(100)=16.597 u+(300)=19.636  u+ max 20.702
+    top    first cell y+ 0.49 (alpha 1.00)  u+(5)=4.947 u+(30)=13.433 u+(100)=16.597 u+(300)=19.635  u+ max 20.702
+ibm_wr_f0.3              u_tau 0.05377  Re_tau 537.7  d(u_tau) -1.143%
+    bottom first cell y+ 0.14 (alpha 0.31)  u+(5)=5.223 u+(30)=13.730 u+(100)=16.887 u+(300)=19.905  u+ max 20.912
+    top    first cell y+ 0.34 (alpha 0.69)  u+(5)=5.114 u+(30)=13.634 u+(100)=16.806 u+(300)=19.854  u+ max 20.907
+ibm_wr_f0.05             u_tau 0.05380  Re_tau 538.0  d(u_tau) -1.091%
+    bottom first cell y+ 0.02 (alpha 0.06)  u+(5)=5.303 u+(30)=13.783 u+(100)=16.928 u+(300)=19.923  u+ max 20.898
+    top    first cell y+ 0.47 (alpha 0.94)  u+(5)=5.035 u+(30)=13.572 u+(100)=16.754 u+(300)=19.812  u+ max 20.886
+ibm_wr_f0.3_noWF         u_tau 0.05377  Re_tau 537.7  d(u_tau) -1.143%
+    bottom first cell y+ 0.14 (alpha 0.31)  u+(5)=5.223 u+(30)=13.730 u+(100)=16.887 u+(300)=19.905  u+ max 20.912
+    top    first cell y+ 0.34 (alpha 0.69)  u+(5)=5.114 u+(30)=13.634 u+(100)=16.806 u+(300)=19.854  u+ max 20.907
+ibm_wr_f0.3_so           u_tau 0.05438  Re_tau 543.8  d(u_tau) -0.015%
+    bottom first cell y+ 0.14 (alpha 0.31)  u+(5)=4.942 u+(30)=13.436 u+(100)=16.600 u+(300)=19.639  u+ max 20.705
+    top    first cell y+ 0.35 (alpha 0.69)  u+(5)=4.946 u+(30)=13.435 u+(100)=16.599 u+(300)=19.638  u+ max 20.705
+bf_wr_fine               u_tau 0.05440  Re_tau 544.0  d(u_tau) +0.015%
+    bottom first cell y+ 0.24 (alpha 1.00)  u+(5)=4.929 u+(30)=13.452 u+(100)=16.611 u+(300)=19.633  u+ max 20.688
+    top    first cell y+ 0.24 (alpha 1.00)  u+(5)=4.929 u+(30)=13.452 u+(100)=16.611 u+(300)=19.633  u+ max 20.688
+ibm_wr_fine_f0.3         u_tau 0.05408  Re_tau 540.8  d(u_tau) -0.570%
+    bottom first cell y+ 0.07 (alpha 0.31)  u+(5)=5.086 u+(30)=13.599 u+(100)=16.755 u+(300)=19.770  u+ max 20.797
+    top    first cell y+ 0.17 (alpha 0.69)  u+(5)=5.015 u+(30)=13.550 u+(100)=16.714 u+(300)=19.744  u+ max 20.796
+ibm_wr_fine_f0.3_so      u_tau 0.05440  Re_tau 544.0  d(u_tau) +0.015%
+    bottom first cell y+ 0.07 (alpha 0.31)  u+(5)=4.930 u+(30)=13.452 u+(100)=16.611 u+(300)=19.633  u+ max 20.688
+    top    first cell y+ 0.17 (alpha 0.69)  u+(5)=4.928 u+(30)=13.452 u+(100)=16.610 u+(300)=19.633  u+ max 20.688
+## wall functions (y+ ~ 47): body-fitted vs IBM, first/second order, offsets
+bf_wf                    u_tau 0.05675  Re_tau 567.5  d(u_tau) +0.000%
+    bottom first cell y+ 47.29 (alpha 1.00)  u+(100)=15.548 u+(300)=18.295  u+ max 19.418
+    top    first cell y+ 47.29 (alpha 1.00)  u+(100)=15.548 u+(300)=18.295  u+ max 19.418
+ibm_wf_f0.5              u_tau 0.05616  Re_tau 561.6  d(u_tau) -1.033%
+    bottom first cell y+ 23.40 (alpha 0.50)  u+(30)=12.530 u+(100)=15.774 u+(300)=18.733  u+ max 19.905
+    top    first cell y+ 23.40 (alpha 0.50)  u+(30)=12.530 u+(100)=15.774 u+(300)=18.733  u+ max 19.752
+ibm_wf_f0.3              u_tau 0.05588  Re_tau 558.8  d(u_tau) -1.533%
+    bottom first cell y+ 13.39 (alpha 0.31)  u+(30)=11.563 u+(100)=15.927 u+(300)=18.908  u+ max 19.988
+    top    first cell y+ 33.18 (alpha 0.69)  u+(100)=15.678 u+(300)=18.757  u+ max 19.853
+ibm_wf_f0.15             u_tau 0.05723  Re_tau 572.3  d(u_tau) +0.840%
+    bottom first cell y+ 6.86 (alpha 0.16)  u+(30)=10.029 u+(100)=15.202 u+(300)=18.262  u+ max 19.462
+    top    first cell y+ 40.83 (alpha 0.84)  u+(100)=15.418 u+(300)=18.322  u+ max 19.428
+ibm_wf_f0.05             u_tau 0.06059  Re_tau 605.9  d(u_tau) +6.770%
+    bottom first cell y+ 1.89 (alpha 0.06)  u+(5)=3.901 u+(30)=8.108 u+(100)=13.548 u+(300)=16.804  u+ max 18.389
+    top    first cell y+ 48.60 (alpha 0.94)  u+(100)=14.799 u+(300)=17.423  u+ max 18.509
+ibm_wf_f0.5_so           u_tau 0.05776  Re_tau 577.6  d(u_tau) +1.776%
+    bottom first cell y+ 24.07 (alpha 0.50)  u+(30)=12.532 u+(100)=15.115 u+(300)=18.137  u+ max 19.377
+    top    first cell y+ 24.07 (alpha 0.50)  u+(30)=12.532 u+(100)=15.115 u+(300)=18.137  u+ max 19.225
+ibm_wf_f0.3_so           u_tau 0.05832  Re_tau 583.2  d(u_tau) +2.773%
+    bottom first cell y+ 13.97 (alpha 0.31)  u+(30)=11.274 u+(100)=14.702 u+(300)=17.832  u+ max 19.155
+    top    first cell y+ 34.63 (alpha 0.69)  u+(100)=15.090 u+(300)=18.023  u+ max 19.105
+ibm_wf_f0.15_so          u_tau 0.06098  Re_tau 609.8  d(u_tau) +7.455%
+    bottom first cell y+ 7.31 (alpha 0.16)  u+(30)=9.324 u+(100)=13.367 u+(300)=16.681  u+ max 18.330
+    top    first cell y+ 43.51 (alpha 0.84)  u+(100)=14.672 u+(300)=17.366  u+ max 18.437
+ibm_wf_f0.05_so          u_tau 0.07061  Re_tau 706.1  d(u_tau) +24.424%
+    bottom first cell y+ 2.21 (alpha 0.06)  u+(5)=3.009 u+(30)=5.489 u+(100)=9.812 u+(300)=13.378  u+ max 15.781
+    top    first cell y+ 56.64 (alpha 0.94)  u+(100)=13.350 u+(300)=15.499  u+ max 16.253
+bf_wr                    u_tau 0.05439  Re_tau 543.9  d(u_tau) -4.161%
+    bottom first cell y+ 0.49 (alpha 1.00)  u+(5)=4.947 u+(30)=13.433 u+(100)=16.597 u+(300)=19.636  u+ max 20.702
+    top    first cell y+ 0.49 (alpha 1.00)  u+(5)=4.947 u+(30)=13.433 u+(100)=16.597 u+(300)=19.635  u+ max 20.702

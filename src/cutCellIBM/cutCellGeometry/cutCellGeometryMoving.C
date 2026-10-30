@@ -368,6 +368,21 @@ Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::movingWallSource
 }
 
 
+Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::movingWallSource
+(
+    const volScalarField& nuWall,
+    const volScalarField& nu
+) const
+{
+    tmp<volVectorField> tsrc
+    (
+        (nuWall*noSlipCoeff_ + nu*blankCoeff_)*Ub()
+    );
+    tsrc.ref().rename("ibmMovingWallSource");
+    return tsrc;
+}
+
+
 Foam::label Foam::cutCellGeometry::pressureRefCell
 (
     const label userRefCell

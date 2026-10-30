@@ -73,16 +73,20 @@ autoPtr<incompressible::turbulenceModel> turbulence
     incompressible::turbulenceModel::New(U, phi, laminarTransport)
 );
 
-if
-(
+// Turbulent flow: the wall traction takes the wall viscosity of the immersed
+// wall treatment (cutCellGeometry::wallViscosity) and the transpose part of
+// the viscous stress is added; laminar flow is unchanged
+const bool ibmTurbulent =
     mesh.lookupObject<IOdictionary>("turbulenceProperties")
-        .get<word>("simulationType") != "laminar"
-)
+        .get<word>("simulationType") != "laminar";
+
+if (ibmTurbulent && turbulence->type().substr(0, 3) != "ibm")
 {
     WarningInFunction
-        << "Only simulationType laminar is supported by the cut-cell immersed"
-        << " boundary: the turbulence transport equations do not see the body"
-        << endl;
+        << "The turbulence model " << turbulence->type() << " does not see the"
+        << " immersed walls (its equations, wall distance and wall conditions"
+        << " ignore them). Use an ibm model, e.g. ibmSpalartAllmaras, with"
+        << " libs (\"libcutCellIBMTurbulence.so\");" << endl;
 }
 
 #include "createFvOptions.H"

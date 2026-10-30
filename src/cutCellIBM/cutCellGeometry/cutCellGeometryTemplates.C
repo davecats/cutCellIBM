@@ -1,4 +1,5 @@
 #include "cutCellGeometry.H"
+#include "surfaceInterpolate.H"
 
 template<class Type>
 void Foam::cutCellGeometry::zeroSolid
@@ -101,4 +102,91 @@ Foam::cutCellGeometry::snGradCorrection
     }
 
     return tcorr;
+}
+
+
+template<class Type>
+Foam::tmp
+<
+    Foam::GeometricField
+    <
+        typename Foam::outerProduct<Foam::vector, Type>::type,
+        Foam::fvPatchField,
+        Foam::volMesh
+    >
+>
+Foam::cutCellGeometry::fluidGrad
+(
+    const GeometricField<Type, fvPatchField, volMesh>& vf,
+    const Field<Type>& wallValue
+) const
+{
+    typedef typename outerProduct<vector, Type>::type GradType;
+    typedef GeometricField<GradType, fvPatchField, volMesh> GradField;
+
+    tmp<GradField> tg
+    (
+        new GradField
+        (
+            IOobject
+            (
+                "fluidGrad(" + vf.name() + ')',
+                vf.instance(),
+                mesh_,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            mesh_,
+            dimensioned<GradType>(vf.dimensions()/dimLength, Zero),
+            "zeroGradient"
+        )
+    );
+    Field<GradType>& gI = tg.ref().primitiveFieldRef();
+
+    const tmp<GeometricField<Type, fvsPatchField, surfaceMesh>> tvff
+    (
+        fvc::interpolate(vf)
+    );
+    const GeometricField<Type, fvsPatchField, surfaceMesh>& vff = tvff();
+    const surfaceVectorField& Sf = mesh_.Sf();
+    const labelUList& own = mesh_.owner();
+    const labelUList& nei = mesh_.neighbour();
+
+    forAll(own, facei)
+    {
+        const GradType v(theta_[facei]*(Sf[facei]*vff[facei]));
+        gI[own[facei]] += v;
+        gI[nei[facei]] -= v;
+    }
+    forAll(mesh_.boundary(), patchi)
+    {
+        const labelUList& fc = mesh_.boundary()[patchi].faceCells();
+        const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
+        const fvsPatchVectorField& Sfp = Sf.boundaryField()[patchi];
+        const fvsPatchField<Type>& vfp = vff.boundaryField()[patchi];
+        forAll(tp, i)
+        {
+            gI[fc[i]] += tp[i]*(Sfp[i]*vfp[i]);
+        }
+    }
+
+    // Wall value through closure: sum_f theta_f Sf + Sw = 0, so a uniform
+    // field equal to the wall value has zero gradient
+    const vectorField& Sw = Sw_.primitiveField();
+    const scalarField& V = mesh_.V();
+    forAll(gI, celli)
+    {
+        if (alpha_[celli] > 0)
+        {
+            gI[celli] = (gI[celli] + Sw[celli]*wallValue[celli])
+                       /(alpha_[celli]*V[celli]);
+        }
+        else
+        {
+            gI[celli] = Zero;
+        }
+    }
+
+    tg.ref().correctBoundaryConditions();
+    return tg;
 }

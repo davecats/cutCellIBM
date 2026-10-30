@@ -13,6 +13,7 @@ Description
 
 #include "fvCFD.H"
 #include "cutCellGeometry.H"
+#include "wallDist.H"
 
 int main(int argc, char *argv[])
 {
@@ -25,6 +26,13 @@ int main(int argc, char *argv[])
     (
         "writeFaceCentres",
         "write the face centres (surfaceVectorField Cf) for post-processing"
+    );
+
+    argList::addBoolOption
+    (
+        "writeWallDist",
+        "write the wall distance of the turbulence models (yWall), with the "
+        "wallDist method of system/fvSchemes"
     );
 
     #include "setRootCase.H"
@@ -45,6 +53,18 @@ int main(int argc, char *argv[])
             mesh.Cf()
         );
         Cf.write();
+    }
+
+    if (args.found("writeWallDist"))
+    {
+        volScalarField y
+        (
+            IOobject("yWall", runTime.timeName(), mesh),
+            wallDist::New(mesh).y()
+        );
+        Info<< "Wall distance: min " << gMin(y.primitiveField())
+            << ", max " << gMax(y.primitiveField()) << endl;
+        y.write();
     }
 
     // Uniform pressure and velocity checks of the operators

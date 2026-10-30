@@ -16,6 +16,13 @@ const Foam::Enum<Foam::ibmBody::wallType> Foam::ibmBody::wallTypeNames
     { wallType::FREESLIP, "freeSlip" },
 });
 
+const Foam::Enum<Foam::ibmBody::wallFunctionType>
+Foam::ibmBody::wallFunctionNames
+({
+    { wallFunctionType::NOWALLFUNCTION, "none" },
+    { wallFunctionType::SPALDING, "spalding" },
+});
+
 
 Foam::ibmBody::ibmBody
 (
@@ -28,6 +35,13 @@ Foam::ibmBody::ibmBody
     mesh_(mesh),
     dict_(dict),
     wallType_(wallTypeNames.getOrDefault("wallType", dict, wallType::NOSLIP)),
+    wallFunction_
+    (
+        wallFunctionNames.getOrDefault
+        (
+            "wallFunction", dict, wallFunctionType::SPALDING
+        )
+    ),
     invert_(dict.getOrDefault<bool>("invert", false)),
     motion_(bodyMotion::New(dict)),
     periodicLengths_(Zero),

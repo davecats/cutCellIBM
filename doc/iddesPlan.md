@@ -209,3 +209,29 @@ the machinery. Three things are not covered and are checked by T3.1 (cheap, 2-D/
 - the transient path (`ibmPimpleFoam`, ddtCorr) with a variable ν_t.
 
 Real LES content (resolved turbulence) needs 3-D and is tested by T3.2 (channel, WMLES branch).
+
+## 7. Status (2026-10-30)
+
+Done (WP1–WP3): `wallDist { method ibmLevelSet; }` (distance at the fluid centroids, exact to
+1e-12 in full cells for planar walls; the centre of a cut cell may lie in the solid, its centroid
+not), `cutCellGeometry::fluidGrad` (gradient over the fluid with a wall value),
+`libcutCellIBMTurbulence` with `ibmSpalartAllmaras`, per-body `wallFunction spalding | none` and
+`cutCellGeometry::wallViscosity` (Spalding by bisection in u⁺, ν_w = ν Re_y/u⁺²), solver changes
+(wall viscosity in the traction and the forces, transpose stress for turbulent runs). Laminar
+tutorials (steady, transient, moving, rotating, second-order Taylor–Couette, scalar) are
+byte-identical to `scalar_secondOrder`.
+
+T1 channel, Re_τ ≈ 550 (`validation/data/channelSA/results.txt`), u_τ against body-fitted:
+
+| mesh | IBM first order | IBM second order |
+|---|---|---|
+| wall-resolved, h₁ = 1.8e-3, f = 0.3 and 0.05 | −1.14 %, −1.09 % | −0.015 % |
+| wall-resolved, h₁ = 0.9e-3, f = 0.3 | −0.57 % (first-order convergence) | +0.015 % (= body-fitted fine to 6 digits) |
+| wall functions, y⁺₁ ≈ 47, f = 0.5 / 0.3 / 0.15 / 0.05 | −1.0 / −1.5 / +0.8 / +6.8 % | +1.8 / +2.8 / +7.5 / +24 % |
+
+Wall-resolved: correct and robust to the cut position; `none` and `spalding` coincide at y⁺ < 1.
+Wall functions: sensitive to the cut position, as anticipated in 2.3: a thin cut cell (y⁺ ≈ 2)
+next to a full cell at y⁺ ≈ 60 carries the wall law at its own sample point, and the face shear
+between the two cells is not the wall shear; the centroid-consistent fluxes of the second-order
+treatment make it worse (they extrapolate a near-linear profile across a log layer). Next: WP5,
+the wall-function treatment for coarse cut cells (decision pending, see the report of 2026-10-30).

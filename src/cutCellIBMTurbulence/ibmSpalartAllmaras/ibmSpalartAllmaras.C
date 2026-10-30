@@ -1,0 +1,138 @@
+#include "ibmSpalartAllmaras.H"
+#include "cutCellGeometry.H"
+#include "fvOptions.H"
+#include "bound.H"
+
+namespace Foam
+{
+namespace RASModels
+{
+
+template<class BasicTurbulenceModel>
+ibmSpalartAllmaras<BasicTurbulenceModel>::ibmSpalartAllmaras
+(
+    const alphaField& alpha,
+    const rhoField& rho,
+    const volVectorField& U,
+    const surfaceScalarField& alphaRhoPhi,
+    const surfaceScalarField& phi,
+    const transportModel& transport,
+    const word& propertiesName,
+    const word& type
+)
+:
+    SpalartAllmaras<BasicTurbulenceModel>
+    (
+        alpha, rho, U, alphaRhoPhi, phi, transport, propertiesName, type
+    ),
+    ibm_
+    (
+        this->mesh_.template lookupObject<cutCellGeometry>("ibmProperties")
+    )
+{
+    const word method
+    (
+        this->mesh_.schemesDict().subOrEmptyDict("wallDist")
+            .template getOrDefault<word>("method", "meshWave")
+    );
+    if (method != "ibmLevelSet")
+    {
+        FatalErrorInFunction
+            << type << " needs the distance to the immersed walls: set "
+            << "wallDist { method ibmLevelSet; } in system/fvSchemes "
+            << "(found " << method << ")" << exit(FatalError);
+    }
+
+    if (type == typeName)
+    {
+        this->printCoeffs(type);
+    }
+}
+
+
+template<class BasicTurbulenceModel>
+tmp<vectorField>
+ibmSpalartAllmaras<BasicTurbulenceModel>::wallVelocity() const
+{
+    if (ibm_.moving())
+    {
+        return tmp<vectorField>(new vectorField(ibm_.Ub().primitiveField()));
+    }
+    return tmp<vectorField>(new vectorField(this->mesh_.nCells(), Zero));
+}
+
+
+template<class BasicTurbulenceModel>
+void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
+{
+    if (!this->turbulence_)
+    {
+        return;
+    }
+
+    {
+        fv::options& fvOptions(fv::options::New(this->mesh_));
+
+        eddyViscosity<RASModel<BasicTurbulenceModel>>::correct();
+
+        volScalarField& nuTilda = this->nuTilda_;
+        const volScalarField& alpha = ibm_.alpha();
+        const volScalarField nu(this->nu());
+
+        const volScalarField chi(this->chi());
+        const volScalarField fv1(this->fv1(chi));
+
+        // Vorticity from the velocity gradient over the fluid, with the
+        // wall velocity on the immersed wall
+        const volTensorField gradU(ibm_.fluidGrad(this->U_, wallVelocity()()));
+        const volScalarField::Internal Omega
+        (
+            ::sqrt(scalar(2))*mag(skew(gradU()))
+        );
+        const volScalarField::Internal Stilda
+        (
+            max
+            (
+                Omega
+              + this->fv2(chi(), fv1())*nuTilda()/sqr(this->kappa_*this->y_),
+                this->Cs_*Omega
+            )
+        );
+
+        // nuTilda vanishes on the immersed no-slip walls
+        const volVectorField gradNuTilda
+        (
+            ibm_.fluidGrad(nuTilda, scalarField(this->mesh_.nCells(), Zero))
+        );
+
+        tmp<fvScalarMatrix> nuTildaEqn
+        (
+            fvm::ddt(alpha, nuTilda)
+          + fvm::div(this->phi_, nuTilda)
+          - fvm::laplacian(ibm_.thetaInterpolate(this->DnuTildaEff()), nuTilda)
+          + fvm::Sp(nu/this->sigmaNut_*ibm_.noSlipCoeff(), nuTilda)
+          + fvm::Sp(nu/this->sigmaNut_*ibm_.blankCoeff(), nuTilda)
+          - this->Cb2_/this->sigmaNut_*alpha*magSqr(gradNuTilda)
+         ==
+            this->Cb1_*alpha()*Stilda*nuTilda()
+          - fvm::Sp
+            (
+                this->Cw1_*alpha()*this->fw(Stilda)*nuTilda()/sqr(this->y_),
+                nuTilda
+            )
+          + fvOptions(nuTilda)
+        );
+
+        nuTildaEqn.ref().relax();
+        fvOptions.constrain(nuTildaEqn.ref());
+        solve(nuTildaEqn);
+        fvOptions.correct(nuTilda);
+        bound(nuTilda, dimensionedScalar(nuTilda.dimensions(), Zero));
+        nuTilda.correctBoundaryConditions();
+    }
+
+    this->correctNut();
+}
+
+} // End namespace RASModels
+} // End namespace Foam

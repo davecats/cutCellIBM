@@ -470,6 +470,32 @@ void Foam::cutCellGeometry::unionLevelSet
 }
 
 
+void Foam::cutCellGeometry::wallDistance
+(
+    const pointField& pts,
+    scalarField& d
+) const
+{
+    forAll(bodies_, bodyi)
+    {
+        if (!bodies_[bodyi].hasLevelSet())
+        {
+            FatalErrorInFunction
+                << "Body " << bodies_[bodyi].name() << " has no level set: "
+                << "the distance to the immersed wall is only available for "
+                << "level-set bodies" << exit(FatalError);
+        }
+    }
+    unionLevelSet(pts, d);
+}
+
+
+Foam::tmp<Foam::pointField> Foam::cutCellGeometry::fluidCentroids() const
+{
+    return mesh_.cellCentres() + centroidOffset_.primitiveField();
+}
+
+
 void Foam::cutCellGeometry::faceFractions
 (
     const scalarField& pointPhi,

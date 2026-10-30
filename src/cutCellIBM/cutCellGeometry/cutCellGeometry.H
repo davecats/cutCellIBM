@@ -344,6 +344,16 @@ public:
             //- Total fluid volume, sum(alpha V), global
             scalar fluidVolume() const { return fluidVolume_; }
 
+            //- Signed distance to the union of the bodies at the given
+            //  points (positive in the fluid), from the level sets, which
+            //  are distance functions for every level-set body type. Fatal
+            //  error if a body has no level set (alpha-field body).
+            void wallDistance(const pointField& pts, scalarField& d) const;
+
+            //- Fluid centroids of all cells (cell centre in full and solid
+            //  cells), whether or not the second-order treatment is on
+            tmp<pointField> fluidCentroids() const;
+
 
         // Second-order wall treatment
 
@@ -368,6 +378,28 @@ public:
             //- Explicit remainder of the centroid-consistent face gradient:
             //  n.grad f = (f_N - f_P)/(n.d) + [g_f.n - (g_f.d)/(n.d)],
             //  the bracket, with g_f the interpolated least-squares gradient
+            //- Gradient averaged over the fluid part of every cell, with a
+            //  Dirichlet value on the immersed wall:
+            //  (sum_f theta_f vf_f Sf + vf_w Sw)/(alpha V), zero in the solid.
+            //  For quantities of the turbulence models (velocity gradient
+            //  with the wall velocity, nuTilda with zero), where fvc::grad
+            //  would treat the immersed wall as zero-gradient.
+            template<class Type>
+            tmp
+            <
+                GeometricField
+                <
+                    typename outerProduct<vector, Type>::type,
+                    fvPatchField,
+                    volMesh
+                >
+            >
+            fluidGrad
+            (
+                const GeometricField<Type, fvPatchField, volMesh>& vf,
+                const Field<Type>& wallValue
+            ) const;
+
             template<class Type>
             tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
             snGradCorrection
@@ -396,6 +428,14 @@ public:
             //  blanking, nu (noSlipCoeff + blankCoeff) u_b
             tmp<volVectorField> movingWallSource
             (
+                const volScalarField& nu
+            ) const;
+
+            //- Same, with the wall viscosity of a turbulent wall treatment
+            //  for the traction and nu for the blanking
+            tmp<volVectorField> movingWallSource
+            (
+                const volScalarField& nuWall,
                 const volScalarField& nu
             ) const;
 
@@ -453,6 +493,18 @@ public:
             void zeroSolid
             (
                 GeometricField<Type, fvPatchField, volMesh>& f
+            ) const;
+
+            //- Viscosity of the no-slip wall traction nu_w Awall/dWall (u_P - u_b)
+            //  for turbulent flow, the immersed counterpart of a nut wall
+            //  function: nu everywhere, and on the wall cells of no-slip bodies
+            //  with "wallFunction spalding" (default) nu_w = max(nu, u_tau^2
+            //  dWall/|u_t|), u_tau from Spalding's law with the tangential
+            //  slip |u_t| at the distance dWall
+            tmp<volScalarField> wallViscosity
+            (
+                const volVectorField& U,
+                const volScalarField& nu
             ) const;
 
             //- Force on every body (per unit density): pressure and viscous

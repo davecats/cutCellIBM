@@ -102,7 +102,14 @@ int main(int argc, char *argv[])
         // Passive scalars, if constant/scalarTransportProperties exists
         scalars.solve();
 
-        ibm.reportForces(p, U, turbulence->nuEff());
+        ibm.reportForces
+        (
+            p,
+            U,
+            ibmTurbulent
+          ? ibm.wallViscosity(U, turbulence->nu())()
+          : turbulence->nuEff()()
+        );
 
         runTime.write();
 

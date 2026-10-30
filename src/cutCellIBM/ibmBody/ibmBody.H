@@ -68,6 +68,17 @@ public:
 
     static const Enum<wallType> wallTypeNames;
 
+    //- Wall shear of a no-slip wall in turbulent flow (solvers with a
+    //  turbulence model only): none (nu, wall-resolved meshes) or spalding
+    //  (Spalding's law, any y+)
+    enum wallFunctionType
+    {
+        NOWALLFUNCTION,
+        SPALDING
+    };
+
+    static const Enum<wallFunctionType> wallFunctionNames;
+
 
 protected:
 
@@ -75,6 +86,7 @@ protected:
     const fvMesh& mesh_;
     const dictionary dict_;
     wallType wallType_;
+    wallFunctionType wallFunction_;
     bool invert_;
 
     //- Rigid motion (none by default)
@@ -121,6 +133,8 @@ public:
         const word& name() const { return name_; }
 
         wallType wall() const { return wallType_; }
+
+        wallFunctionType wallFunction() const { return wallFunction_; }
 
         const dictionary& dict() const { return dict_; }
 
