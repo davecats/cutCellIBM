@@ -28,11 +28,11 @@ Description
     the solver (cutCellGeometry::wallViscosity); nut is nuTilda fv1 as in
     the body-fitted model.
 
-    On walls the mesh does not resolve (wallFunction spalding), nuTilda of
-    the wall cells is drawn towards the model's own wall solution,
-    nuTilda = kappa u_tau y, which holds through the viscous sublayer and
-    the log layer alike, with the weight w of the wall law from the cell
-    size in wall units (cutCellGeometry::wallLaw; hPlusResolved,
+    On walls the mesh does not resolve (wallFunction spalartAllmaras),
+    nuTilda of the wall cells is drawn towards the model's own wall
+    solution, nuTilda = kappa u_tau y, which holds through the viscous
+    sublayer and the log layer alike, with the weight w of the wall law from
+    the cell size in wall units (cutCellGeometry::wallLaw; hPlusResolved,
     hPlusModelled in ibmProperties): w = 0 leaves resolved walls alone,
     w = 1 fixes the value where the wall-cell gradients cannot carry the
     production of the log layer.

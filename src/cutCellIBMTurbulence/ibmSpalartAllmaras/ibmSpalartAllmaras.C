@@ -136,8 +136,7 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
         // the wall (fv1 is built for it), with the weight w of the wall law
         // (cutCellGeometry::wallLaw): a conductance w/(1 - w) times the
         // diagonal, so w = 0 (resolved walls) leaves the equation unchanged
-        // and w = 1 fixes the value. Off with nuTildaWallLaw false.
-        if (ibm_.nuTildaWallLaw())
+        // and w = 1 fixes the value
         {
             scalarField uTau, w;
             ibm_.wallLaw(this->U_, nu, uTau, w);

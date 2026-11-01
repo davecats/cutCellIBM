@@ -4,8 +4,7 @@
     makeCase.py <caseDir> --kind bf|ibm [--alpha deg] [--mesh wf|wr] [--h h]
                 [--mergeAlpha a] [--secondOrder] [--Nn n] [--grid g.p2dfmt] [--R r]
                 [--endTime n] [--levels n --nFine n --nBand n] [--np n]
-                [--wallFunction spalding|spalartAllmaras|none] [--wallSample s]
-                [--wallLawDistance centroid|groupCentroid|cellAverage|halfCell] [--noNuTildaWallLaw]
+                [--wallFunction spalartAllmaras|none] [--wallSample s]
 
 Chord 1, U = 1, nu = 1e-6; the angle of attack is set by the inflow direction,
 so both meshes keep the airfoil at zero incidence. NACA 0012 with the closed
@@ -34,9 +33,8 @@ ibm: Cartesian mesh with a uniform core of cell size h (default 2e-3,
      level within nFine of its cells from the wall (default 10), every
      coarser one nBand of its cells further (default 6), each also one cell
      of the next coarser level into the solid (refineSet.py). The wall law
-     (--wallFunction, default spalding; --wallSample, --wallLawDistance,
-     --noNuTildaWallLaw) as in channelSA/makeCase.py. --np n: run on n
-     processors (scotch).
+     (--wallFunction, default spalartAllmaras; --wallSample, default 1.5)
+     as in channelSA/makeCase.py. --np n: run on n processors (scotch).
 Forces: postProcessing/forces (bf) or postProcessing/ibmForces (ibm);
 validation/naca0012_compare.py turns both into lift and drag coefficients.
 """
@@ -344,10 +342,8 @@ def main():
     ap.add_argument("--nFine", type=int, default=10, help="ibm: finest-level cells from the wall")
     ap.add_argument("--nBand", type=int, default=6, help="ibm: cells of each coarser level beyond the next finer")
     ap.add_argument("--np", type=int, default=1, help="processors")
-    ap.add_argument("--wallFunction", choices=("spalding", "spalartAllmaras", "none"), default="spalding")
-    ap.add_argument("--wallSample", type=float, default=0.0)
-    ap.add_argument("--wallLawDistance", choices=("centroid", "groupCentroid", "cellAverage", "halfCell"), default="centroid")
-    ap.add_argument("--noNuTildaWallLaw", action="store_true")
+    ap.add_argument("--wallFunction", choices=("spalartAllmaras", "none"), default="spalartAllmaras")
+    ap.add_argument("--wallSample", type=float, default=1.5)
     a = ap.parse_args()
     d = a.case
     ca, sa = math.cos(math.radians(a.alpha)), math.sin(math.radians(a.alpha))
@@ -401,9 +397,7 @@ writeForces   true;
     airfoil { type triSurfaceMesh; file "naca0012.stl"; wallType noSlip; wallFunction %s; }
 }
 """ % (a.mergeAlpha, "true" if a.secondOrder else "false",
-       ("wallSampleDistance %g;\n" % a.wallSample if a.wallSample > 0 else "")
-       + ("wallLawDistance %s;\n" % a.wallLawDistance if a.wallLawDistance != "centroid" else "")
-       + ("nuTildaWallLaw false;\n" if a.noNuTildaWallLaw else ""),
+       ("wallSampleDistance %g;\n" % a.wallSample if a.wallSample != 1.5 else ""),
        a.wallFunction))
 
     so = a.kind == "ibm" and a.secondOrder

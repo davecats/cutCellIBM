@@ -20,7 +20,6 @@ const Foam::Enum<Foam::ibmBody::wallFunctionType>
 Foam::ibmBody::wallFunctionNames
 ({
     { wallFunctionType::NOWALLFUNCTION, "none" },
-    { wallFunctionType::SPALDING, "spalding" },
     { wallFunctionType::SPALARTALLMARAS, "spalartAllmaras" },
 });
 
@@ -40,7 +39,7 @@ Foam::ibmBody::ibmBody
     (
         wallFunctionNames.getOrDefault
         (
-            "wallFunction", dict, wallFunctionType::SPALDING
+            "wallFunction", dict, wallFunctionType::SPALARTALLMARAS
         )
     ),
     invert_(dict.getOrDefault<bool>("invert", false)),

@@ -160,33 +160,17 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     nSwept_(0),
     hPlusResolved_(getOrDefault<scalar>("hPlusResolved", 1)),
     hPlusModelled_(getOrDefault<scalar>("hPlusModelled", 10)),
-    wallSampleDistance_(getOrDefault<scalar>("wallSampleDistance", 0)),
+    wallSampleDistance_(getOrDefault<scalar>("wallSampleDistance", 1.5)),
     wallCellSize_(),
     sampleCell_(),
     sampleDist_(),
-    wallLawDistance_(getOrDefault<word>("wallLawDistance", "centroid")),
-    wallLawCellAverage_(wallLawDistance_ == "cellAverage"),
-    wallIndex_(),
-    wallQuantiles_(),
-    nuTildaWallLaw_(getOrDefault<bool>("nuTildaWallLaw", true)),
+    wallSamplesDone_(false),
     mergeAlpha_(getOrDefault<scalar>("mergeAlpha", 0)),
     mergePenalty_(getOrDefault<scalar>("mergePenalty", 1e4)),
     linkFace_(),
     linkMaster_(),
     linkWallDist_()
 {
-    if
-    (
-        wallLawDistance_ != "centroid"
-     && wallLawDistance_ != "cellAverage"
-     && wallLawDistance_ != "halfCell"
-     && wallLawDistance_ != "groupCentroid"
-    )
-    {
-        FatalIOErrorInFunction(*this)
-            << "wallLawDistance " << wallLawDistance_ << ": expected centroid, "
-            << "groupCentroid, cellAverage or halfCell" << exit(FatalIOError);
-    }
     Info<< "Cut-cell immersed boundary: reading " << name() << nl
         << "    alphaMin " << alphaMin_
         << ", nSubSamples " << nSubSamples_
@@ -474,8 +458,7 @@ void Foam::cutCellGeometry::calcGeometry()
         calcWallPieces();
     }
     calcLinks();
-    calcWallSamples();
-    calcWallQuantiles();
+    wallSamplesDone_ = false;
 }
 
 
@@ -785,11 +768,10 @@ void Foam::cutCellGeometry::faceFractions
 }
 
 
-void Foam::cutCellGeometry::cellSamplePoints
+Foam::scalar Foam::cutCellGeometry::sampleCellFraction
 (
     const label celli,
-    const label n,
-    DynamicList<point>& samples
+    point& centroid
 ) const
 {
     const pointField cellPts
@@ -810,13 +792,14 @@ void Foam::cutCellGeometry::cellSamplePoints
                 < 1e-8*mesh_.cellVolumes()[celli];
     }
 
+    const label n = nSubSamples_;
     Vector<label> nDir(n, n, n);
     for (direction d = 0; d < 3; ++d)
     {
         if (solD[d] < 0) nDir[d] = 1;   // empty direction: one sample
     }
 
-    samples.clear();
+    DynamicList<point> samples(nDir.x()*nDir.y()*nDir.z());
     for (label i = 0; i < nDir.x(); ++i)
     {
         for (label j = 0; j < nDir.y(); ++j)
@@ -840,18 +823,6 @@ void Foam::cutCellGeometry::cellSamplePoints
             }
         }
     }
-}
-
-
-Foam::scalar Foam::cutCellGeometry::sampleCellFraction
-(
-    const label celli,
-    point& centroid
-) const
-{
-    const point& C = mesh_.cellCentres()[celli];
-    DynamicList<point> samples;
-    cellSamplePoints(celli, nSubSamples_, samples);
 
     centroid = C;
     if (samples.empty())

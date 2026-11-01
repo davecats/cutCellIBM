@@ -85,6 +85,11 @@ the model refuses to run without it.
 
 ### 2.3 Wall functions: an IBM counterpart of `nutUSpaldingWallFunction`
 
+*Current state (2026-11-01, section 8): the SA analytic law of the wall instead of Spalding
+(`wallFunction spalartAllmaras | none`), read from the cell `wallSampleDistance` = 1.5 h out along
+the wall normal and blended in by h⁺, ν_w capped at ν + κu_τh, ν̃ = κu_τy in the modelled wall
+cells; Spalding and the other variants were removed after the study. The original design follows.*
+
 Body-fitted SA practice is `nuTilda` fixedValue 0 plus a `nut` wall function on the patch; the wall
 function only changes the shear on the wall face. The IBM analogue changes only the wall traction
 of the cut cell, `ν Awall/d (u_P − u_b)`:
@@ -397,3 +402,13 @@ Clean-up plan (after committing the study state, so every variant stays reproduc
 
 Then: the ±1.5 % linked/unlinked spread on wall-resolved meshes, and the wall-function pressure
 drag at the nose.
+
+Clean-up done (2026-11-01, commit after bcd8d25): `wallFunction spalartAllmaras` (default) | `none`;
+`wallSampleDistance` default 1.5 (0: the wall cell's own value); the wall-law samples are computed
+on first use by the solver (laminar runs never compute them) and need level-set bodies (fatal
+error otherwise). The cap is ν + κu_τ max(h, dWall): with h alone it cut into the own-cell law of
+fallback cells whose fluid centroid lies further from an inclined wall than the cell's normal
+extent h = 2V/Σ|S_f·n| (u_τ −0.75 instead of −0.73 % in one h⁺ 93 case). Checks: laminar
+byte-identical; channel `sample` cases (h⁺ 1/10/31/93, aligned and inclined) byte-identical to
+the study runs; NACA h = 1e-3 and the first 300 iterations of the wall-resolved run equal to
+round-off (|ΔU| 3e-7, C_l and C_d to 5 digits; parallel runs).

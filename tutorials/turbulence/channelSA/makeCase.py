@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Spalart-Allmaras plane channel, body-fitted or with immersed walls.
 
-    makeCase.py <caseDir> --kind bf|ibm --mesh wr|wf [--offset f] [--wallFunction spalding|spalartAllmaras|none]
+    makeCase.py <caseDir> --kind bf|ibm --mesh wr|wf [--offset f] [--wallFunction spalartAllmaras|none]
                 [--nh n --h1 h] [--mergeAlpha a] [--secondOrder] [--hPlus lo hi] [--wallSample s]
-                [--incline p q] [--wallLawDistance centroid|groupCentroid|cellAverage|halfCell] [--noNuTildaWallLaw]
+                [--incline p q]
                 [--init bfCase]
 
 Channel of half-height 1 between y = -1 and 1, periodic in x with one cell
@@ -29,10 +29,6 @@ ibm: the same distribution of cells, extended by four wall-sized cells into
      columns), the rest of the band boundary a slip patch "outer" in the
      solid. --offset f shifts the lattice upwards by f h (alpha = 0: the
      same cut as without --incline). The q columns see q different cuts.
---wallLawDistance: where the wall law takes the wall cell's own value
-     (centroid, cellAverage: averaged over its fluid, halfCell: at h/2).
-     --noNuTildaWallLaw: no nuTilda wall law in the
-     wall cells (nuTildaWallLaw false).
 --init bfCase (with --incline): initial U and nuTilda from the converged
      profiles of a body-fitted run (its cell centres 0/C and latest time),
      interpolated in the wall-normal coordinate (U along the channel; a
@@ -207,7 +203,7 @@ def main():
     ap.add_argument("--kind", choices=("bf", "ibm"), required=True)
     ap.add_argument("--mesh", choices=("wr", "wf"), required=True)
     ap.add_argument("--offset", type=float, default=0.5)
-    ap.add_argument("--wallFunction", choices=("spalding", "spalartAllmaras", "none"), default="spalding")
+    ap.add_argument("--wallFunction", choices=("spalartAllmaras", "none"), default="spalartAllmaras")
     ap.add_argument("--nh", type=int, help="cells per half-channel (overrides --mesh)")
     ap.add_argument("--h1", type=float, help="first cell size (overrides --mesh)")
     ap.add_argument("--mergeAlpha", type=float, default=0.0,
@@ -216,14 +212,10 @@ def main():
                     help="ibm: second-order wall treatment (cutCellCorrected schemes)")
     ap.add_argument("--hPlus", type=float, nargs=2, metavar=("RESOLVED", "MODELLED"),
                     help="ibm: h+ range over which the wall law takes over (default 1 10)")
-    ap.add_argument("--wallSample", type=float, default=0.0,
+    ap.add_argument("--wallSample", type=float, default=1.5,
                     help="ibm: distance of the wall-law sample in wall-cell sizes (0: the wall cell)")
     ap.add_argument("--incline", type=int, nargs=2, metavar=("P", "Q"),
                     help="ibm: walls inclined at tan(alpha) = P/Q to the grid, uniform cells")
-    ap.add_argument("--wallLawDistance", choices=("centroid", "groupCentroid", "cellAverage", "halfCell"), default="centroid",
-                    help="ibm: where the wall law takes the wall cell's own value")
-    ap.add_argument("--noNuTildaWallLaw", action="store_true",
-                    help="ibm: no nuTilda wall law in the wall cells")
     ap.add_argument("--init", help="with --incline: initial profiles from this body-fitted run")
     a = ap.parse_args()
     d = a.case
@@ -361,9 +353,7 @@ bodies
 }
 """ % (a.mergeAlpha, "true" if a.secondOrder else "false",
        (("hPlusResolved %g;\nhPlusModelled %g;\n" % tuple(a.hPlus)) if a.hPlus else "")
-       + ("wallSampleDistance %g;\n" % a.wallSample if a.wallSample > 0 else "")
-       + ("wallLawDistance %s;\n" % a.wallLawDistance if a.wallLawDistance != "centroid" else "")
-       + ("nuTildaWallLaw false;\n" if a.noNuTildaWallLaw else ""),
+       + ("wallSampleDistance %g;\n" % a.wallSample if a.wallSample != 1.5 else ""),
        "%.15g %.15g 0" % (sa, -ca), "%.15g %.15g 0" % (-sa, ca), a.wallFunction,
        "%.15g %.15g 0" % (-sa, ca), "%.15g %.15g 0" % (sa, -ca), a.wallFunction))
 
