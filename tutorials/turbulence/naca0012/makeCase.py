@@ -3,7 +3,9 @@
 
     makeCase.py <caseDir> --kind bf|ibm [--alpha deg] [--mesh wf|wr] [--h h]
                 [--mergeAlpha a] [--secondOrder] [--Nn n] [--grid g.p2dfmt] [--R r]
-                [--endTime n]
+                [--endTime n] [--levels n --nFine n --nBand n] [--np n]
+                [--wallFunction spalding|spalartAllmaras|none] [--wallSample s]
+                [--wallLawDistance centroid|groupCentroid|cellAverage|halfCell] [--noNuTildaWallLaw]
 
 Chord 1, U = 1, nu = 1e-6; the angle of attack is set by the inflow direction,
 so both meshes keep the airfoil at zero incidence. NACA 0012 with the closed
@@ -27,6 +29,14 @@ ibm: Cartesian mesh with a uniform core of cell size h (default 2e-3,
      y in [-0.1, 0.1], graded geometrically to the far field; the airfoil as
      an extruded STL (constant/triSurface/naca0012.stl). ibmSimpleFoam with
      ibmSpalartAllmaras, wallDist ibmLevelSet, cell linking mergeAlpha.
+     --levels n: n levels of refinement (refineMesh, in the plane) in
+     nested bands around the airfoil, down to h/2^n at the wall: the finest
+     level within nFine of its cells from the wall (default 10), every
+     coarser one nBand of its cells further (default 6), each also one cell
+     of the next coarser level into the solid (refineSet.py). The wall law
+     (--wallFunction, default spalding; --wallSample, --wallLawDistance,
+     --noNuTildaWallLaw) as in channelSA/makeCase.py. --np n: run on n
+     processors (scotch).
 Forces: postProcessing/forces (bf) or postProcessing/ibmForces (ibm);
 validation/naca0012_compare.py turns both into lift and drag coefficients.
 """
@@ -330,6 +340,14 @@ def main():
     ap.add_argument("--mergeAlpha", type=float, default=0.5)
     ap.add_argument("--secondOrder", action="store_true")
     ap.add_argument("--endTime", type=int, default=8000)
+    ap.add_argument("--levels", type=int, default=0, help="ibm: refinement levels around the airfoil")
+    ap.add_argument("--nFine", type=int, default=10, help="ibm: finest-level cells from the wall")
+    ap.add_argument("--nBand", type=int, default=6, help="ibm: cells of each coarser level beyond the next finer")
+    ap.add_argument("--np", type=int, default=1, help="processors")
+    ap.add_argument("--wallFunction", choices=("spalding", "spalartAllmaras", "none"), default="spalding")
+    ap.add_argument("--wallSample", type=float, default=0.0)
+    ap.add_argument("--wallLawDistance", choices=("centroid", "groupCentroid", "cellAverage", "halfCell"), default="centroid")
+    ap.add_argument("--noNuTildaWallLaw", action="store_true")
     a = ap.parse_args()
     d = a.case
     ca, sa = math.cos(math.radians(a.alpha)), math.sin(math.radians(a.alpha))
@@ -361,7 +379,7 @@ def main():
         bc = "    farfield { type %s }\n    frontAndBack { type empty; }\n" % far[name]
         if wall:
             bc += "    %s { type %s }\n" % (wall, wallbc[name])
-        write(os.path.join(d, "0", name), header(cls, name, "0")
+        write(os.path.join(d, "0.orig" if a.levels else "0", name), header(cls, name, "0")
               + "dimensions %s;\ninternalField uniform %s;\nboundaryField\n{\n%s}\n" % (dim, val, bc))
 
     write(os.path.join(d, "constant/transportProperties"), header("dictionary", "transportProperties")
@@ -378,11 +396,15 @@ nSubSamples   32;
 nBisect       40;
 writeFields   true;
 writeForces   true;
-bodies
+%sbodies
 {
-    airfoil { type triSurfaceMesh; file "naca0012.stl"; wallType noSlip; wallFunction spalding; }
+    airfoil { type triSurfaceMesh; file "naca0012.stl"; wallType noSlip; wallFunction %s; }
 }
-""" % (a.mergeAlpha, "true" if a.secondOrder else "false"))
+""" % (a.mergeAlpha, "true" if a.secondOrder else "false",
+       ("wallSampleDistance %g;\n" % a.wallSample if a.wallSample > 0 else "")
+       + ("wallLawDistance %s;\n" % a.wallLawDistance if a.wallLawDistance != "centroid" else "")
+       + ("nuTildaWallLaw false;\n" if a.noNuTildaWallLaw else ""),
+       a.wallFunction))
 
     so = a.kind == "ibm" and a.secondOrder
     write(os.path.join(d, "system/fvSchemes"), header("dictionary", "fvSchemes") + """
@@ -470,7 +492,35 @@ runTimeModifiable true;
 }
 """
     write(os.path.join(d, "system/controlDict"), cd)
-    if a.kind == "bf" and a.grid:
+    if a.levels:
+        if a.kind != "ibm":
+            raise SystemExit("--levels needs --kind ibm")
+        write(os.path.join(d, "system/refineMeshDict"), header("dictionary", "refineMeshDict") + """
+set             refine;
+coordinateSystem global;
+globalCoeffs    { tan1 (1 0 0); tan2 (0 1 0); }
+directions      (tan1 tan2);
+useHexTopology  yes;
+geometricCut    no;
+writeMesh       no;
+""")
+        shutil.copy(os.path.join(os.path.dirname(os.path.abspath(__file__)), "refineSet.py"),
+                    os.path.join(d, "system/refineSet.py"))
+        shutil.copy(os.path.abspath(__file__), os.path.join(d, "system/makeCase.py"))
+        hs = [a.h / 2**L for L in range(a.levels + 1)]
+        dist = {a.levels: a.nFine * hs[a.levels]}
+        for L in range(a.levels - 1, 0, -1):
+            dist[L] = dist[L + 1] + a.nBand * hs[L]
+        run = "mkdir -p 0 && blockMesh > log.blockMesh 2>&1 && "
+        for L in range(1, a.levels + 1):
+            run += ("postProcess -func writeCellCentres -time 0 > log.C%d 2>&1 && "
+                    "python3 system/refineSet.py . refine %.10g %.10g > log.refineSet%d 2>&1 && "
+                    "refineMesh -overwrite -dict system/refineMeshDict > log.refineMesh%d 2>&1 && "
+                    % (L, dist[L], hs[L - 1], L, L))
+        run += "cp 0.orig/* 0/ && "
+        print("refinement: h %s, bands %s" % (" ".join("%.4g" % x for x in hs),
+                                             " ".join("%.4g" % dist[L] for L in sorted(dist))))
+    elif a.kind == "bf" and a.grid:
         run = ("plot3dToFoam -2D %g -noBlank grid.p2dfmt > log.plot3dToFoam 2>&1 && topoSet > log.topoSet 2>&1 && "
                "createPatch -overwrite > log.createPatch 2>&1 && " % DZ)
     else:
@@ -478,8 +528,15 @@ runTimeModifiable true;
     if a.kind == "bf":
         run += "checkMesh > log.checkMesh 2>&1; simpleFoam > log.simpleFoam 2>&1"
     else:
-        run += ("ibmSetGeometry -writeWallDist > log.geo 2>&1 && postProcess -func writeCellCentres -time 0 "
-                "> log.C 2>&1 && ibmSimpleFoam > log.ibmSimpleFoam 2>&1")
+        run += ("checkMesh > log.checkMesh 2>&1; ibmSetGeometry -writeWallDist > log.geo 2>&1 && "
+                "postProcess -func writeCellCentres -time 0 > log.C 2>&1 && ")
+        if a.np > 1:
+            write(os.path.join(d, "system/decomposeParDict"), header("dictionary", "decomposeParDict")
+                  + "numberOfSubdomains %d;\nmethod scotch;\n" % a.np)
+            run += ("decomposePar -force > log.decomposePar 2>&1 && mpirun -np %d ibmSimpleFoam -parallel "
+                    "> log.ibmSimpleFoam 2>&1 && reconstructPar -latestTime > log.reconstructPar 2>&1" % a.np)
+        else:
+            run += "ibmSimpleFoam > log.ibmSimpleFoam 2>&1"
     write(os.path.join(d, "Allrun"), '#!/bin/bash\ncd "${0%%/*}" || exit 1\n%s\n' % run)
     os.chmod(os.path.join(d, "Allrun"), 0o755)
     print("%s: %s, alpha %g, about %d cells" % (d, a.kind, a.alpha, nc))

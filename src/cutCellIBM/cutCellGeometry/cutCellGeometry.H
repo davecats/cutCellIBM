@@ -218,6 +218,50 @@ class cutCellGeometry
         label nSwept_;
 
 
+    // Wall law of the turbulent no-slip walls (wallFunction spalding)
+
+        //- Cell sizes in wall units, h+ = u_tau h/nu, between which the
+        //  weight of the wall law rises from 0 (wall resolved by the mesh)
+        //  to 1 (wall modelled)
+        scalar hPlusResolved_;
+        scalar hPlusModelled_;
+
+        //- Distance from the wall of the velocity sample of the wall law,
+        //  in wall-normal extents h of the wall cell (0: the wall cell)
+        scalar wallSampleDistance_;
+
+        //- Wall-normal extent h of every wall cell (0 elsewhere)
+        scalarField wallCellSize_;
+
+        //- Cell whose value samples the wall law of every wall cell (-1:
+        //  the wall cell itself), and the distance of its fluid centroid
+        //  from the wall
+        labelList sampleCell_;
+        scalarField sampleDist_;
+
+        //- Distance at which the wall law takes the wall cell's own value
+        //  (wallLawDistance): "centroid" (default) dWall, the distance of
+        //  its own fluid centroid; "groupCentroid" that of the merged
+        //  centroid of its linked group, where the linked value sits;
+        //  "cellAverage" the law averaged over
+        //  its (merged group's) fluid, |u_t| = u_tau <u+(u_tau y/nu)> over
+        //  the distribution of the wall distance y in the cut volume;
+        //  "halfCell" h/2, as for an uncut cell of the same size
+        word wallLawDistance_;
+        bool wallLawCellAverage_;
+
+        //- Wall distances at the midpoints of nWallQuantiles_ equal parts
+        //  of the fluid volume of every wall cell's merged group
+        //  (cellAverage only), wallIndex_ numbering the wall cells
+        static const label nWallQuantiles_ = 16;
+        labelList wallIndex_;
+        scalarField wallQuantiles_;
+
+        //- Relax nuTilda in the wall cells towards kappa u_tau y with the
+        //  weight of the wall law (read by ibmSpalartAllmaras)
+        bool nuTildaWallLaw_;
+
+
     // Cell linking (merging) of small cut cells, mergeAlpha > 0 only
 
         //- Cells with 0 < alpha < mergeAlpha_ are linked to a fluid face
@@ -282,6 +326,15 @@ class cutCellGeometry
         //  centroid of its fluid part
         scalar sampleCellFraction(const label celli, point& centroid) const;
 
+        //- The sub-sample points of a cell: n per direction (one in the
+        //  empty directions) on its bounding box, those inside the cell
+        void cellSamplePoints
+        (
+            const label celli,
+            const label n,
+            DynamicList<point>& samples
+        ) const;
+
         //- Centroid vectors and cut delta coefficients of every face, and
         //  the offsets of the face-value correction of the gradient
         void calcCentroidGeometry();
@@ -292,15 +345,37 @@ class cutCellGeometry
         //- Masters and link faces of the small cut cells (mergeAlpha > 0)
         void calcLinks();
 
+        //- Wall-normal extent and wall-law sample cell of every wall cell
+        void calcWallSamples();
+
+        //- Wall-distance quantiles of the fluid of every wall cell's merged
+        //  group (wallLawDistance cellAverage only)
+        void calcWallQuantiles();
+
         //- The open internal face from a cut cell to the fluid neighbour
         //  with more fluid, preferring the direction away from the wall and
         //  large wet areas; -1 if there is none
         label outwardFace(const label celli) const;
 
-        //- u_tau of a wall cell from Spalding's law with its tangential
-        //  slip at dWall (for a linked cell the merged centroid's distance);
-        //  0 if the cell has no wall function
+        //- u_tau of a wall cell from the body's wall law (Spalding or SA)
+        //  with the tangential slip (along the cell's wall) of the sample
+        //  cell at its distance:
+        //  the cell itself at dWall (for a linked cell the merged centroid's
+        //  distance), or another cell (sampleCell_); 0 if the cell has no
+        //  wall function
         scalar wallFunctionUTau
+        (
+            const volVectorField& U,
+            const volScalarField& nu,
+            const label celli,
+            const label samplei,
+            const scalar y
+        ) const;
+
+        //- u_tau of a wall cell from the SA law averaged over its fluid
+        //  (wallQuantiles_) with its own tangential slip; 0 if the cell has
+        //  no wall function
+        scalar cellAverageUTau
         (
             const volVectorField& U,
             const volScalarField& nu,
@@ -370,6 +445,9 @@ public:
             const bitSet& solidCells() const { return solidCells_; }
             const bitSet& cutCells() const { return cutCells_; }
             const bitSet& wallCells() const { return wallCells_; }
+
+            //- Relax nuTilda in the modelled wall cells towards the wall law
+            bool nuTildaWallLaw() const { return nuTildaWallLaw_; }
             scalar alphaMin() const { return alphaMin_; }
 
             //- Face fractions of the geometric cut (all mesh faces), before
@@ -537,13 +615,34 @@ public:
             //- Viscosity of the no-slip wall traction nu_w Awall/dWall (u_P - u_b)
             //  for turbulent flow, the immersed counterpart of a nut wall
             //  function: nu everywhere, and on the wall cells of no-slip bodies
-            //  with "wallFunction spalding" (default) nu_w = max(nu, u_tau^2
-            //  dWall/|u_t|), u_tau from Spalding's law with the tangential
-            //  slip |u_t| at the distance dWall
+            //  with "wallFunction spalding" (default) nu_w = u_tau^2
+            //  dWall/|u_t|, |u_t| the cell's tangential slip and u_tau that
+            //  of the wall law (wallLaw), at least nu if the cell samples
+            //  itself
             tmp<volScalarField> wallViscosity
             (
                 const volVectorField& U,
                 const volScalarField& nu
+            ) const;
+
+            //- Wall law of the wall cells of no-slip bodies with a wall
+            //  function: the weight w of the wall law against the solution,
+            //  0 for h+ <= hPlusResolved, 1 for h+ >= hPlusModelled and
+            //  smooth in log h+ in between (h the extent of the cell along
+            //  the wall normal), and u_tau^2 = (1 - w) u_tau,cell^2
+            //  + w u_tau,sample^2 from the body's wall law with the wall
+            //  cell's own value at dWall and with the sample at about
+            //  wallSampleDistance h from the wall (the wall cell itself if
+            //  wallSampleDistance h <= dWall or the sample is not on this
+            //  processor); the cell's own value is taken at dWall, at h/2
+            //  or averaged over its fluid (wallLawDistance). Both 0 in all
+            //  other cells
+            void wallLaw
+            (
+                const volVectorField& U,
+                const volScalarField& nu,
+                scalarField& uTau,
+                scalarField& weight
             ) const;
 
             //- Link the small cut cells to their masters in an assembled

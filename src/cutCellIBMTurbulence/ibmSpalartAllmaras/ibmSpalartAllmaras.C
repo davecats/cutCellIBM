@@ -130,6 +130,29 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
         );
 
         nuTildaEqn.ref().relax();
+
+        // Wall cells of walls the mesh does not resolve: nuTilda towards
+        // the wall solution of the model, kappa u_tau y, which holds down to
+        // the wall (fv1 is built for it), with the weight w of the wall law
+        // (cutCellGeometry::wallLaw): a conductance w/(1 - w) times the
+        // diagonal, so w = 0 (resolved walls) leaves the equation unchanged
+        // and w = 1 fixes the value. Off with nuTildaWallLaw false.
+        if (ibm_.nuTildaWallLaw())
+        {
+            scalarField uTau, w;
+            ibm_.wallLaw(this->U_, nu, uTau, w);
+            const scalarField& y = this->y_.field();
+            scalarField& diag = nuTildaEqn.ref().diag();
+            scalarField& source = nuTildaEqn.ref().source();
+            for (const label celli : ibm_.wallCells())
+            {
+                if (w[celli] <= 0) continue;
+                const scalar c = diag[celli]*w[celli]/max(1 - w[celli], 1e-3);
+                diag[celli] += c;
+                source[celli] += c*this->kappa_.value()*uTau[celli]*y[celli];
+            }
+        }
+
         ibm_.linkCells(nuTildaEqn.ref());
         fvOptions.constrain(nuTildaEqn.ref());
         solve(nuTildaEqn);

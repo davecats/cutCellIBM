@@ -26,3 +26,66 @@ ibm_so_a0            wall points 7898  min Cp -0.438  Cf noise 0.011  upper: Cf(
 tmr_wr_a10           wall points 7898  min Cp -4.246  Cf noise 0.011  upper: Cf(0.5) 0.00366, rms dCf/Cf 0.000, rms dCp 0.0000  lower: Cf(0.5) 0.00424, rms dCf/Cf 0.000, rms dCp 0.0000
 ibm_a10              wall points 7898  min Cp -3.960  Cf noise 0.016  upper: Cf(0.5) 0.00186, rms dCf/Cf 0.532, rms dCp 0.0625  lower: Cf(0.5) 0.00398, rms dCf/Cf 0.073, rms dCp 0.0279
 ibm_so_a10           wall points 7898  min Cp -4.062  Cf noise 0.016  upper: Cf(0.5) 0.00207, rms dCf/Cf 0.471, rms dCp 0.0540  lower: Cf(0.5) 0.00396, rms dCf/Cf 0.072, rms dCp 0.0232
+
+# Control-volume forces and converged references (2026-11-01)
+# validation/naca0012_compare.py --cv: CV = momentum balance of a box of whole cells (validation/cvforce.py),
+# box (-1,2)x(-1,1); spread = range of CV Cd over five boxes from (-0.25,1.25)x(-0.25,0.25) to (-5,10)x(-5,5).
+# IBM runs: CV = wall force to 4 digits, spread < 1e-5 (all runs of 2026-10-30/31).
+# tmr_wr_a0 after 10000 its is not converged: the wake lies on the skewed, 2e-6 thin cells of the C-grid wake
+# cut, which are far out of momentum balance (cell residual checked with OpenFOAM's operators); the normalised
+# residual (1.8e-7) does not show it. Continued to 50000 its:
+#   its      wall Cd     CV Cd box (-0.25,1.25)  (-1,2)   (-5,10)
+#   10000    0.011054    0.00849                 0.00558  0.00289
+#   20000    0.010945    0.00957                 0.00662  0.00349
+#   30000    0.010890    0.01018                 0.00748  0.00404
+#   40000    0.010857    0.01051                 0.00817  0.00455
+#   50000    0.010836    0.01067                 0.00874  0.00501
+# wall Cd still falls ~1e-5 per 5000 its (geometric, ratio ~0.8): converged about 0.0108 (-2% from the 10000-it value).
+# tmr_wr_a10 continued to 30000 its: Cl 1.04734, Cd 0.015833 (wall) / 0.015820 (CV, spread 4e-8); the 1.3% gap
+# between wall and CV Cd at 10000 its was also convergence.
+
+# Wall-law variants at alpha = 3 (2026-11-01; doc/iddesPlan.md section 8)
+# references (scratch, TMR grid n0012_449-129): tmr_wr_a3 60000 its (CV Cd still rising 0.00996 / 0.01031 /
+# 0.01055 / 0.01071 at 30k/40k/50k/60k, box (-1,2)x(-1,1); extrapolated ~0.0110-0.0111 = the wall value);
+# tmr_wf_a3 20000 its. IBM: makeCase.py --alpha 3, linked (mergeAlpha 0.5) unless NL;
+# h2: h = 2e-3 (y+ ~ 80), 4 procs; h1: --levels 1 --nFine 25, h = 1e-3 (y+ ~ 40), 6 procs; 10000 its;
+# wr: --levels 6 --nFine 10 --nBand 6, h = 3.1e-5 (y+ ~ 1), 1.39M cells, 22-30 procs, 30000 its.
+# variants as in channelSA/results.txt (Inclined walls); sampleCap = sample after the nu_w cap,
+# sampleSO = sample with secondOrder true. Runs in /home/ws/xt8786/runs/ibmSA_study/naca3.
+## naca0012_compare.py --cv (dCd, dCl vs tmr_wr_a3 wall forces; CV of the IBM runs = wall to 4 digits)
+tmr_wr_a3              Cl 0.32436  Cd 0.011147 (p 0.002301 v 0.008846)
+tmr_wf_a3              Cl 0.34708  Cd 0.012108 (p 0.004179 v 0.007929)  dCd  +8.63% dCl +7.00%
+h2_old                 Cl 0.32222  Cd 0.013487 (p 0.003351 v 0.010136)  dCd +20.99% dCl -0.66%
+h2_centroidSA          Cl 0.32343  Cd 0.012915 (p 0.003293 v 0.009622)  dCd +15.86% dCl -0.29%
+h2_groupCentroid       Cl 0.32326  Cd 0.012953                          dCd +16.21% dCl -0.34%
+h2_sample(Cap)         Cl 0.32336  Cd 0.012607 (p 0.003274 v 0.009333)  dCd +13.10% dCl -0.31%
+h2_cellAverage         Cl 0.31998  Cd 0.014103 (p 0.003550 v 0.010553)  dCd +26.52% dCl -1.35%
+h2_halfCell            Cl 0.32258  Cd 0.013103 (p 0.003333 v 0.009770)  dCd +17.55% dCl -0.55%
+h2_sampleNL            diverged (FPE at 2448 its)
+h1_old                 Cl 0.31932  Cd 0.013427 (p 0.003024 v 0.010403)  dCd +20.45% dCl -1.55%
+h1_centroidSA          Cl 0.32182  Cd 0.012585 (p 0.002853 v 0.009732)  dCd +12.90% dCl -0.78%
+h1_groupCentroid       Cl 0.32163  Cd 0.012622                          dCd +13.24% dCl -0.84%
+h1_sample(Cap)         Cl 0.32346  Cd 0.012032 (p 0.002765 v 0.009267)  dCd  +7.94% dCl -0.28%
+h1_cellAverage         Cl 0.31769  Cd 0.014056 (p 0.003215 v 0.010841)  dCd +26.10% dCl -2.06%
+h1_halfCell            Cl 0.32106  Cd 0.012641 (p 0.002869 v 0.009772)  dCd +13.40% dCl -1.02%
+h1_sampleNL            diverged (FPE at 1354 its)
+wr_old                 Cl 0.32366  Cd 0.011307 (p 0.002403 v 0.008904)  dCd  +1.43% dCl -0.22%
+wr_sample              Cl 0.32367  Cd 0.011305 (p 0.002402 v 0.008903)  dCd  +1.42% dCl -0.21%
+wr_sampleSO            Cl 0.32350  Cd 0.011368 (p 0.002410 v 0.008958)  dCd  +1.98% dCl -0.26%
+wr_sampleNL            Cl 0.32478  Cd 0.010968 (p 0.002239 v 0.008729)  dCd  -1.60% dCl +0.13%
+# (sample and sampleCap identical to all printed digits: started from the free stream, never in the
+#  second steady state; wr runs: wr_sample* after the cap, wr_old before, nu_w ~ nu there)
+## naca0012_surface.py --window 0.008 (wr: 0.002); IBM Cf from ibmWallShear
+tmr_wf_a3            min Cp -1.129  upper: Cf(0.5) 0.00480, rms dCf/Cf 0.496, rms dCp 0.0814  lower: Cf(0.5) 0.00498, rms dCf/Cf 0.184
+h1_old               min Cp -1.036  upper: Cf(0.5) 0.00551, rms dCf/Cf 0.237, rms dCp 0.0064  lower: Cf(0.5) 0.00554, rms dCf/Cf 0.243
+h1_centroidSA        min Cp -1.038  upper: Cf(0.5) 0.00522, rms dCf/Cf 0.191, rms dCp 0.0046  lower: Cf(0.5) 0.00521, rms dCf/Cf 0.176
+h1_groupCentroid     min Cp -1.038  upper: Cf(0.5) 0.00521, rms dCf/Cf 0.190, rms dCp 0.0047  lower: Cf(0.5) 0.00521, rms dCf/Cf 0.178
+h1_sample(Cap)       min Cp -1.041  upper: Cf(0.5) 0.00429, rms dCf/Cf 0.090, rms dCp 0.0038  lower: Cf(0.5) 0.00429, rms dCf/Cf 0.081
+h1_halfCell          min Cp -1.036  upper: Cf(0.5) 0.00483, rms dCf/Cf 0.193, rms dCp 0.0048  lower: Cf(0.5) 0.00484, rms dCf/Cf 0.177
+h1_cellAverage       min Cp -1.026  upper: Cf(0.5) 0.00575, rms dCf/Cf 0.283, rms dCp 0.0073  lower: Cf(0.5) 0.00581, rms dCf/Cf 0.307
+h2_sampleCap         min Cp -1.083  upper: Cf(0.5) 0.00421, rms dCf/Cf 0.105, rms dCp 0.0089  lower: Cf(0.5) 0.00445, rms dCf/Cf 0.109
+h2_groupCentroid     min Cp -1.083  upper: Cf(0.5) 0.00474, rms dCf/Cf 0.196, rms dCp 0.0085  lower: Cf(0.5) 0.00503, rms dCf/Cf 0.208
+wr_old / wr_sample   min Cp -1.033  upper: Cf(0.5) 0.00426, rms dCf/Cf 0.023, rms dCp 0.0009  lower: Cf(0.5) 0.00425, rms dCf/Cf 0.025
+wr_sampleSO          min Cp -1.032  upper: Cf(0.5) 0.00427, rms dCf/Cf 0.019, rms dCp 0.0010  lower: Cf(0.5) 0.00426, rms dCf/Cf 0.022
+wr_sampleNL          min Cp -1.037  upper: Cf(0.5) 0.00417, rms dCf/Cf 0.020, rms dCp 0.0002  lower: Cf(0.5) 0.00413, rms dCf/Cf 0.017
+# (tmr_wr_a3: Cf(0.5) 0.00418 upper, 0.00416 lower, min Cp -1.036)

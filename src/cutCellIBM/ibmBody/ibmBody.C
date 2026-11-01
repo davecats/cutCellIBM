@@ -21,6 +21,7 @@ Foam::ibmBody::wallFunctionNames
 ({
     { wallFunctionType::NOWALLFUNCTION, "none" },
     { wallFunctionType::SPALDING, "spalding" },
+    { wallFunctionType::SPALARTALLMARAS, "spalartAllmaras" },
 });
 
 

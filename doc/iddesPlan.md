@@ -332,3 +332,68 @@ Open, candidates before IDDES: (i) log-law-consistent SA production in wall-func
 (2–3 h, image point) instead of the wall cell: a smooth applied wall shear independent of the cut
 position, and the input WMLES needs for IDDES anyway (non-local stencil, processor halos, a
 fallback where the boundary layer is thinner than the matching distance).
+
+## 8. Wall-treatment study and clean-up plan (2026-11-01)
+
+Question: is the way the IBM wall cells carry the SA wall law the best one? Tested on an inclined
+channel (Re_τ ≈ 550, walls at tan α = 0, 1/8, 1/4, 1/2, 1, three lattice offsets each, uniform
+cells at h⁺ ≈ 1, 10, 31, 93, initialised from the body-fitted profile) and on the NACA 0012 at
+α = 3° (wall functions at h = 2e-3 and 1e-3; wall-resolved with `--levels 6`, h = 3.1e-5, 1.39M
+cells). References: body-fitted wall-resolved, and body-fitted wall functions at the same h.
+
+Variants of the wall cell's u_τ (all with linking unless marked NL):
+`old` Spalding at the own fluid-centroid distance, no ν̃ wall law; `centroidSA` SA law
+(Allmaras et al. 2012) at the centroid distance, ν̃ = κ u_τ y in the wall cells; `groupCentroid`
+the same at the merged-group centroid; `halfCell` at h/2; `cellAverage` the law averaged over the
+cut cell's fluid (16 wall-distance quantiles); `sample` the velocity of the cell 1.5 h out along
+the normal, blended in with the weight w(h⁺) (smoothstep in log h⁺ between 1 and 10).
+
+Results (u_τ error, means over offsets; NACA C_d against the wall-resolved body-fitted 0.01115):
+
+| | channel h⁺≈10 aligned / inclined | h⁺≈31 | h⁺≈93 | NACA C_d h = 2e-3 / 1e-3 | C_f rms (1e-3) |
+|---|---|---|---|---|---|
+| old | +9.6 / +21..+29 | +8.4 / +10..+20 | +4.4 / −0.1..+10 | +21.0 / +20.5 % | 24 % |
+| centroidSA | +8.5 / +21..+28 | +4.1 / +6..+17 | +0.9 / −2.5..+8.8 | +15.9 / +12.9 % | 18 % |
+| groupCentroid | +8.5 / +21..+31 | +4.1 / +7..+18 | +0.9 / −0.7..+9.9 | +16.2 / +13.2 % | 18 % |
+| halfCell | +12.3 / +26..+38 | +4.2 / +8..+23 | +0.4 / −1.0..+11 | +17.6 / +13.4 % | 18 % |
+| cellAverage | +10.3 / +22..+32 | +11.2 / +15..+27 | +6.7 / +7..+17 | +26.5 / +26.1 % | 30 % |
+| sample (capped) | +1.3 / +2.4..+8.6 | +0.4 / −1.0..+3.8 | +0.8 / −0.1..+3.2 | +13.1 / +7.9 % | 8 % |
+| body-fitted wall functions | +9.1 | +8.4 | +4.3 | – / +8.6 % | 18–50 % |
+
+- Wall-resolved (h⁺ ≈ 1): every linked variant within 0.8 % in the channel at all angles (the
+  wall law has no weight there); unlinked about −1 %. NACA: linked +1.4 % C_d (second order
+  +2.0 %), unlinked −1.6 %, C_l within 0.3 %, C_f rms 2 %. Pressure drag +4 % wall-resolved
+  against +20 % with wall functions: the wall-function excess is the wall model's, not the
+  nose geometry's.
+- Unlinked runs with wall functions do not converge on inclined walls (G oscillating by a factor
+  2–11) and diverge on the airfoil: linking stays.
+- The cell-size-based distances (halfCell, cellAverage) do not beat the centroid; groupCentroid
+  changes nothing, so the inclined bias of the centroid variants is not the linked-cell distance.
+- Two defects found and fixed: (a) with a sample, ν_w = u_τ² d/|u_t| was unbounded as the wall
+  cell's own slip vanished; the implicit wall drag then holds the cell at rest, a second steady
+  state (+53..+180 % from an initialised field, +1..2 % from rest, crashes). Now capped at
+  ν + κ u_τ h, above ν_w on the wall law (u⁺ ≥ ln(1 + κ d⁺)/κ); no effect on converged good
+  states (NACA identical to 5 digits). (b) `polyMesh::findCell` is linear in the cells of an
+  octree leaf on meshes refined around a small body (> 1 h setup); samples are now located by a
+  walk through the wall cell's neighbours, identical results.
+
+Clean-up plan (after committing the study state, so every variant stays reproducible from git):
+
+1. Record the study in `validation/data/{channelSA,naca0012}/results.txt` and here; commit.
+2. Remove `wallLawDistance` (centroid/groupCentroid/halfCell/cellAverage, the quantiles,
+   `saUTauAverage`, `cellAverageUTau`), the `nuTildaWallLaw` switch and the Spalding wall
+   function (`wallFunction spalartAllmaras | none`), and their `makeCase.py` options.
+3. Keep: capped `sample` (`wallSampleDistance`, default 1.5) with the w(h⁺) blend, the ν̃ wall
+   law with the same weight, linking, the `ibmWallShear` / `ibmWallLawWeight` output. The SA law
+   at the wall cell's own centroid stays as the w → 0 end of the blend and as the internal
+   fallback of cells whose sample is not available (on another processor, in the solid), not as
+   an option. Wall functions require level-set bodies (fatal error otherwise).
+4. No separate "none" treatment for wall-resolved walls: at h⁺ ≲ 1 the SA law gives
+   ν_w = ν d⁺/u⁺(d⁺) ≈ ν, the law-consistent wall gradient, and switching to plain no-slip would
+   need a new blend for 1 < h⁺ < 10 and new baselines. Per-body `wallFunction none` already
+   exists for a plain no-slip comparison.
+5. Checks: laminar byte-identical; wall-function `sample` channel and NACA h = 1e-3 identical to
+   the study runs; wall-resolved channel and NACA unchanged.
+
+Then: the ±1.5 % linked/unlinked spread on wall-resolved meshes, and the wall-function pressure
+drag at the nose.

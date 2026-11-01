@@ -5,10 +5,11 @@
 
 Body-fitted: C_p from the wall-adjacent cells (p is zeroGradient on the wall),
 C_f from the wallShearStress function object, at the wall-face centres.
-IBM: C_p from the pressure of the wall cells, C_f from Spalding's law with the
-tangential slip of the wall cell at its wall distance (the wall shear the
-solver imposes; 0/ibmWallDistance, which includes linking), at the closest
-points of the airfoil to the fluid centroids. C_f carries the sign of the
+IBM: C_p from the pressure of the wall cells, C_f from the wall shear the
+solver applies, <time>/ibmWallShear (nu_w |u_t|/dWall, written by runs since
+2026-11-01; older runs: Spalding's law with the tangential slip of the wall
+cell at 0/ibmWallDistance), at the closest points of the airfoil to the
+fluid centroids. C_f carries the sign of the
 streamwise wall shear (negative where the flow is reversed). Upper and lower
 surfaces from the sign of y.
 
@@ -133,6 +134,8 @@ def surface(case, window=0.0, D=0.0):
         U, _ = read_field(os.path.join(case, t, "U"))
         off = os.path.join(case, t, "ibmCentroidOffset")
         X = C + (read_field(off)[0] if os.path.exists(off) else 0)
+        fw = os.path.join(case, t, "ibmWallShear")
+        tauW = read_field(fw)[0] if os.path.exists(fw) else None
         Aw = np.linalg.norm(Sw, axis=1)
         wall = np.where((a > 0) & (Aw > 1e-10 * 1e-4) & (dw < 1))[0]
         P, _, sP = airfoil()
@@ -143,8 +146,11 @@ def surface(case, window=0.0, D=0.0):
             n = Sw[i] / Aw[i]
             ut = U[i] - (U[i] @ n) * n
             mag = np.linalg.norm(ut)
-            up = spalding_uplus(mag * dw[i] / NU)
-            utau2 = (mag / up)**2 if up > 0 else 0.0
+            if tauW is not None:
+                utau2 = tauW[i]
+            else:
+                up = spalding_uplus(mag * dw[i] / NU)
+                utau2 = (mag / up)**2 if up > 0 else 0.0
             # streamwise sign: along +x on both surfaces for attached flow
             sgn = np.sign(ut[0]) if mag > 0 else 1.0
             cp[j], cf[j] = 2 * p[i], 2 * sgn * utau2

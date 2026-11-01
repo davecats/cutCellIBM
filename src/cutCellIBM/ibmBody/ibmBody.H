@@ -69,12 +69,15 @@ public:
     static const Enum<wallType> wallTypeNames;
 
     //- Wall shear of a no-slip wall in turbulent flow (solvers with a
-    //  turbulence model only): none (nu, wall-resolved meshes) or spalding
-    //  (Spalding's law, any y+)
+    //  turbulence model only): none (nu, wall-resolved meshes), spalding
+    //  (Spalding's law, any y+) or spalartAllmaras (the analytic law of the
+    //  wall of the Spalart-Allmaras model, Allmaras, Johnson & Spalart 2012,
+    //  any y+)
     enum wallFunctionType
     {
         NOWALLFUNCTION,
-        SPALDING
+        SPALDING,
+        SPALARTALLMARAS
     };
 
     static const Enum<wallFunctionType> wallFunctionNames;
