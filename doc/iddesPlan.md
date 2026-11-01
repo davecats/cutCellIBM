@@ -368,8 +368,8 @@ Results (u_τ error, means over offsets; NACA C_d against the wall-resolved body
 - Wall-resolved (h⁺ ≈ 1): every linked variant within 0.8 % in the channel at all angles (the
   wall law has no weight there); unlinked about −1 %. NACA: linked +1.4 % C_d (second order
   +2.0 %), unlinked −1.6 %, C_l within 0.3 %, C_f rms 2 %. Pressure drag +4 % wall-resolved
-  against +20 % with wall functions: the wall-function excess is the wall model's, not the
-  nose geometry's.
+  against +20 % with wall functions. (That this excess is the wall model's turned out wrong:
+  it is the leading edge's resolution by the Cartesian core, section 9.)
 - Unlinked runs with wall functions do not converge on inclined walls (G oscillating by a factor
   2–11) and diverge on the airfoil: linking stays.
 - The cell-size-based distances (halfCell, cellAverage) do not beat the centroid; groupCentroid
@@ -412,3 +412,51 @@ extent h = 2V/Σ|S_f·n| (u_τ −0.75 instead of −0.73 % in one h⁺ 93 case)
 byte-identical; channel `sample` cases (h⁺ 1/10/31/93, aligned and inclined) byte-identical to
 the study runs; NACA h = 1e-3 and the first 300 iterations of the wall-resolved run equal to
 round-off (|ΔU| 3e-7, C_l and C_d to 5 digits; parallel runs).
+
+## 9. Linked/unlinked spread and the wall-function nose drag (2026-11-02)
+
+Runs and tables: `validation/data/naca0012/results.txt` (last block). NACA 0012, α = 3°.
+
+**Linked/unlinked spread (wall-resolved) is a first-order discretisation error.** Refinement
+series `--levels 5/6/7` (wall h 6.25e-5 / 3.1e-5 / 1.56e-5, 0.77M / 1.39M / 2.63M cells):
+
+| wall h | linked C_d | unlinked C_d | spread |
+|---|---|---|---|
+| 6.25e-5 | +5.63 % | −1.69 % | 7.3 % |
+| 3.1e-5 | +1.42 % | −1.60 % | 3.0 % |
+| 1.56e-5 | +0.72 % | −0.67 % | 1.4 % |
+
+(against the body-fitted TMR 449 grid, C_d 0.011147). The spread halves with h; linked converges
+from above (viscous drag 9213 / 8903 / 8850 e-6 onto the body-fitted 8830–8846), unlinked from
+below, non-monotone; the mean of the two at L7 is 0.011150. Both parts follow the wall shear:
+linked over-predicts it over 0.2 < x < 0.8, unlinked under-predicts it over 0.01 < x < 0.5, and
+the pressure part follows (thinner boundary layer, a little more circulation and nose suction);
+surface C_p of the two agrees to 0.004. Unlinked second order is the most accurate at L6
+(+0.75 %), as in the channel, but unlinked cells diverge with wall functions, so linking stays the
+default. `wallFunction none` on L6 equals the SA law to 1e-4 % (w = 0 at h⁺ < 1). The finer
+body-fitted grid (TMR 897, still converging: −2.4e-5 C_d per 10k iterations, pressure only)
+shows the same +3.8 / −4.2 e-4 chordwise pattern (0.2–0.5 / 0.5–0.8) that every IBM run showed
+against the 449 grid: that was the 449 reference's error, not the IBM's.
+
+**The wall-function nose excess is the leading edge's resolution, not the wall model.**
+- Second order (wall pressure extrapolated with lsqGrad(p)): C_d +8.06 / +13.04 % against
+  +7.94 / +13.10 % first order (h = 1e-3 / 2e-3). Solver and CV force agree to 1e-6: the excess
+  is in the solution, not in the force integral.
+- Free slip, laminar, on the same Cartesian meshes (no boundary layer, no wall law): spurious
+  pressure drag at x < 0.002 of +15.6 / +8.6 / +2.3 e-4 at h = 2e-3 / 1e-3 / 5e-4 against
+  2.5e-4, total +10.7 / +3.8 / +0.6 e-4. The wall-function runs' excess over the wall-resolved
+  IBM run is +10.2 / +5.0 e-4 at x < 0.002 and +8.7 / +3.6 e-4 in total, about the same.
+  The NACA 0012 nose radius is 0.016 c: 8 cells at h = 2e-3.
+- Two refinement levels at the leading edge only (x < 0.05, to 5e-4, +2.5k cells): the nose
+  excess at x < 0.01 drops from +6.7 / +2.2 to +0.2 / +0.5 e-4; C_d +13.1 → +10.9 %
+  (h = 2e-3), +7.9 → +7.3 % (h = 1e-3).
+- What remains with wall functions is mostly viscous: +4.6 / +7.8 e-4 (+5 / +9 % of the
+  viscous drag, 0.05 < x < 0.5), the equilibrium wall law in the thin front boundary layer (the
+  body-fitted wall functions miss it the other way, −10 %), plus +2–3 e-4 pressure around the
+  end of the nose refinement.
+
+Consequences: wall-function meshes need the leading edge resolved for the inviscid flow
+(h ≲ r_LE/30, here 5e-4), independent of the wall treatment; this is a meshing rule, not a code
+change (a local level by x, or better a curvature-based refinement criterion, in the generator).
+The wall-resolved spread needs no change: it converges at first order; quote ±0.7 % at L7 and
+±1.5 % at L6.

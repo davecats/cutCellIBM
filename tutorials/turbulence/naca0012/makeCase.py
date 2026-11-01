@@ -34,7 +34,7 @@ ibm: Cartesian mesh with a uniform core of cell size h (default 2e-3,
      coarser one nBand of its cells further (default 6), each also one cell
      of the next coarser level into the solid (refineSet.py). The wall law
      (--wallFunction, default spalartAllmaras; --wallSample, default 1.5)
-     as in channelSA/makeCase.py. --np n: run on n processors (scotch).
+     as in channelSA/makeCase.py. --np n: run on n processors (scotch; bf too).
 Forces: postProcessing/forces (bf) or postProcessing/ibmForces (ibm);
 validation/naca0012_compare.py turns both into lift and drag coefficients.
 """
@@ -519,14 +519,21 @@ writeMesh       no;
                "createPatch -overwrite > log.createPatch 2>&1 && " % DZ)
     else:
         run = "blockMesh > log.blockMesh 2>&1 && "
+    if a.np > 1:
+        write(os.path.join(d, "system/decomposeParDict"), header("dictionary", "decomposeParDict")
+              + "numberOfSubdomains %d;\nmethod scotch;\n" % a.np)
     if a.kind == "bf":
-        run += "checkMesh > log.checkMesh 2>&1; simpleFoam > log.simpleFoam 2>&1"
+        run += "checkMesh > log.checkMesh 2>&1; "
+        if a.np > 1:
+            # every written time reconstructed: the convergence of the reference is checked on them
+            run += ("decomposePar -force > log.decomposePar 2>&1 && mpirun -np %d simpleFoam -parallel "
+                    "> log.simpleFoam 2>&1 && reconstructPar > log.reconstructPar 2>&1" % a.np)
+        else:
+            run += "simpleFoam > log.simpleFoam 2>&1"
     else:
         run += ("checkMesh > log.checkMesh 2>&1; ibmSetGeometry -writeWallDist > log.geo 2>&1 && "
                 "postProcess -func writeCellCentres -time 0 > log.C 2>&1 && ")
         if a.np > 1:
-            write(os.path.join(d, "system/decomposeParDict"), header("dictionary", "decomposeParDict")
-                  + "numberOfSubdomains %d;\nmethod scotch;\n" % a.np)
             run += ("decomposePar -force > log.decomposePar 2>&1 && mpirun -np %d ibmSimpleFoam -parallel "
                     "> log.ibmSimpleFoam 2>&1 && reconstructPar -latestTime > log.reconstructPar 2>&1" % a.np)
         else:
