@@ -92,13 +92,14 @@ wr_sampleNL          min Cp -1.037  upper: Cf(0.5) 0.00417, rms dCf/Cf 0.020, rm
 
 # ---------------------------------------------------------------------------------------------
 # alpha 3: linked/unlinked spread (wall-resolved) and wall-function nose drag (2026-11-02)
-# Runs in /home/ws/xt8786/runs/ibmSA_study/naca3/{wr3,wf3,slip,nose}; tmr897_wr_a3 = TMR 897x257 grid,
-# 66k of 150k its (C_d still drifting, -2.4e-5 per 10k its, all in the pressure part; 449: -6e-6).
+# Runs in /home/ws/xt8786/runs/ibmSA_study/naca3/{wr3,wf3,slip,nose}; tmr897_wr_a3 = TMR 897x257 grid
+# (150k its; its C_d drifts slowly, all in the pressure part: 0.011238 at 66k).
 # L5/L6/L7 = --levels 5/6/7 (--h 2e-3 --nFine 10 --nBand 6 --R 500), wall h 6.25e-5/3.1e-5/1.56e-5,
 # 0.77M/1.39M/2.63M cells; _L linked (mergeAlpha 0.5), _NL unlinked; L6 = wr_sample(NL) above.
 ## naca0012_compare.py (solver forces; dCd vs tmr_wr_a3)
 tmr_wr_a3 (449)        Cl 0.32436  Cd 0.011147 (p 0.002301 v 0.008846)
-tmr897_wr_a3 (897)     Cl  -       Cd 0.011238 (p 0.002409 v 0.008829)  at 66k its, not converged
+tmr897_wr_a3 (897)     Cl 0.32328  Cd 0.011164 (p 0.002341 v 0.008823)  150k its, dCd/500 2e-7
+# against 897: L5/L6/L7 linked +5.47/+1.26/+0.57 %, unlinked -1.84/-1.75/-0.82 %, L6_NL_SO +0.60 %
 L5_L                   Cl 0.32205  Cd 0.011775 (p 0.002561 v 0.009213)  dCd +5.63% dCl -0.71%
 L6_L (wr_sample)       Cl 0.32367  Cd 0.011305 (p 0.002402 v 0.008903)  dCd +1.42% dCl -0.21%
 L7_L                   Cl 0.32394  Cd 0.011227 (p 0.002377 v 0.008850)  dCd +0.72% dCl -0.13%

@@ -434,7 +434,7 @@ the pressure part follows (thinner boundary layer, a little more circulation and
 surface C_p of the two agrees to 0.004. Unlinked second order is the most accurate at L6
 (+0.75 %), as in the channel, but unlinked cells diverge with wall functions, so linking stays the
 default. `wallFunction none` on L6 equals the SA law to 1e-4 % (w = 0 at h⁺ < 1). The finer
-body-fitted grid (TMR 897, still converging: −2.4e-5 C_d per 10k iterations, pressure only)
+body-fitted grid (TMR 897, 150k iterations: C_d 0.011164, C_l 0.32328; L7 linked +0.57 %, unlinked −0.82 %)
 shows the same +3.8 / −4.2 e-4 chordwise pattern (0.2–0.5 / 0.5–0.8) that every IBM run showed
 against the 449 grid: that was the 449 reference's error, not the IBM's.
 
