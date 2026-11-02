@@ -175,3 +175,19 @@ All runs are in `/home/ws/xt8786/runs/amr_study` (scripts `regression.sh`,
 | parallel 2-D / 3-D | Re 100 cylinder on 4 ranks (cut cells on processor boundaries), sphere on 4 ranks | refinement identical to serial cell for cell; unrefinement in parallel works after the `solutionD` fix |
 | SA, linking | Re 1e4 cylinder, `ibmSpalartAllmaras`, `mergeAlpha 0.5` | wall distance rebuilt after the change, model runs on the refined mesh |
 | 2-D unsteady, wake | Re 100 cylinder, background 40×24 (h = D/2), `maxLevel 4` (D/32), vorticity region level 3, `refineInterval 10` | see below |
+
+Re 100 cylinder (`tutorials/amr/cylinderRe100`, blockage D/H = 1/12). The adaptive run is
+compared with a reference that uses the same rules but level 3 everywhere and
+no adaptation (`regions near distance 100`, `refineInterval 0`). Both use D/32 at the wall
+and D/16 in the wake, and are evaluated over t = 60–100 (Strouhal number from the peak of
+the C_l spectrum):
+
+| mesh | cells | C_d mean | C_l amplitude | St |
+|---|---|---|---|---|
+| fixed, level 3 everywhere | 61,968 | 1.4236 | 0.317 | 0.1765 |
+| adaptive, vorticity > 0.5 | 8,700–9,000 (peak 10,700) | 1.4169 (−0.5 %) | 0.304 (−4 %) | 0.1764 |
+| adaptive, flux recomputed on all faces (before the fix) | ≈ 9,000 | 1.4225 (t = 60–150) | 0.315 | 0.1764 |
+
+The adaptive mesh has 7 times fewer cells than the reference. The lift amplitude is
+still growing in both runs at t = 100 (adaptive, t = 60–150: 0.326). No cut cell left
+level 4 in 1,500 adaptations.
