@@ -16,6 +16,7 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "fvCFD.H"
+#include "dynamicFvMesh.H"
 #include "singlePhaseTransportModel.H"
 #include "turbulentTransportModel.H"
 #include "simpleControl.H"
@@ -36,7 +37,7 @@ int main(int argc, char *argv[])
     #include "addCheckCaseOptions.H"
     #include "setRootCaseLists.H"
     #include "createTime.H"
-    #include "createMesh.H"
+    #include "createDynamicFvMesh.H"
     #include "createControl.H"
     #include "createFields.H"
     #include "initContinuityErrs.H"
@@ -48,6 +49,22 @@ int main(int argc, char *argv[])
     while (simple.loop())
     {
         Info<< "Time = " << runTime.timeName() << nl << endl;
+
+        // Adaptive refinement (constant/dynamicMeshDict, ibmRefineFvMesh):
+        // the fields and the flux have been mapped, the flux rebuilt on the
+        // changed faces and the cut-cell geometry rebuilt. The cells that
+        // have become solid are blanked and the reference cell found again.
+        mesh.update();
+        if (mesh.topoChanging())
+        {
+            if (!ibm.moving())
+            {
+                ibm.zeroSolid(U);
+                ibm.zeroSolid(p);
+            }
+            setRefCell(p, simple.dict(), pRefCell, pRefValue);
+            ibm.checkRefCell(pRefCell);
+        }
 
         // --- Pressure-velocity SIMPLE corrector
         {

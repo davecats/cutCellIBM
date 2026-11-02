@@ -1,0 +1,8 @@
+#!/bin/bash
+cd "${0%/*}" || exit 1
+. $WM_PROJECT_DIR/bin/tools/RunFunctions
+
+# Uniform background mesh; the solver refines it around the cylinder at its
+# first time step (constant/dynamicMeshDict) and adapts it to the wake
+runApplication blockMesh
+runApplication $(getApplication)

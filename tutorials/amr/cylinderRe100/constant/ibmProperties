@@ -1,0 +1,17 @@
+FoamFile { version 2.0; format ascii; class dictionary; object ibmProperties; }
+
+alphaMin      0.02;
+writeFields   true;
+writeForces   true;
+
+bodies
+{
+    cylinder
+    {
+        type      cylinder;
+        centre    (0 0.01 0);  // off the centre line: the shedding starts earlier
+        axis      (0 0 1);
+        radius    0.5;
+        wallType  noSlip;
+    }
+}

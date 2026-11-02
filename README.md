@@ -31,6 +31,7 @@ main ── movingBody ── scalar ── scalar_secondOrder ── fouling
 | `scalar` | passive scalars (any number), fixed-value or zero-flux walls per body and per scalar, disk sources, `fvOptions`, running budget | budgets close to 1e-11 (static) and 1e-10 (moving); moving bodies leave a swept-volume defect below 1e-4 of the content |
 | `scalar_secondOrder` | optional second-order wall treatment (`secondOrder true`, `cutCellCorrected` scheme, linearly exact pressure gradient), `ibmOrderTest` | manufactured Laplace / convection–diffusion problems: order 1 → 2 for Dirichlet walls; pressure gradient of a linear p exact to 4e-13; Taylor–Couette velocity order 1.9; forces and cut-cell pressure remain first order |
 | `fouling` | plan only (`doc/foulingPlan.md`): reacting scalars, conjugate temperature, deposit growth with conservative sliver handover | — |
+| `feature_amr` | adaptive mesh refinement (`dynamicFvMesh ibmRefineFvMesh`, 2-D and 3-D): cut cells and `nCutCellLayers` layers around them at `maxLevel`, optional distance and solution-field regions, steady and transient, static and moving bodies, serial and parallel (`doc/amr.md`) | byte-identical without `dynamicMeshDict`; moving cylinder within 1 % of the uniform mesh; Re 100 cylinder vs a fixed refined mesh (`doc/amr.md`) |
 
 **`main`** — static bodies
 - Geometry from a level set: face fractions θ from edge crossings found by bisection, cell

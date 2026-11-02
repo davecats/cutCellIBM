@@ -2,6 +2,8 @@
 cd "${0%/*}" || exit 1
 if [ -z "$CUTCELL_IBM_DIR" ]; then source etc/bashrc; fi
 wclean libso src/cutCellIBM
+wclean libso src/cutCellIBMTurbulence
+wclean libso src/cutCellIBMAMR
 wclean applications/utilities/ibmSetGeometry
 wclean applications/utilities/ibmOrderTest
 wclean applications/solvers/ibmSimpleFoam

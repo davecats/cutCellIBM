@@ -1,0 +1,10 @@
+hexRef/hexRef.C
+hexRef/hexRefData.C
+hexRef/refinementHistoryMultiDim.C
+hexRef/hexRefNew.C
+hexRef/hexRef3D/hexRef3D.C
+hexRef/hexRef4/hexRef4.C
+
+ibmRefineFvMesh/ibmRefineFvMesh.C
+
+LIB = $(FOAM_USER_LIBBIN)/libcutCellIBMAMR

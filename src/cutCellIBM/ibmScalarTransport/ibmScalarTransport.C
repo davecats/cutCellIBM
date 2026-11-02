@@ -183,6 +183,11 @@ void Foam::ibmScalarTransport::solve()
     if (ibm_.moving())
     {
         const scalarField& alphaSwept = ibm_.alpha().oldTime().primitiveField();
+        if (alphaPrev_.size() != alphaSwept.size())
+        {
+            // The mesh has been refined or unrefined since the last step
+            alphaPrev_ = alphaSwept;
+        }
         sweptDefect_ +=
             gSum((alphaPrev_ - alphaSwept)*V*T_.primitiveField());
     }

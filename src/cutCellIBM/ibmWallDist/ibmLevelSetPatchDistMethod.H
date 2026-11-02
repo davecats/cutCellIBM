@@ -56,6 +56,11 @@ public:
         const labelHashSet& patchIDs
     );
 
+    //- Whether the distance can be updated after a mesh change: not
+    //  before the cut-cell geometry has been rebuilt on the new mesh (the
+    //  adaptive mesh then asks wallDist again)
+    virtual bool movePoints();
+
     //- Correct the given distance-to-wall field
     virtual bool correct(volScalarField& y);
 

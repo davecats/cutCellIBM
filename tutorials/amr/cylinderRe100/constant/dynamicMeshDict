@@ -1,0 +1,31 @@
+FoamFile { version 2.0; format ascii; class dictionary; object dynamicMeshDict; }
+
+dynamicFvMesh   ibmRefineFvMesh;
+
+ibmRefineFvMeshCoeffs
+{
+    maxLevel        4;      // the cut cells: h = 0.5/16 = D/32
+    nCutCellLayers  2;      // finest cells on either side of the wall
+    refineInterval  10;     // time steps between adaptations
+    maxCells        200000;
+    unrefine        true;
+    nBufferLayers   2;      // around the vorticity region
+
+    regions
+    {
+        near
+        {
+            type        distance;
+            distance    0.5;
+            level       3;
+        }
+        wake
+        {
+            type        field;
+            field       vorticity;      // function object, controlDict
+            lowerBound  0.5;
+            upperBound  1e15;
+            level       3;
+        }
+    }
+}
