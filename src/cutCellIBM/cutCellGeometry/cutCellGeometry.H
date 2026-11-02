@@ -147,6 +147,11 @@ class cutCellGeometry
         //- Fluid centroid minus cell centre
         volVectorField centroidOffset_;
 
+        //- Point the cell value belongs to minus cell centre: the fluid
+        //  centroid, and on every cell of a linked group (master and
+        //  slaves, which share one value) the centroid of the group
+        volVectorField valueOffset_;
+
         //- Wet-face centroid minus face centre
         surfaceVectorField wetFaceOffset_;
 
@@ -309,8 +314,16 @@ class cutCellGeometry
         //  centroid of its fluid part
         scalar sampleCellFraction(const label celli, point& centroid) const;
 
+        //- Value points (valueOffset_): fluid centroids, group centroids on
+        //  the cells of linked groups
+        void calcValueOffset();
+
+        //- True for a face between two cells of the same linked group
+        bool insideGroup(const label facei) const;
+
         //- Centroid vectors and cut delta coefficients of every face, and
-        //  the offsets of the face-value correction of the gradient
+        //  the offsets of the face-value correction of the gradient, from
+        //  the value points (from the fluid centroids inside a group)
         void calcCentroidGeometry();
 
         //- Wall pieces of every wall cell (wallMoment_, wallPieceSum_)
@@ -433,6 +446,7 @@ public:
             bool secondOrder() const { return secondOrder_; }
 
             const volVectorField& centroidOffset() const { return centroidOffset_; }
+            const volVectorField& valueOffset() const { return valueOffset_; }
             const surfaceVectorField& wetFaceOffset() const { return wetFaceOffset_; }
             const surfaceVectorField& dCentroid() const { return dCentroid_; }
             const surfaceScalarField& cutDeltaCoeffs() const { return cutDeltaCoeffs_; }

@@ -82,7 +82,13 @@ void Foam::cutCellGeometry::calcMovingTerms()
     vectorField& Ub = UbPtr_().primitiveFieldRef();
     Ub = Zero;
 
-    pointField wallPoints(mesh_.cellCentres() + centroidOffset_.primitiveField());
+    // (second order: from the value point, the group centroid of a linked
+    // cell, which dWall is measured from)
+    pointField wallPoints
+    (
+        mesh_.cellCentres()
+      + (secondOrder_ ? valueOffset_ : centroidOffset_).primitiveField()
+    );
     label nClipped = 0;
     for (const label celli : wallCells_)
     {

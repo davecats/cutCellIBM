@@ -113,6 +113,12 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
                  IOobject::NO_READ, IOobject::NO_WRITE),
         mesh, dimensionedVector(dimLength, Zero), "zeroGradient"
     ),
+    valueOffset_
+    (
+        IOobject("ibmValueOffset", mesh.time().timeName(), mesh,
+                 IOobject::NO_READ, IOobject::NO_WRITE),
+        mesh, dimensionedVector(dimLength, Zero), "zeroGradient"
+    ),
     wetFaceOffset_
     (
         IOobject("ibmWetFaceOffset", mesh.time().timeName(), mesh,
@@ -179,6 +185,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     if (secondOrder_)
     {
         centroidOffset_.writeOpt(IOobject::AUTO_WRITE);
+        if (mergeAlpha_ > 0) valueOffset_.writeOpt(IOobject::AUTO_WRITE);
     }
 
     // Bodies
@@ -452,12 +459,13 @@ void Foam::cutCellGeometry::calcGeometry()
     }
 
     calcDerived();
+    calcLinks();
     if (secondOrder_)
     {
+        calcValueOffset();
         calcCentroidGeometry();
         calcWallPieces();
     }
-    calcLinks();
     wallSamplesDone_ = false;
 }
 
@@ -1236,6 +1244,75 @@ void Foam::cutCellGeometry::calcDerived()
 }
 
 
+void Foam::cutCellGeometry::calcValueOffset()
+{
+    valueOffset_ == centroidOffset_;
+    if (mergeAlpha_ <= 0) return;
+
+    // Centroid of every merged group: the shared value of a master and its
+    // slaves belongs there, so the fluxes through the outer faces of the
+    // group see it at one point and stay exact for a linear field
+    const scalarField& alpha = alpha_.primitiveField();
+    const scalarField& V = mesh_.V();
+    const pointField xc(fluidCentroids());
+    scalarField volSum(mesh_.nCells(), 0);
+    vectorField momSum(mesh_.nCells(), Zero);
+    forAll(linkMaster_, celli)
+    {
+        const label m = linkMaster_[celli];
+        if (m < 0) continue;
+        volSum[m] += alpha[celli]*V[celli];
+        momSum[m] += alpha[celli]*V[celli]*xc[celli];
+    }
+    forAll(linkMaster_, celli)
+    {
+        if (linkMaster_[celli] < 0 && volSum[celli] > 0)
+        {
+            // A master: add its own fluid
+            volSum[celli] += alpha[celli]*V[celli];
+            momSum[celli] += alpha[celli]*V[celli]*xc[celli];
+        }
+    }
+    vectorField& off = valueOffset_.primitiveFieldRef();
+    const vectorField& C = mesh_.C().primitiveField();
+    forAll(linkMaster_, celli)
+    {
+        const label m = (linkMaster_[celli] >= 0) ? linkMaster_[celli] : celli;
+        if (m == celli && volSum[celli] <= 0) continue;
+        off[celli] = momSum[m]/volSum[m] - C[celli];
+    }
+    valueOffset_.correctBoundaryConditions();
+
+    // The wall of a master that is a cut cell itself also sees the value at
+    // the group centroid (calcLinks moves the walls of the slaves only)
+    scalarField& dWall = dWall_.primitiveFieldRef();
+    scalarField& wallCoeff = wallCoeff_.primitiveFieldRef();
+    scalarField& noSlip = noSlipCoeff_.primitiveFieldRef();
+    forAll(linkMaster_, celli)
+    {
+        if (linkMaster_[celli] >= 0 || volSum[celli] <= 0) continue;
+        if (!wallCells_.test(celli)) continue;
+        dWall[celli] = linkWallDist_[celli];
+        const scalar c = Awall_[celli]/(dWall[celli]*V[celli]);
+        if (wallCoeff[celli] > 0) wallCoeff[celli] = c;
+        if (noSlip[celli] > 0) noSlip[celli] = c;
+    }
+    dWall_.correctBoundaryConditions();
+    wallCoeff_.correctBoundaryConditions();
+    noSlipCoeff_.correctBoundaryConditions();
+}
+
+
+bool Foam::cutCellGeometry::insideGroup(const label facei) const
+{
+    if (mergeAlpha_ <= 0 || facei >= mesh_.nInternalFaces()) return false;
+    const label o = mesh_.owner()[facei], n = mesh_.neighbour()[facei];
+    const label mo = (linkMaster_[o] >= 0) ? linkMaster_[o] : o;
+    const label mn = (linkMaster_[n] >= 0) ? linkMaster_[n] : n;
+    return mo == mn;
+}
+
+
 void Foam::cutCellGeometry::calcCentroidGeometry()
 {
     const labelUList& own = mesh_.owner();
@@ -1244,7 +1321,10 @@ void Foam::cutCellGeometry::calcCentroidGeometry()
     const surfaceScalarField& magSf = mesh_.magSf();
     const surfaceVectorField delta(mesh_.delta());
     const surfaceScalarField& meshDC = mesh_.nonOrthDeltaCoeffs();
-    const vectorField& off = centroidOffset_.primitiveField();
+    const vectorField& off = valueOffset_.primitiveField();
+    const vectorField& offOwn = centroidOffset_.primitiveField();
+    label nGroupFaces = 0, nClamped = 0;
+    scalar minNd = GREAT, maxSkew = 0;
 
     dCentroid_ = delta;
     cutDeltaCoeffs_ = meshDC;
@@ -1269,14 +1349,26 @@ void Foam::cutCellGeometry::calcCentroidGeometry()
         {
             continue;
         }
-        const vector d(delta[facei] + off[n] - off[o]);
+        // Inside a group both values sit at the group centroid; the fluxes
+        // there cancel in the merged equation, keep the fluid centroids
+        const bool inside = insideGroup(facei);
+        const vector& oO = inside ? offOwn[o] : off[o];
+        const vector& oN = inside ? offOwn[n] : off[n];
+        const vector d(delta[facei] + oN - oO);
         const scalar nd = (Sf[facei] & d)/magSf[facei];
         dCentroid_[facei] = d;
         cutDeltaCoeffs_[facei] = 1.0/max(nd, 0.1/meshDC[facei]);
-        if (needsCorrection(theta_[facei], off[o], off[n]))
+        if (needsCorrection(theta_[facei], oO, oN))
         {
-            const point m(C[o] + off[o] + (1 - weights[facei])*d);
+            const point m(C[o] + oO + (1 - weights[facei])*d);
             faceValueOffset_[facei] = Cf[facei] + wetFaceOffset_[facei] - m;
+        }
+        if (!inside && (oO != offOwn[o] || oN != offOwn[n]))
+        {
+            ++nGroupFaces;
+            minNd = min(minNd, nd*meshDC[facei]);
+            maxSkew = max(maxSkew, mag(d)/max(nd, VSMALL));
+            if (nd < 0.1/meshDC[facei]) ++nClamped;
         }
     }
     forAll(mesh_.boundary(), patchi)
@@ -1286,7 +1378,7 @@ void Foam::cutCellGeometry::calcCentroidGeometry()
         const labelUList& fc = fvp.faceCells();
         const vectorField offN
         (
-            centroidOffset_.boundaryField()[patchi].patchNeighbourField()
+            valueOffset_.boundaryField()[patchi].patchNeighbourField()
         );
         const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
         const fvsPatchVectorField& deltap = delta.boundaryField()[patchi];
@@ -1313,6 +1405,15 @@ void Foam::cutCellGeometry::calcCentroidGeometry()
             }
         }
     }
+    if (mergeAlpha_ > 0)
+    {
+        reduce(nGroupFaces, sumOp<label>());
+        reduce(nClamped, sumOp<label>());
+        reduce(minNd, minOp<scalar>());
+        reduce(maxSkew, maxOp<scalar>());
+        Info<< "    group faces: " << nGroupFaces << ", min n.d/h " << minNd
+            << ", max |d|/n.d " << maxSkew << ", clamped " << nClamped << endl;
+    }
 }
 
 
@@ -1335,7 +1436,7 @@ void Foam::cutCellGeometry::calcWallPieces()
     const labelListList& faceEdges = mesh_.faceEdges();
     const vectorField& Sf = mesh_.faceAreas();
     const vectorField& Sw = Sw_.primitiveField();
-    const vectorField xc(mesh_.cellCentres() + centroidOffset_.primitiveField());
+    const vectorField xc(mesh_.cellCentres() + valueOffset_.primitiveField());
 
     // Face fractions after post-processing over all faces; -1 on faces of
     // empty patches, which are not part of the finite-volume boundary
@@ -1498,8 +1599,11 @@ Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::lsqGrad
     vectorField r(mesh_.nCells(), Zero);
     labelList nUsed(mesh_.nCells(), 0);
 
-    auto accumulate = [&](const label celli, const vector& d, const scalar df)
+    // A linked group has one value at its centroid and gets one gradient,
+    // fitted at the master over the outer faces of the whole group
+    auto accumulate = [&](const label c, const vector& d, const scalar df)
     {
+        const label celli = (linkMaster_[c] >= 0) ? linkMaster_[c] : c;
         const scalar w = 1.0/max(magSqr(d), VSMALL);
         A[celli] += w*symm(d*d);
         r[celli] += w*d*df;
@@ -1509,7 +1613,11 @@ Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::lsqGrad
     forAll(own, facei)
     {
         const label o = own[facei], n = nei[facei];
-        if (theta_[facei] <= 0 || solidCells_.test(o) || solidCells_.test(n))
+        if
+        (
+            theta_[facei] <= 0 || solidCells_.test(o) || solidCells_.test(n)
+         || insideGroup(facei)      // one shared value, no information
+        )
         {
             continue;
         }
@@ -1555,6 +1663,13 @@ Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::lsqGrad
             gI[celli] = inv(Ai) & r[celli];
             ok[celli] = true;
         }
+    }
+    forAll(linkMaster_, celli)
+    {
+        const label m = linkMaster_[celli];
+        if (m < 0) continue;
+        gI[celli] = gI[m];
+        ok[celli] = ok[m];
     }
 
     g.correctBoundaryConditions();

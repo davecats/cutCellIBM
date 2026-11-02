@@ -135,3 +135,32 @@ slip L3 (2.5e-4)       Cl 0.34937  Cd 0.000503
 #  h2n                       0.39  -0.16   0.73   2.12   0.25   0.40  -0.23  -0.23  -0.28   3.01
 # 449 vs 897 body-fitted: +3.8 (0.2-0.5) / -4.2 (0.5-0.8), the pattern every IBM run shows against
 # the 449 grid; against 897 the IBM runs agree there to 1.1.
+# ---------------------------------------------------------------------------------------------
+# alpha 3: SIMPLEC references and second-order linked cells (2026-11-02, later)
+# Runs in /home/ws/xt8786/runs/ibmSA_study/naca3/{bf,simplec,wr4}. New reference: TMR 897 grid with
+# SIMPLEC (consistent yes, p 1, U/nuTilda 0.9), 100k its, drift -5e-8 per 1000 its; the SIMPLE
+# value above (0.011164) was +0.27 % high. TMR 449 with SIMPLEC: Cd 0.011137, Cl 0.32435.
+# nNonOrthogonalCorrectors 1/2 change nothing on either grid.
+## IBM relaxation (SIMPLEC p 1), L6 linked first order, Cd (SIMPLE 0.7/0.7 p 0.3: 0.011305)
+# U 0.9 nuTilda 0.9: limit cycle 0.011302 +- 1.7e-5, period ~12k its, nuTilda residual 8e-5
+# U 0.9 nuTilda 0.7: 0.011304 +- 0.7e-5, nuTilda residual 1.5e-5
+# U 0.7 nuTilda 0.7: 0.011305 steady, within 1e-4 of it after 1.9k its (SIMPLE ~6k), 1e-5 after 7.3k
+# wall functions h1_sampleCap, U/nuTilda 0.9: 0.012033, settled after 1k its (SIMPLE ~4k)
+# -> naca0012 makeCase.py: SIMPLEC, p 1, U/nuTilda 0.7
+## wall-resolved series against 897 SIMPLEC (naca0012_compare.py; (1st) = secondOrder false)
+# _SO with linking = group-centroid value point (see validation/data/secondOrder/taylorCouette_linked.txt)
+tmr897_simplec (897)   Cl 0.32319  Cd 0.011134 (p 0.002314 v 0.008820)  100k its
+L5_L (1st)             Cl 0.32205  Cd 0.011775 (p 0.002561 v 0.009213)  dCd +5.75% (p +10.7% v +4.46%) dCl -0.35%
+L6_L (1st)             Cl 0.32367  Cd 0.011305 (p 0.002402 v 0.008903)  dCd +1.53% (p +3.8% v +0.93%) dCl +0.15%
+L7_L (1st)             Cl 0.32394  Cd 0.011227 (p 0.002377 v 0.008850)  dCd +0.83% (p +2.7% v +0.33%) dCl +0.23%
+L5_NL (1st)            Cl 0.32486  Cd 0.010958 (p 0.002168 v 0.008790)  dCd -1.58% (p -6.3% v -0.34%) dCl +0.52%
+L6_NL (1st)            Cl 0.32478  Cd 0.010968 (p 0.002239 v 0.008729)  dCd -1.49% (p -3.3% v -1.03%) dCl +0.49%
+L7_NL (1st)            Cl 0.32441  Cd 0.011072 (p 0.002280 v 0.008792)  dCd -0.56% (p -1.5% v -0.32%) dCl +0.38%
+L5_L_SO                Cl 0.32207  Cd 0.011747 (p 0.002541 v 0.009206)  dCd +5.50% (p +9.8% v +4.37%) dCl -0.35%
+L6_L_SO                Cl 0.32374  Cd 0.011285 (p 0.002383 v 0.008901)  dCd +1.35% (p +3.0% v +0.92%) dCl +0.17%
+L7_L_SO                Cl 0.32397  Cd 0.011217 (p 0.002361 v 0.008856)  dCd +0.74% (p +2.0% v +0.40%) dCl +0.24%
+L5_NL_SO               Cl 0.32340  Cd 0.011455 (p 0.002381 v 0.009074)  dCd +2.88% (p +2.9% v +2.88%) dCl +0.07%
+L6_NL_SO               Cl 0.32400  Cd 0.011231 (p 0.002337 v 0.008894)  dCd +0.87% (p +1.0% v +0.83%) dCl +0.25%
+L7_NL_SO               Cl 0.32401  Cd 0.011207 (p 0.002337 v 0.008870)  dCd +0.65% (p +1.0% v +0.56%) dCl +0.25%
+# second order: linked - unlinked Cd 2.6 / 0.48 / 0.09 % at L5/L6/L7 (first order 7.3 / 3.0 / 1.4 %);
+# both series extrapolate to about +0.65 %: pressure +1.0 % (unlinked L6 = L7), viscous +0.4..0.6 %.

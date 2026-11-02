@@ -460,3 +460,58 @@ Consequences: wall-function meshes need the leading edge resolved for the invisc
 change (a local level by x, or better a curvature-based refinement criterion, in the generator).
 The wall-resolved spread needs no change: it converges at first order; quote ±0.7 % at L7 and
 ±1.5 % at L6.
+
+## 10. SIMPLEC defaults and second-order linked cells (2026-11-02)
+
+Runs and tables: `validation/data/naca0012/results.txt` (last block) and
+`validation/data/secondOrder/taylorCouette_linked.txt`.
+
+**SIMPLEC.** The slow convergence of the body-fitted references was SIMPLE with p relaxation 0.3,
+not non-orthogonality (1 or 2 correctors change nothing). With SIMPLEC (`consistent yes`, p 1,
+U/ν̃ 0.9) the TMR grids converge: 449 C_d 0.011137, 897 C_d 0.011134, C_l 0.32319 (100k
+iterations, drift −5e-8 per 1000); the SIMPLE 897 value 0.011164 was 0.27 % high. 897 SIMPLEC is
+the reference from here on. IBM: wall functions converge with U/ν̃ 0.9 (1k iterations instead of
+4k); the linked wall-resolved run ends in a limit cycle with 0.9 (C_d ±0.15 %) and converges with
+U/ν̃ 0.7 to the SIMPLE value (0.011305) in a third of the iterations. The NACA generator now writes
+SIMPLEC with p 1, U/ν̃ 0.7.
+
+**Why linked cells were first order.** The group shares one value, but the outer-face fluxes
+used each cell's own centroid as the point that value belongs to. Fix, active only with
+`secondOrder` and `mergeAlpha > 0` (`cutCellGeometry::valueOffset_`):
+- the value point of every group cell is the group centroid (α V-weighted fluid centroids);
+  outer-face distances, face-value offsets and the wall-pressure moments use it; faces inside a
+  group keep their own centroids (their fluxes cancel in the merged equation);
+- one least-squares gradient per group over its outer faces (per-cell fits without the
+  intra-group faces were near-singular: a slave's remaining neighbours lie along the wall);
+- a master that is itself cut also takes the group wall distance for its wall coefficients
+  (only slaves did before);
+- the moving-wall velocity is taken at the foot of the normal from the group centroid.
+Unlinked second order and linked first order are byte-identical to before.
+
+Taylor–Couette, second order, bulk L2 velocity error (N = 40 / 80 / 160 / 320):
+
+| | N 40 | N 80 | N 160 | N 320 |
+|---|---|---|---|---|
+| unlinked | 1.10e-3 | 2.76e-4 (2.00) | 7.25e-5 (1.93) | 1.78e-5 (2.03) |
+| linked, before | 3.89e-3 | 2.16e-3 (0.85) | 1.30e-3 (0.73) | 6.01e-4 (1.11) |
+| linked, now | 1.20e-3 | 3.21e-4 (1.90) | 7.43e-5 (2.11) | 3.25e-5 (1.19) |
+
+Open: at N 320 the linked error near the rotating inner wall (5.9e-5 at r 0.65 against 2.3e-5
+unlinked) decays into the gap; mid-gap both are 1.2e-5. Something in the moving-wall treatment
+of groups is still first order; it does not affect static walls.
+
+NACA 0012, α = 3°, wall-resolved, C_d against 897 SIMPLEC:
+
+| level (wall h) | linked 1st | unlinked 1st | linked 2nd | unlinked 2nd |
+|---|---|---|---|---|
+| L5 (6.25e-5) | +5.75 % | −1.58 % | +5.50 % | +2.88 % |
+| L6 (3.1e-5) | +1.53 % | −1.49 % | +1.35 % | +0.87 % |
+| L7 (1.56e-5) | +0.83 % | −0.56 % | +0.74 % | +0.65 % |
+
+At second order the linked/unlinked spread drops by about 5 per level (2.6 / 0.48 / 0.09 %), and
+both series approach about +0.65 %; C_l is +0.25 %. That remainder is not the wall discretisation:
+unlinked pressure drag is the same at L6 and L7 (+1.0 %), viscous drag +0.4–0.6 % changes little
+from L6 to L7. Its source (outer Cartesian resolution, far field, wall distance in SA) is not
+identified; the 449/897 body-fitted pair differs by 0.03 % in C_d and 0.36 % in C_l. On these grids
+the linking change itself moves C_d by −0.25 / −0.2 / −0.1 points: the linked first-order error on
+the airfoil was mostly resolution, the gain is the vanishing linked/unlinked spread.

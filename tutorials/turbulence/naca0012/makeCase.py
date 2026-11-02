@@ -424,14 +424,16 @@ solvers
 SIMPLE
 {
     nNonOrthogonalCorrectors 0;
-    consistent      no;
+    consistent      yes;
     pRefPoint       (20 20 %g);
     pRefValue       0;
     residualControl { p 1e-7; U 1e-8; nuTilda 1e-8; }
 }
+// SIMPLEC; U and nuTilda at 0.7, not 0.9: with 0.9 the linked wall-resolved IBM runs end in a
+// limit cycle (Cd +-0.15 %), with 0.7 they converge to the SIMPLE value in a third of the iterations
 relaxationFactors
 {
-    fields    { p 0.3; }
+    fields    { p 1; }
     equations { U 0.7; nuTilda 0.7; }
 }
 """ % ((
