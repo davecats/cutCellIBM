@@ -302,8 +302,9 @@ $\Sw$ is built from $\theta_f$ alone.
 A cut cell with a tiny fluid volume but open faces is the source of the small-cell problem.
 The fractions are therefore post-processed in two steps (Fig.~\ref{fig:sliver}).
 
-\emph{Absorption.} Every cell with $\alpha_P<\alpha_{\min}$ ($\alpha_{\min}=0.02$ by default)
-is absorbed into the body: $\alpha_P:=0$ and \emph{all its faces are closed}, $\theta_f:=0$.
+\emph{Absorption.} Every cell with $\alpha_P<\alpha_{\min}$ is absorbed into the body
+($\alpha_{\min}=0$ by default, i.e.\ only cells without fluid, since the small cells are linked,
+Section~\ref{sec:linking}; $0.02$ by default without linking): $\alpha_P:=0$ and \emph{all its faces are closed}, $\theta_f:=0$.
 The same rule closes the faces of every cell that has $\alpha_P=0$ from the start, so a solid
 cell never has an open face. Closing the faces is essential: an open face between an absorbed
 cell and a fluid neighbour would let the neighbour exchange flux with a cell that carries no
@@ -811,6 +812,120 @@ orders of magnitude in the cases of Section~\ref{sec:verif}.
 The mobility is floored at $A-H1\ge\max(10^{-3}A,\alpha_P/\dt)$ in transient runs, the second
 bound covering the cells emerging from a moving body. The flow direction may be given
 separately, so a zero target (a body moving through fluid at rest on average) is allowed.
+\section{Cell linking}
+\label{sec:linking}
+
+Absorption (Section~\ref{sec:absorb}) keeps the small cells out of the equations by removing
+them, at the price of an $O(\alpha_{\min}h)$ displacement of the boundary and of a flux that the
+closed faces lose. Linking keeps every cell with fluid and merges the small ones with a larger
+neighbour into one control volume. It is on by default (\code{mergeAlpha 0.5}); with it,
+$\alpha_{\min}=0$, i.e.\ only the cells without fluid are removed.
+
+\subsection{Groups}
+
+Every cell with $0<\alpha_P<\alpha_{\rm m}$ ($\alpha_{\rm m}=$ \code{mergeAlpha}) is a
+\emph{slave}: it links through one open face to a neighbour with more fluid, the face of
+largest score
+\begin{equation}
+s_f=\theta_f|\Sf|\,\bigl(1+\max(0,-\nn_w\cdot\Sf/|\Sf|)\bigr)\,\alpha_N ,
+\end{equation}
+i.e.\ a large wet face, away from the wall, to a full neighbour. Candidates are the internal
+faces and the faces of coupled patches whose transform is a translation (processor faces,
+translational cyclics); the neighbour fraction across a coupled face comes from a swap of the
+boundary values. Scores equal to a relative $10^{-10}$ (frequent on symmetric geometry) are
+decided by the face centre (lexicographically), not by the order of the faces, which differs
+between decompositions. Since $\alpha$ increases along a link the links form trees; their roots
+are the \emph{masters} (cells that are not linked but linked into), and a master with its
+slaves is a \emph{group}. The group of a cell is the global index of its master; it is found by
+passing the index down the links in sweeps, locally until nothing changes and then across the
+coupled faces, together with the number of hops and the fluid centroid relative to the master's,
+$\bm\rho_P=\xx_{c,P}-\xx_{c,M}$, accumulated from the cell-centre differences along the chain
+(translation invariant, so a group may span a periodic seam). A chain longer than ten hops is
+left unlinked; the length is a property of the link graph, so this does not depend on the order
+in which cells are visited. A slave without a candidate face stays unlinked; it then acts as a
+master for the slaves linking into it.
+
+All group quantities are sums over the group,
+\begin{equation}
+\Sigma_G[f]=\sum_{Q\in G}f_Q ,
+\end{equation}
+which one primitive provides on every cell of the group: the partial sums of each processor
+are sent to the processor of the master, added there in processor order and returned. With it:
+\begin{itemize}\itemsep2pt
+\item the group centroid
+      $\xx_G=\xx_{c,P}-\bm\rho_P+\Sigma_G[\alpha V\bm\rho]/\Sigma_G[\alpha V]$, where the shared value of
+      the group lives (second order, Section~\ref{sec:centroids});
+\item the wall distance of the group centroid: the volume-weighted level set at the fluid
+      centroids, or, without a level set, each wall cell's centroid distance extended along
+      its wall normal to $\xx_G$, weighted with the wall area. The walls of the slaves (and of a
+      master that is a cut cell, at second order) use it for their wall coefficient
+      $\Aw/(d_GV_P)$, and so do the turbulence model and the wall functions;
+\item the gradient: the least-squares sums of all members (outer faces only) are added and
+      every member solves the same system;
+\item averages: \code{groupMean} (cell-volume weighted, for $\gradV p/V$) and
+      \code{groupAverage} (fluid-volume weighted, for $\nabla\uu$ and $\nabla\tilde\nu$ in the
+      turbulence model).
+\end{itemize}
+
+\subsection{Linked equations}
+
+An assembled equation (momentum, pressure, $\tilde\nu$, scalars) is linked by a conductance on
+every link face,
+\begin{equation}
+c=c_{\rm pen}\max(|a_P|,|a_N|)\,{\rm sgn}(a_P+a_N),\qquad c_{\rm pen}=10^4
+\ (\code{mergePenalty}),
+\end{equation}
+added to both diagonals and subtracted from the two off-diagonal coefficients: the sum of the
+two rows is unchanged (the merged equation) and the two values coincide as $c$ grows, without a
+change of the sparsity. The diagonals are those before linking and include the coefficients of
+the coupled faces, which OpenFOAM holds in the patch \code{internalCoeffs} (on an internal face
+they are part of the diagonal); otherwise a cell next to a processor face would get a different
+$c$ than in the serial run. On a coupled link face each side adds $c$ to its own row, to
+\code{internalCoeffs} and \code{boundaryCoeffs} as the coupled patches of the Gauss Laplacian.
+
+The pressure equation needs the coefficients of the merged control volume, not the
+penalty-dominated ones of the linked momentum matrix: $A$, $H$ and $H1$ are formed from the
+unlinked matrix and merged,
+\begin{equation}
+A_G=\frac{\Sigma_G[V A]+\sum_{l}(a^{\rm own}_l+a^{\rm nei}_l)}{\Sigma_G[V]},\qquad
+\bm H_G=\frac{\Sigma_G[V\bm H]+\sum_{l}(a^{\rm own}_l\uu_{\rm nei}+a^{\rm nei}_l\uu_{\rm own})}{\Sigma_G[V]},
+\end{equation}
+over the link faces $l$ of the group, where each side adds the coupling of its own row (on a
+coupled face $-$\code{boundaryCoeffs}). The pressure gradient is merged with \code{groupMean},
+so the corrected velocity $\uu=r_A(\bm H-\gradV p)$ is uniform in a group.
+
+A uniform velocity does not satisfy the individual rows of the linked momentum matrix, only
+their sum; the linked solution differs by $O(1/c)$. In a steady run the predictor is then the
+result of a partial linear solve that never converges (the momentum residual stalls), and the
+fixed point depends on the smoother and hence on the decomposition. The momentum predictor
+therefore moves the residual of every group cell at the current velocity, less its share
+$V_P/\Sigma_G[V]$ of the group residual, to the source,
+\begin{equation}
+\bm b_P\;\leftarrow\;\bm b_P+\bm r_P-\frac{V_P}{\Sigma_G[V]}\,\Sigma_G[\bm r],\qquad
+\bm r=A\uu-\bm b ,
+\end{equation}
+which leaves the merged equation unchanged and makes a converged group-uniform velocity satisfy
+every linked row: the momentum residual converges, and the result depends neither on the
+linear solver nor on $c$. The pressure keeps the plain penalty: its link flux makes every cell,
+not only the group, divergence free, and the pressure equation is solved to convergence.
+
+\subsection{Decomposition independence}
+
+With links across coupled faces, global group indices and the group sums, the groups, the
+merged coefficients and the fields of a parallel run equal those of the serial run to solver
+tolerance. Two further dependences on the decomposition were removed with them: the samples of
+the wall law of the turbulence extension (\code{doc/iddesPlan.md}) that lie on another
+processor are looked up there, and a cell that a moving body uncovers takes the pressure of its
+fluid neighbours instead of the solid value $0$, which made a jump of the size of the pressure
+level --- set by the reference cell, which differs between decompositions --- in $\gradV p$.
+Verified (drag, or fields after \code{reconstructPar}): the periodic cylinder on 2$\times$2,
+4$\times$2, scotch 8 and 16 ranks and shifted across the periodic seam (serial and scotch 8),
+$5\times10^{-12}$; Taylor--Couette at second order with 188 links (10 over processor faces),
+pressure $10^{-10}$; the oscillating cylinder with and without linking, $10^{-12}$; a linked
+scalar, wall flux $10^{-11}$; an inclined wall-function channel with a link over the cyclic and
+all its wall-law samples on other processors, $2\times10^{-9}$ (residual control); the
+wall-law samples of a NACA~0012 identical on 1, 4 and 8 ranks.
+
 \section{Moving bodies}
 \label{sec:moving}
 
@@ -1589,7 +1704,10 @@ consistency of the gradient is not the cause: with the linearly exact gradient o
 Section~\ref{sec:grad2} the Taylor--Couette pressure errors change by at most $7\%$
 (Section~\ref{sec:tc}). A cut-cell pressure that is not determined by the cut cell alone ---
 cell merging or linking of cut cells below $\alpha\approx0.5$ to a full neighbour, or a wall
-pressure formed from the full cells --- is the natural next step.
+pressure formed from the full cells --- is the natural next step. Linking
+(Section~\ref{sec:linking}) is now the default; with it the absorption part of the error is gone,
+and what remains is the continuity truncation error of the cut-cell faces
+(\code{doc/secondOrderStudy.md}).
 
 \subsection{Implementation and scope}
 
@@ -1693,13 +1811,15 @@ uses the old-time value of the weight in its source, so the swept fraction $\alp
       library operators.
 \end{description}
 The geometry computation is local except for the synchronisation of coupled faces and global
-reductions, so parallel runs need nothing else.
+reductions; the linked groups and the wall-law samples communicate across processors
+(Section~\ref{sec:linking}), so a parallel run reproduces the serial one to solver tolerance.
 
 \subsection{Input and output}
 
 The geometry is controlled by \code{constant/ibmProperties}:
 \begin{lstlisting}
-alphaMin     0.02;   // sliver threshold
+mergeAlpha   0.5;    // cells with less fluid are linked (0: off)
+alphaMin     0;      // sliver threshold (default 0 with linking, 0.02 without)
 nSubSamples  32;     // n_s, samples per direction for alpha
 nBisect      40;     // bisection steps per cut edge
 writeFields  true;   writeForces true;
@@ -1732,7 +1852,8 @@ each body).
 
 Unless stated otherwise the cases use a circular cylinder of radius $R=1$ centred in a
 $10\times10$ doubly periodic box discretised by $81\times81$ cells ($h=0.1235$), $\nu=1$,
-$\alpha_{\min}=0.02$, $n_s=32$ and central differencing for convection. The reference is an
+$\alpha_{\min}=0.02$ without linking (\code{mergeAlpha 0}; this section predates linking as the
+default, whose verification is summarised in Section~\ref{sec:linking}), $n_s=32$ and central differencing for convection. The reference is an
 independent implementation of the same discretisation on a structured grid (direct sparse
 solves, exact pinning of the bulk velocity by superposition), so that the comparison isolates
 the OpenFOAM implementation from the formulation. It differs from the OpenFOAM implementation

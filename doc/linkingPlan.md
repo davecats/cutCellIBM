@@ -18,6 +18,68 @@ deliberate and reported (Phase C breaks this on purpose, first order included). 
 source /opt/OpenFOAM/OpenFOAM-v2106_prf/etc/bashrc; source ~/Codes/openFoam.ibm/etc/bashrc`,
 build with `./Allwmake`. OpenFOAM sources: `/opt/OpenFOAM/OpenFOAM-v2106_prf/src`.
 
+## Status (2026-11-03, executed)
+
+Commits: 5baba93 (A), 7f50469 (B core), a3c5c06 (B6), 0fe162c (C1). Nothing pushed.
+
+**Phase A** (5baba93): A1 scalar linked (`ibm_.linkCells(TEqn)` after `relax()`, before the
+fvOptions constraints, as ν̃: the constraints must see the linked row); A2 fluid cells with no
+open internal/coupled face blanked (none occurred in any test); A4 masters from the original
+link graph; A5 tie-break by face centre. Regression: default cases byte-identical; linked TC
+changes its tie choices (force asymmetry 1e-8 rotated by 90°).
+A1 check, static-scalar tutorial, wall flux / injected (unlinked extrapolates to about 0.3995):
+
+| | N81 | N161 | N321 |
+|---|---|---|---|
+| unlinked | 0.39203 | 0.39594 | 0.39771 |
+| linked flow, scalar unlinked (old) | 0.38283 | 0.39370 | 0.39586 |
+| linked flow and scalar (new) | 0.40121 | 0.39887 | 0.39958 |
+
+A3 (TC second order, inner cut-cell pressure rms, Phase-A binary): unlinked 0.02 / 1e-3 / 1e-9:
+N80 1.67e-2 / 1.67e-2 / 1.61e-2, N160 1.35e-2 / 1.21e-2 / 1.21e-2, N320 9.40e-3 / 4.90e-3 /
+4.90e-3; linked 0.02 / 1e-3 / 1e-9: N80 1.36e-2 / 1.36e-2 / 1.29e-2, N160 8.20e-3 / 6.53e-3 /
+6.53e-3, N320 5.89e-3 / – / 3.97e-3. 1e-3 = 1e-9 except at N80 (the α = 1/1024 cells).
+`alphaMin 0` was broken: cells with α = 0 kept open faces (the test was α < alphaMin), unlinked
+N320 inner rms 5.4e-2; fixed (cells without fluid are always closed), so 0 ≡ 1e-9 here.
+Decision: default alphaMin 0 with linking, 0.02 without.
+
+**Phase B** (7f50469, a3c5c06): as designed (B1–B6), plus four decomposition dependences found
+by the tests and fixed:
+1. The penalty used `eqn.diag()`, which lacks the processor-face coefficients (they live in
+   `internalCoeffs`): cells next to a processor face got another conductance. Now
+   `coupledDiag(eqn)` (diag + coupled internalCoeffs), also in the SA wall-law blend.
+   It also fixed a link-order dependence (the diagonal grew while links were added).
+2. Steady linked runs never converged: the corrector makes U uniform in a group, which no
+   linked row satisfies, so the U residual stalled (2e-3) and the fixed point depended on the
+   partial U solve (smoother, decomposition; 1.7e-6 between relTol 0.1 and a full solve).
+   Now `linkCells(UEqn, true)` moves each group cell's residual minus its volume share of the
+   group residual to the source: U converges (1e-11), faster (900–2200 iterations instead of
+   not converging in 3000), independent of solver and U penalty. (The pressure penalty stays:
+   mergePenalty 100 vs 1e4 changes the drag by 8e-7.)
+3. Moving bodies: uncovered cells kept the solid pressure 0, a jump of the size of the
+   pressure level in grad p; the level is set by the reference cell, which differs between
+   decompositions (unlinked oscillating cylinder 8.5e-6 serial/parallel). Now
+   `fillUncovered(p)` (mean of the fluid neighbours). Serial moving results change
+   deliberately (oscillating drag at t = 10: 1.5e-5 relative).
+4. Wall-law samples (B6): remote samples looked up on the other processors; the searches need
+   `tetBasePtIs()`/`cellTree()` built on all ranks first (collective), and the surface level
+   set communicates (one call per rank).
+Results serial vs parallel: see the commit messages and `cutCellIBM.tex`, Section "Cell
+linking" (cylinder 2×2/4×2/scotch 8/16 and across the cyclic, 5e-12; TC N80 second order with
+10 links over processor faces, p 1e-10; oscillating cylinder 1e-12; linked scalar 1e-11;
+inclined WF channel with all samples remote 2e-9; NACA WF samples identical on 1/4/8 ranks).
+Not done: debug utility `-linkDebug` (the debug fields `ibmLinkRole`, `ibmLinkMaster`,
+`ibmWallSampleDist` written with the geometry served instead); B5's extension to all faces
+inside a group (only link faces are internal to the merged CV, as before).
+
+**Phase C** (0fe162c): defaults mergeAlpha 0.5, alphaMin 0 (0.02 without linking); tutorials
+and generators updated. Group wall distance of alpha-field bodies fixed (it averaged the
+meaningless distances of non-wall cells; cylinderRe1_alphaField 0.649 → 0.705, level set 0.7195).
+All 22 tutorials run; first-order drags change, e.g. cylinderRe1 0.6988 → 0.7195 (+3.0 %; the
+second-order Richardson limit is about 0.7205). Reruns in progress / pending: Richardson drag
+(runs/ibmSA_study/rich_linkC), inclined channel (scratchpad inc/c1), NACA WF serial vs scotch 8,
+TC series, NACA L5–L7.
+
 ## Why (results that led here)
 
 - The cut-cell pressure error is a continuity truncation error, δp ≈ c·ν·α·div_h(u), c ≈ −1.2…−1.6
