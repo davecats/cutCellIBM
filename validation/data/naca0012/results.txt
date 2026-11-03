@@ -175,3 +175,9 @@ L7_NL_SO               Cl 0.32402  Cd 0.011206 (p 0.002382 v 0.008824)  dCd +0.6
 # linked - unlinked Cd 2.5 / 0.42 / 0.06 % at L5/L6/L7. At L7 the viscous drag is within 0.03 % of 897;
 # the remaining +0.64 % is pressure drag (+2.9..3.5 %, larger than before the flux fix: +1.0..2.0 %),
 # consistent with the first-order cut-cell pressure (doc/secondOrderStudy.md, Fix of 2026-11-02).
+# wrC/wrN (2026-11-03): linking by default (mergeAlpha 0.5, alpha_min 0; commit 0fe162c), second order, 30k its
+# (wrC, nuTilda clipped by bound() in ~97 % of the iterations, nuTilda residual stalled at 1e-5), then restarted
+# with SA-neg (e99057b, wrN): residual control met after 65 / 69 / 78 iterations, coefficients unchanged.
+L5_L_SO  Cl 0.32205 Cd 0.011737 (p 0.002574 v 0.009163)  dCd +5.41% dCl -0.35%
+L6_L_SO  Cl 0.32376 Cd 0.011276 (p 0.002416 v 0.008860)  dCd +1.27% dCl +0.18%
+L7_L_SO  Cl 0.32398 Cd 0.011213 (p 0.002392 v 0.008821)  dCd +0.70% dCl +0.25%

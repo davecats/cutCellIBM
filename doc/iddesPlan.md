@@ -598,3 +598,20 @@ tan α = 1/4: u_τ +7.06 % against +6.26 %). The conclusions of §8 stand.
   - A real decomposition dependence found on the way and fixed (b81d779): the solid-row
     diagonal of the pressure matrix (only the residual normalisation) lacked the coupled-face
     coefficients.
+
+**NACA 0012 wall-resolved with linking by default** (second order, C_d against 897 SIMPLEC; runs
+`naca3/wrC`, `naca3/wrN`; data in `validation/data/naca0012/results.txt`, last block):
+
+| level | linked before (wr5) | linked default | unlinked (wr5) |
+|---|---|---|---|
+| L5 | +5.28 % | +5.41 % | +2.76 % |
+| L6 | +1.26 % | +1.27 % | +0.83 % |
+| L7 | +0.70 % | +0.70 % | +0.64 % |
+
+- The new linking leaves L6 and L7 unchanged; L5 is 0.13 points worse. C_l is unchanged.
+- All wall-resolved runs, here and in §9–11, clipped ν̃ in about 97 % of their iterations, and
+  their ν̃ residual stalled at 1e-5. The convergence criterion used there (ΔC_d over 500
+  iterations) did not show this.
+- Restarted with SA-neg, L5–L7 meet residual control (p 1e-7, U/ν̃ 1e-8) after 65–78
+  iterations, with the same coefficients to the digits shown. The clipping blocked the fixed
+  point but did not bias the forces, so the earlier tables stand.

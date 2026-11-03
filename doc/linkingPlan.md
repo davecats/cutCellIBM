@@ -95,7 +95,9 @@ second-order Richardson limit is about 0.7205).
   p 4e-11, U 1e-10.
 - That test found the solid-row diagonal of the pressure matrix taken without the coupled-face
   coefficients (b81d779; it changes only the residual normalisation).
-- NACA L5–L7 wall-resolved: see below.
+- NACA L5–L7 wall-resolved, linked by default: C_d +5.41 / +1.27 / +0.70 % against 897 (before
+  +5.28 / +1.26 / +0.70 %). The runs clipped ν̃ throughout; with SA-neg they converge to the
+  same values.
 
 ## Why (results that led here)
 
