@@ -79,3 +79,18 @@ sotrue_m0_N320           N 320 cont       coef  -1.639  rms 9.40e-03 -> 3.06e-03
 sotrue_m0_N320           N 320 cont+visc  coef  -1.522  -0.037  +0.568  rms 9.40e-03 -> 2.12e-03 (explained 94.9 %)
 sotrue_N320              N 320 cont       coef  -1.162  rms 4.90e-03 -> 2.34e-03 (explained 77.1 %)
 sotrue_N320              N 320 cont+visc  coef  -1.209  -0.028  +0.547  rms 4.90e-03 -> 1.13e-03 (explained 94.7 %)
+# linked (mergeAlpha 0.5), second order, alphaMin 0.02 (am002) and 1e-9 (am0: slivers become linked slaves)
+SO_m0.5_am002    N  80 bulk 7.82e-04 | inner cut rms 1.36e-02 max 2.87e-02 l1 6.32e-03 | outer cut rms 1.25e-03 max 2.15e-03 l1 1.04e-03
+SO_m0.5_am002    N 160 bulk 2.66e-04 | inner cut rms 8.20e-03 max 1.75e-02 l1 6.73e-03 | outer cut rms 5.58e-04 max 2.39e-03 l1 3.44e-04
+SO_m0.5_am002    N 320 bulk 1.14e-04 | inner cut rms 5.89e-03 max 1.88e-02 l1 4.02e-03 | outer cut rms 5.20e-04 max 2.27e-03 l1 2.76e-04
+SO_m0.5_am0      N  80 bulk 7.59e-04 | inner cut rms 1.29e-02 max 2.82e-02 l1 5.68e-03 | outer cut rms 1.23e-03 max 2.13e-03 l1 1.04e-03
+SO_m0.5_am0      N 160 bulk 2.56e-04 | inner cut rms 6.53e-03 max 1.76e-02 l1 5.65e-03 | outer cut rms 4.48e-04 max 8.47e-04 l1 3.56e-04
+SO_m0.5_am0      N 320 bulk 8.61e-05 | inner cut rms 3.97e-03 max 9.26e-03 l1 2.69e-03 | outer cut rms 1.76e-04 max 3.53e-04 l1 1.35e-04
+# moving bodies with linking (tutorials/oscillatingCylinder, t = 10, 400 steps): pressure force Fx, step-to-step
+# jitter rms(d2 Fx)/range over the second half; base = default, link = mergeAlpha 0.5 + alphaMin 1e-9, SO = secondOrder
+base    Fx range 0.1591  jitter 1.50e-02  last-80-step mean Fx +2.5242e-01
+link    Fx range 0.1465  jitter 1.70e-02  last-80-step mean Fx +2.4102e-01
+baseSO  Fx range 0.1524  jitter 9.94e-03  last-80-step mean Fx +2.5059e-01
+linkSO  Fx range 0.1501  jitter 5.40e-03  last-80-step mean Fx +2.4820e-01
+# freeStreamTranslating, link and linkSO: max |u - u_b| 0, max |v| 1.3e-13 / 1.5e-13 (base 5e-16)
+# cylinderRe1_parallel with link: 36 links serial and on 4 processors, total drag 0.719518608938 / 0.719518989557

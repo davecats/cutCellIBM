@@ -605,3 +605,18 @@ and of continuity) and `validation/taylorCouette_truncation.py`.
    previous section is second order. Sliver absorption by blanking costs the non-converging part
    and should be replaced: a small α_min (≈ 1e-3, the sampling resolution), or linking the
    slivers to a neighbour instead of closing their faces.
+6. **With linking.** Linking (mergeAlpha 0.5) with α_min 1e-9 turns the slivers into linked
+   slaves instead of closing them. Second order, inner wall (outer-wall max in brackets):
+
+   | | N = 80 | 160 | 320 |
+   |---|---|---|---|
+   | linked, α_min 0.02: cut rms / max | 1.36e-2 / 2.87e-2 | 8.2e-3 / 1.75e-2 | 5.9e-3 / 1.88e-2 (2.3e-3) |
+   | linked, α_min 1e-9: cut rms / max | 1.29e-2 / 2.82e-2 | 6.5e-3 / 1.76e-2 | 4.0e-3 / 9.3e-3 (3.5e-4) |
+   | linked, α_min 1e-9: first full layer rms | 5.7e-3 | 5.7e-3 | 2.7e-3 |
+
+   The best variant at N = 320 (unlinked α_min 1e-9: 4.9e-3 / 1.1e-2); the first full layer,
+   which holds the masters, carries about twice the unlinked error but now converges too. The
+   moving-body tutorials run with linking (groups change every step) without extra force noise
+   (oscillating cylinder, linked second order the smoothest force history), the free stream past
+   a translating cylinder stays uniform to 1e-13, and the linked cylinder on 4 processors equals
+   serial to 5e-7 (data file, last blocks).
