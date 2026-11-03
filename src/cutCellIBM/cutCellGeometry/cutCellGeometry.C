@@ -2322,17 +2322,20 @@ void Foam::cutCellGeometry::constrainPressure(fvScalarMatrix& pEqn) const
     // Every face of a solid cell is closed, so its row is empty. Give it a
     // diagonal of the typical magnitude of the fluid rows (any non-zero
     // value gives p = 0 there; the magnitude only matters for the linear
-    // solver) and a zero source.
+    // solver, and the normalisation of its residual: from the diagonal with
+    // the coefficients of the coupled faces, the same in every
+    // decomposition) and a zero source.
+    const scalarField diag0(coupledDiag(pEqn));
     scalarField& diag = pEqn.diag();
     scalarField& source = pEqn.source();
 
     scalar sumMag = 0;
     label n = 0;
-    forAll(diag, celli)
+    forAll(diag0, celli)
     {
         if (!solidCells_.test(celli))
         {
-            sumMag += mag(diag[celli]);
+            sumMag += mag(diag0[celli]);
             ++n;
         }
     }
