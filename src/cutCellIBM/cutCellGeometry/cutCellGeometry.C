@@ -431,6 +431,51 @@ void Foam::cutCellGeometry::calcGeometry()
         }
     }
 
+    // Fluid cells without an open face to another cell (all their internal
+    // and coupled faces closed, e.g. by absorbed neighbours) would have an
+    // empty pressure row: blank them like slivers, whatever their alpha.
+    // Their internal and coupled faces are closed already, so the
+    // synchronisation above stays valid.
+    {
+        label nClosed = 0;
+        forAll(alpha, celli)
+        {
+            if (alpha[celli] <= 0) continue;
+            bool open = false;
+            for (const label facei : cells[celli])
+            {
+                if (theta[facei] <= 0) continue;
+                if (facei < mesh_.nInternalFaces())
+                {
+                    open = true;
+                    break;
+                }
+                const label patchi =
+                    mesh_.boundaryMesh().whichPatch(facei);
+                if (mesh_.boundary()[patchi].coupled())
+                {
+                    open = true;
+                    break;
+                }
+            }
+            if (!open)
+            {
+                ++nClosed;
+                alpha[celli] = 0;
+                for (const label facei : cells[celli])
+                {
+                    theta[facei] = 0;
+                }
+            }
+        }
+        reduce(nClosed, sumOp<label>());
+        if (nClosed > 0)
+        {
+            Info<< "    blanked " << nClosed
+                << " fluid cells without an open face" << endl;
+        }
+    }
+
     alpha_.primitiveFieldRef() = alpha;
     alpha_.correctBoundaryConditions();
 
@@ -491,7 +536,25 @@ Foam::label Foam::cutCellGeometry::outwardFace(const label celli) const
         const scalar score =
             wet*(1 + max(scalar(0), -(nw & sOut)/max(mag(sOut), VSMALL)))
            *alpha[other];
-        if (score > best)
+        // Equal scores (symmetric geometry) are decided by the face centre,
+        // not by the face order, which differs between decompositions
+        const scalar tol = 1e-10*max(score, best);
+        bool better = bestFace < 0 || score > best + tol;
+        if (!better && score >= best - tol)
+        {
+            const point& a = mesh_.faceCentres()[facei];
+            const point& b = mesh_.faceCentres()[bestFace];
+            for (direction d = 0; d < vector::nComponents; ++d)
+            {
+                const scalar tolX = 1e-10*(mag(a[d]) + mag(b[d]) + SMALL);
+                if (mag(a[d] - b[d]) > tolX)
+                {
+                    better = a[d] < b[d];
+                    break;
+                }
+            }
+        }
+        if (better)
         {
             best = score;
             bestFace = facei;
@@ -537,7 +600,10 @@ void Foam::cutCellGeometry::calcLinks()
         if (linkFace_[celli] < 0) ++nOrphan;
     }
 
-    // Masters: follow the links to a cell that is not linked
+    // Masters: follow the links to a cell that is not linked. The chains are
+    // followed on the original link graph (alpha increases along a link, so
+    // there are no cycles) and only then are the cells whose chain exceeds
+    // the hop limit unlinked: independent of the cell numbering.
     label nLinked = 0;
     forAll(alpha, celli)
     {
@@ -553,7 +619,10 @@ void Foam::cutCellGeometry::calcLinks()
             linkMaster_[celli] = c;
             ++nLinked;
         }
-        else
+    }
+    forAll(alpha, celli)
+    {
+        if (linkFace_[celli] >= 0 && linkMaster_[celli] < 0)
         {
             linkFace_[celli] = -1;
             ++nOrphan;

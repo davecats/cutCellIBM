@@ -205,6 +205,9 @@ void Foam::ibmScalarTransport::solve()
     );
 
     TEqn.relax();
+    // Linked cells: the wall coefficient is that of the merged cell
+    // (calcLinks), so the scalar is merged as well (conservative penalty)
+    ibm_.linkCells(TEqn);
     fvOptions_.constrain(TEqn);
     TEqn.solve();
     fvOptions_.correct(T_);
