@@ -488,3 +488,54 @@ less than 2e-4.
 Second-order forces therefore need a cut-cell viscous operator with O(h) truncation (a
 quadratic reconstruction for the cut-face and wall fluxes, as in Johansen & Colella 1998), or
 a wall pressure that does not use the cut cells (a fit over the full cells next to the wall).
+The quadratic viscous flux is deferred (decision of 2026-11-03: too complex for now); the
+pressure is pursued first.
+
+### Chasing the cut-cell pressure (2026-11-03)
+
+Scratch analyses on the Taylor–Couette and cylinder fields above; prototype for the forces:
+`validation/cylinder_wallFit.py`.
+
+1. **It follows the wall shear, not the wall motion.** With the outer cylinder rotating instead
+   of the inner one (same |B|, so the same shear at each wall), the inner, now static, wall has
+   the same cut-cell scatter (rms 9.2e-3 against 9.4e-3 at N = 320); the moving wall only adds an
+   O(h) mean offset (−5.5e-3 → −1.3e-3 at the outer wall over N = 80 … 320, about zero at a
+   static wall). Together with the Ω = 10⁻³ scaling: a viscous truncation error of the cut cells
+   whose wall-normal part the pressure absorbs.
+2. **Structure.** Near the inner wall the cut cells sit at about +h·∂p/∂r, the second full layer
+   slightly low, the rest is smooth; along a window of the wall everything halves from N = 160
+   to 320. The non-converging rms comes from a few corner cells (the wall crosses two adjacent
+   faces, two open faces, α ≈ 0.3–0.4) with errors of ±4e-2 in mirror-symmetric pairs of
+   opposite sign: they cancel in a force. The least-squares gradient of such a cell is regular
+   (two neighbours determine it in 2-D; no fallback). Linking (mergeAlpha 0.5) halves the cut-cell
+   scatter but the group masters then carry the group pressure into the first full layer.
+3. **Wall pressure from full cells.** A quadratic least-squares fit over the full cells within
+   3.5–4h of the wall point, instead of p_P + g_P·(x_w − x_c), gives a second-order pressure drag
+   on the no-slip cylinder (fit within 4h; α_min 0.002):
+
+   | | N = 41 | 81 | 161 | 321 |
+   |---|---|---|---|---|
+   | pressure, solver (cut cell + gradient) | 2.7191 | 2.8155 | 2.8694 | 2.8986 |
+   | pressure, full-cell fit | 2.5753 | 2.8843 | 2.9436 | 2.9437 |
+   | viscous, solver (two-point) | 3.0648 | 3.0051 | 2.9625 | 2.9365 |
+   | viscous, full-cell fit of ∇u | 1.8503 | 2.6250 | 2.8265 | 2.8767 (orders 1.9, 2.0) |
+   | total, solver | 5.7839 | 5.8206 | 5.8318 | 5.8350 |
+
+   The solver's total (the discrete momentum balance: in this periodic case it equals the
+   driving force times the fluid volume) converges at order 1.7–1.8 to about 5.837, but its
+   split does not: the cut-cell pressure is low and the two-point wall gradient high, both at
+   first order. The fit gives pressure ≈ 2.944 and, as the remainder or from its own (slowly
+   converging, second-order) velocity fit, viscous ≈ 2.89. On Taylor–Couette the pointwise wall
+   pressure of such fits converges at the static wall but is limited by the polluted first full
+   layer at the high-shear wall; excluding cells with a cut face neighbour from the fit gives
+   rms 5.5e-3 → 1.3e-3 (N = 160 → 320) there.
+4. **Free slip is a modelling inconsistency, not a pressure error.** The free-slip wall has no
+   wall flux in the Laplacian form ∇·(ν∇u), i.e. ∂u/∂n = 0 for every component. That is not a
+   zero-traction wall on a curved body: continuity requires ∂u_n/∂n = −∂u_t/∂t ≠ 0 at a wall
+   with a tangential flow, and the corresponding normal viscous stress, which the true force
+   contains, is carried by the cut-cell pressure (at the front stagnation point of the N = 41
+   cylinder the cut cell has p = 0.86 against 0.44 one cell out). The full-cell fit recovers the
+   smooth pressure (≈ 1.8) and misses the stress; the solver's force (≈ 3.04) is the consistent
+   discrete momentum balance. Its first order is that of the one-cell-thick stress layer. A
+   proper free slip needs the traction form at the wall (zero tangential traction, normal stress
+   2ν∂u_n/∂n kept).

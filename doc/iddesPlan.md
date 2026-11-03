@@ -539,8 +539,8 @@ All second-order results change; first order is unchanged.
 about h·∂p/∂r (a viscous error: it scales with Ω, not Ω²), only their mean converges, at first
 order. Cylinder drag: pressure part orders 0.8–0.95, free slip 1.0–1.1 once sliver absorption is
 switched off (α_min = 0.02 absorbs eight cells at N = 161 and 321 only, which moves the free-slip
-drag by up to 0.9 %). Remedies, not started: an O(h)-truncation (quadratic) viscous flux in
-the cut cells, or a wall pressure fitted on full cells.
+drag by up to 0.9 %). Remedies: an O(h)-truncation (quadratic) viscous flux in the cut cells
+(deferred 2026-11-03, too complex for now), or a wall pressure fitted on full cells (pursued).
 
 NACA 0012 wall-resolved, second order, C_d against 897 SIMPLEC (wr5, SIMPLE as wr4):
 
