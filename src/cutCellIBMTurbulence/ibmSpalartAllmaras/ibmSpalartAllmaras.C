@@ -28,6 +28,18 @@ ibmSpalartAllmaras<BasicTurbulenceModel>::ibmSpalartAllmaras
     ibm_
     (
         this->mesh_.template lookupObject<cutCellGeometry>("ibmProperties")
+    ),
+    negative_
+    (
+        Switch::getOrAddToDict("negativeNuTilda", this->coeffDict_, true)
+    ),
+    Ct3_
+    (
+        dimensioned<scalar>::getOrAddToDict("Ct3", this->coeffDict_, 1.2)
+    ),
+    Cn1_
+    (
+        dimensioned<scalar>::getOrAddToDict("Cn1", this->coeffDict_, 16)
     )
 {
     const word method
@@ -63,6 +75,56 @@ ibmSpalartAllmaras<BasicTurbulenceModel>::wallVelocity() const
 
 
 template<class BasicTurbulenceModel>
+bool ibmSpalartAllmaras<BasicTurbulenceModel>::read()
+{
+    if (SpalartAllmaras<BasicTurbulenceModel>::read())
+    {
+        negative_.readIfPresent("negativeNuTilda", this->coeffDict());
+        Ct3_.readIfPresent(this->coeffDict());
+        Cn1_.readIfPresent(this->coeffDict());
+        return true;
+    }
+    return false;
+}
+
+
+template<class BasicTurbulenceModel>
+tmp<volScalarField>
+ibmSpalartAllmaras<BasicTurbulenceModel>::DnuTildaEffNeg() const
+{
+    // fn = 1 for chi >= 0 (exactly: the base diffusivity), and
+    // (Cn1 + chi^3)/(Cn1 - chi^3) for chi < 0 (denominator >= Cn1)
+    const volScalarField chi(this->chi());
+    const volScalarField chiNeg(min(chi, dimensionedScalar(dimless, Zero)));
+    const volScalarField fn
+    (
+        pos0(chi) + neg(chi)*(Cn1_ + pow3(chiNeg))/(Cn1_ - pow3(chiNeg))
+    );
+    return tmp<volScalarField>::New
+    (
+        "DnuTildaEff",
+        (this->nu() + this->nuTilda_*fn)/this->sigmaNut_
+    );
+}
+
+
+template<class BasicTurbulenceModel>
+void ibmSpalartAllmaras<BasicTurbulenceModel>::correctNut()
+{
+    // nut = nuTilda fv1 where nuTilda >= 0 (fv1 of chi >= 0, which is
+    // regular), zero where it is negative
+    const volScalarField chi(this->chi());
+    this->nut_ =
+        max(this->nuTilda_, dimensionedScalar(this->nuTilda_.dimensions(), Zero))
+       *this->fv1(max(chi, dimensionedScalar(dimless, Zero)));
+    this->nut_.correctBoundaryConditions();
+    fv::options::New(this->mesh_).correct(this->nut_);
+
+    BasicTurbulenceModel::correctNut();
+}
+
+
+template<class BasicTurbulenceModel>
 void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
 {
     if (!this->turbulence_)
@@ -79,7 +141,12 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
         const volScalarField& alpha = ibm_.alpha();
         const volScalarField nu(this->nu());
 
-        const volScalarField chi(this->chi());
+        // chi >= 0 in the closure functions of the standard model (fv1 is
+        // singular at chi^3 = -Cv1^3); unchanged where nuTilda >= 0
+        const volScalarField chi
+        (
+            max(this->chi(), dimensionedScalar(dimless, Zero))
+        );
         const volScalarField fv1(this->fv1(chi));
 
         // Vorticity from the velocity gradient over the fluid, with the
@@ -111,19 +178,51 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
         );
         ibm_.groupAverage(gradNuTilda.primitiveFieldRef());
 
+        // SA-neg where nuTilda < 0: production with Omega and (1 - Ct3),
+        // destruction -Cw1 (nuTilda/y)^2 (fw replaced by -1). Where
+        // nuTilda >= 0 both factors are the standard ones to the bit.
+        const volScalarField::Internal production
+        (
+            negative_
+          ? volScalarField::Internal
+            (
+                pos0(nuTilda())*Stilda
+              + neg(nuTilda())*(1 - Ct3_)*Omega
+            )
+          : Stilda
+        );
+        const volScalarField::Internal fw(this->fw(Stilda));
+        const volScalarField::Internal fwNeg
+        (
+            negative_
+          ? volScalarField::Internal
+            (
+                pos0(nuTilda())*fw
+              - neg(nuTilda())*dimensionedScalar(dimless, 1)
+            )
+          : fw
+        );
+
         tmp<fvScalarMatrix> nuTildaEqn
         (
             fvm::ddt(alpha, nuTilda)
           + fvm::div(this->phi_, nuTilda)
-          - fvm::laplacian(ibm_.thetaInterpolate(this->DnuTildaEff()), nuTilda)
+          - fvm::laplacian
+            (
+                ibm_.thetaInterpolate
+                (
+                    negative_ ? DnuTildaEffNeg() : this->DnuTildaEff()
+                ),
+                nuTilda
+            )
           + fvm::Sp(nu/this->sigmaNut_*ibm_.noSlipCoeff(), nuTilda)
           + fvm::Sp(nu/this->sigmaNut_*ibm_.blankCoeff(), nuTilda)
           - this->Cb2_/this->sigmaNut_*alpha*magSqr(gradNuTilda)
          ==
-            this->Cb1_*alpha()*Stilda*nuTilda()
+            this->Cb1_*alpha()*production*nuTilda()
           - fvm::Sp
             (
-                this->Cw1_*alpha()*this->fw(Stilda)*nuTilda()/sqr(this->y_),
+                this->Cw1_*alpha()*fwNeg*nuTilda()/sqr(this->y_),
                 nuTilda
             )
           + fvOptions(nuTilda)
@@ -159,7 +258,10 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
         fvOptions.constrain(nuTildaEqn.ref());
         solve(nuTildaEqn);
         fvOptions.correct(nuTilda);
-        bound(nuTilda, dimensionedScalar(nuTilda.dimensions(), Zero));
+        if (!negative_)
+        {
+            bound(nuTilda, dimensionedScalar(nuTilda.dimensions(), Zero));
+        }
         nuTilda.correctBoundaryConditions();
     }
 
