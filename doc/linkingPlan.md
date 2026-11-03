@@ -86,7 +86,8 @@ second-order Richardson limit is about 0.7205).
 - Free-slip drag is 1–3 % lower than unlinked with both treatments and still rising at N = 321.
   Explained: the IBM free slip lacks the curvature shear (∂u_t/∂n = 0 instead of κ u_t, about 24 %
   of the drag); with an experimental zero-shear term the spread drops to 0.06–0.3 % and all series
-  converge to the body-fitted value (`doc/secondOrderStudy.md`, "Free slip on curved walls").
+  converge to the body-fitted value (`doc/secondOrderStudy.md`, "Free slip on curved walls"). Fix
+  plan: `doc/freeSlipPlan.md` (postponed).
 - TC second order: inner cut-cell rms 3.98e-3 at N = 320 (old default 9.40e-3).
 - TC first order: the cut cells do not converge (rms about 0.30), and the first full layer is
   about 3× worse than unlinked. **Open point**, first order only.
