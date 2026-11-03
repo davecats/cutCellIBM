@@ -654,3 +654,53 @@ pressure:
   about 3× worse than unlinked (rms 0.21 against 0.07). Not investigated; a likely cause is
   that at first order the group value sits at the master's centre, an O(h) shift that the
   second-order group value point removes.
+
+## Free slip on curved walls: the missing curvature shear (2026-11-03)
+
+Data: `validation/data/secondOrder/freeSlip_zeroShear.txt`. Body-fitted reference:
+`validation/cylinder_bodyFitted.py` (O-grid, polar ring at the wall, same periodic box, simpleFoam).
+
+**The IBM free slip is not a zero-shear wall.** With no wall flux in the Laplacian form the
+wall imposes ∂u_t/∂n = 0. Zero tangential stress on a wall of curvature κ is ∂u_t/∂n = κ u_t
+(cylinder: ∂u_θ/∂r = u_θ/R, the condition a rigid rotation satisfies). The difference is a
+tangential traction ν κ u_t that the IBM wall exerts on the fluid in the direction of the slip:
+a spurious thrust on the body, not extra drag. OpenFOAM's `slip` condition has the same defect.
+
+**Size** (drag per unit depth, Re_D = 1):
+
+| | M = 32 | 64 | 128 |
+|---|---|---|---|
+| body-fitted, slip (∂u_t/∂n = 0) | 3.1084 | 3.0764 | 3.0582 |
+| body-fitted, zero shear | 4.0234 | 4.0132 | 4.0068 |
+| body-fitted, no slip | 5.8520 | 5.8475 | 5.8427 |
+
+The curvature term is about 24 % of the zero-shear drag. The IBM free-slip series (3.01–3.05 at
+N = 321) converge towards the body-fitted slip value, i.e. to the wrong problem.
+
+**Experiment** (worktree `runs/ibmSA_study/freeslip_fix`, not committed; switch `zeroShearSlip`):
+a wall friction ν κ A_w/V on the tangential velocity of free-slip wall cells (implicit, the normal
+part removed explicitly), κ from the Laplacian of the level set at the cell centre, corrected to the
+wall. IBM, drag from the driving force:
+
+| | N = 41 | 81 | 161 | 321 |
+|---|---|---|---|---|
+| linked, second order | 3.9621 | 3.9861 | 3.9937 | 3.9970 |
+| unlinked, second order | 3.9666 | 3.9879 | 3.9999 | 4.0099 |
+| linked, first order | 3.9090 | 3.9691 | 3.9871 | 3.9959 |
+| unlinked, first order | 3.9145 | 3.9592 | 3.9838 | 3.9984 |
+
+- All four series approach the body-fitted zero-shear value (about 4.00).
+- The linked/unlinked spread drops from 1.3 % to 0.06–0.3 % at N = 321 (0.1 % at N = 41, where it
+  was 1.6–3 %). The "free slip lower with linking" open point of the previous section was mostly
+  this modelling error, which the two variants discretise differently. Likely reason, not
+  verified: ∂u/∂n = 0 for every Cartesian component conflicts with continuity at a curved wall
+  (item 4 of "Chasing the cut-cell pressure"), so the solution has a one-cell layer whose O(h)
+  error depends on the shape of the cell that holds it.
+- Linked second order is the most regular series (increments 0.024 / 0.0076 / 0.0033).
+
+**Not done** (needed for a real implementation): the curvature tensor in 3-D (shape operator
+from the level-set Hessian, friction ν A_w H·u_t/V); the wall value of u_t at second order
+instead of the cell value; the friction in the reported force (here the force output still has
+pressure only, the drag above is the driving force × volume); concave walls (κ < 0, explicit);
+moving bodies (∇_t(u_b·n) term); alpha-field bodies (no level set). The normal viscous stress
+2ν∂u_n/∂n, the other half of the traction form, is still carried by the cut-cell pressure.

@@ -1,0 +1,19 @@
+# Free slip on the curved wall: IBM (du_t/dn = 0) vs zero shear (du_t/dn = kappa u_t), 2026-11-03
+# periodic cylinder Re_D = 1 (tutorials/cylinderRe1), drag per unit depth = driving pressure gradient x fluid volume
+# body-fitted: validation/cylinder_bodyFitted.py, simpleFoam, runs/ibmSA_study/freeslip_bf
+#   slip = OpenFOAM slip (du_t/dn = 0, the IBM condition), zeroShear = codedFixedValue u_b = u_t,P/(1 + 1/(R delta))
+# IBM zeroShear=true: experimental wall friction nu kappa Awall/V on u_t (worktree runs/ibmSA_study/freeslip_fix, not committed)
+#   runs/ibmSA_study/freeslip_ibm; zeroShear=false N>41 from runs/ibmSA_study/linkC/rich; * = unfinished (M=256 still running)
+body-fitted O-grid (M cells per quarter circle)
+  noSlip     32: 5.85196  64: 5.84752  128: 5.84266  256: 5.82767*
+  slip       32: 3.10842  64: 3.07644  128: 3.05820  256: 2.93270*
+  zeroShear  32: 4.02338  64: 4.01318  128: 4.00675  256: 3.92166*
+IBM free slip (N cells per box side)
+  zeroShear=false secondOrder=false mergeAlpha=0.5 N41: 2.75497  N81: 2.87172  N161: 2.97495  N321: 3.00700
+  zeroShear=false secondOrder=false mergeAlpha=0   N41: 2.83767
+  zeroShear=false secondOrder=true  mergeAlpha=0.5 N41: 2.83934  N81: 2.91534  N161: 2.98765  N321: 3.01134
+  zeroShear=false secondOrder=true  mergeAlpha=0   N41: 2.88527
+  zeroShear=true  secondOrder=false mergeAlpha=0.5 N41: 3.90904  N81: 3.96909  N161: 3.98708  N321: 3.99594
+  zeroShear=true  secondOrder=false mergeAlpha=0   N41: 3.91447  N81: 3.95917  N161: 3.98383  N321: 3.99840
+  zeroShear=true  secondOrder=true  mergeAlpha=0.5 N41: 3.96210  N81: 3.98610  N161: 3.99367  N321: 3.99699
+  zeroShear=true  secondOrder=true  mergeAlpha=0   N41: 3.96659  N81: 3.98788  N161: 3.99990  N321: 4.00991
