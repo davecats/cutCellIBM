@@ -6,5 +6,6 @@ wmake libso src/cutCellIBM
 wmake libso src/cutCellIBMTurbulence
 wmake applications/utilities/ibmSetGeometry
 wmake applications/utilities/ibmOrderTest
+wmake applications/utilities/ibmTruncationTC
 wmake applications/solvers/ibmSimpleFoam
 wmake applications/solvers/ibmPimpleFoam

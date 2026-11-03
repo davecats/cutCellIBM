@@ -539,3 +539,69 @@ Scratch analyses on the Taylor–Couette and cylinder fields above; prototype fo
    discrete momentum balance. Its first order is that of the one-cell-thick stress layer. A
    proper free slip needs the traction form at the wall (zero tangential traction, normal stress
    2ν∂u_n/∂n kept).
+
+### The cut-cell pressure is a continuity error (2026-11-03)
+
+Data: `validation/data/secondOrder/taylorCouette_truncation.txt`; tools:
+`applications/utilities/ibmTruncationTC` (the exact Taylor–Couette solution put into the
+solver's operators, per-cell truncation error of the viscous, convective and pressure terms
+and of continuity) and `validation/taylorCouette_truncation.py`.
+
+1. **Not a second-order problem: first order is far worse.** Inner-wall pressure error
+   (Ω = 1, ν = 1, wall shear stress 2.25; mergeAlpha 0, α_min 0.02):
+
+   | | N = 80 | 160 | 320 |
+   |---|---|---|---|
+   | first order, cut cells rms / max | 0.33 / 0.95 | 0.24 / 0.76 | 0.30 / 1.16 |
+   | first order, first full layer rms | 5.8e-2 | 8.4e-2 | 6.9e-2 |
+   | second order, cut cells rms / max | 1.7e-2 / 3.7e-2 | 1.4e-2 / 3.9e-2 | 9.4e-3 / 4.4e-2 |
+
+   At first order every cut-cell type (2, 3 or 4 open faces) and the first full layer carry an
+   O(1) error that does not converge; corner cells (2 open faces) are the worst type at both
+   orders, always in mirror pairs of opposite sign. The velocity of those cells is fine (second
+   order: U_t error 1.4e-4 → 3.2e-5 → 9e-6). ddtCorr and the time step (0.005 vs 0.02) change
+   nothing.
+2. **Mechanism.** At steady state the pressure of a cut cell is fixed by the continuity of its
+   own few faces: a discrete divergence error of an (accurate) velocity is removed through the
+   Rhie–Chow flux, whose mobility rAU ~ h²/ν, so the pressure error is ν times the divergence
+   error, independent of h. Cell by cell, the solver's inner cut-cell pressure error fits
+   δp ≈ c·α·div_h(u_exact) (div_h per unit fluid volume, from `ibmTruncationTC`) with c = −1.2 …
+   −1.6 at every N at second order (77–89 % of the variance; 93–95 % with the radial viscous
+   truncation added), c ≈ −4.6 and about half the variance at first order (where the viscous
+   truncation of the cut cells and the first full layer also grows like 1/h).
+3. **Where the divergence error comes from** (rms of α·div_h u over the cut cells, per cell
+   volume):
+   - First order: the flux of a partially wet face is taken at the face centre, an O(1) error
+     per cell volume (inner 3–8e-2, outer 5–9e-3, i.e. scaling with the wall shear) that does
+     not converge → O(1) pressure.
+   - Second order, face fluxes (at the wet-face centroid): O(h) per cell volume, as expected
+     from O(h²) face values without the cancellation of a full cell (inner corner cells 9.4e-3,
+     6.2e-3, 2.7e-3, 1.0e-3 for N = 80 … 640).
+   - Second order, closure: **sliver absorption.** A cell with α < α_min is blanked and all its
+     faces closed (C1), so the neighbouring cut cell loses the near-wall flux through the shared
+     face, O(shear·(θh)²): a non-converging 4.9e-3 at the inner and 4.9e-4 at the outer wall
+     (the shear ratio is 9), present only in cut cells with an absorbed neighbour. With
+     α_min = 1e-9 (nothing absorbed; the smallest α is the sub-sampling resolution 1/1024) it
+     vanishes (≤ 4e-5) and the divergence error converges in every class.
+4. **Solver without absorption** (second order, α_min 1e-9):
+
+   | | N = 80 | 160 | 320 |
+   |---|---|---|---|
+   | inner cut cells rms, α_min 0.02 | 1.67e-2 | 1.35e-2 | 9.40e-3 |
+   | inner cut cells rms, α_min 1e-9 | 1.61e-2 | 1.21e-2 | 4.90e-3 |
+   | inner cut cells max, α_min 0.02 | 3.68e-2 | 3.87e-2 | 4.40e-2 |
+   | inner cut cells max, α_min 1e-9 | 3.74e-2 | 3.55e-2 | 1.11e-2 |
+   | outer cut cells max, α_min 0.02 | 2.74e-3 | 3.52e-3 | 3.48e-3 |
+   | outer cut cells max, α_min 1e-9 | 2.73e-3 | 1.07e-3 | 4.28e-4 |
+
+   The cut-cell pressure, including the corner cells, now converges (orders 1.3–1.7 from N = 160
+   to 320, while the face-flux part still dominates at the inner wall below N = 160); the bulk
+   and first full layer are unchanged or better. At first order nothing is gained (the face
+   error dominates; the tinier cells make it somewhat larger: rms 0.39–0.63).
+5. **Consequences.** Pointwise, the second-order cut-cell pressure is at best first order: a
+   second-order cut-cell pressure needs a continuity flux with third-order face values (a
+   quadratic reconstruction, the same stencil as the deferred quadratic viscous flux), which is
+   also why the solver's pressure force converges at first order while the full-cell fit of the
+   previous section is second order. Sliver absorption by blanking costs the non-converging part
+   and should be replaced: a small α_min (≈ 1e-3, the sampling resolution), or linking the
+   slivers to a neighbour instead of closing their faces.
