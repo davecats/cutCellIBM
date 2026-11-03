@@ -1,5 +1,6 @@
 #include "ibmMeanVelocityForce.H"
 #include "fvMatrices.H"
+#include "cutCellGeometry.H"
 #include "IFstream.H"
 #include "OFstream.H"
 #include "Time.H"
@@ -147,15 +148,40 @@ void Foam::fv::ibmMeanVelocityForce::correct(volVectorField& U)
     const scalarField& cv = mesh_.V();
     const volScalarField& a = alpha();
 
-    // Response of the bulk velocity to a unit change of the force: the
-    // source of cell P is gradP alpha V, so du_P = rAU alpha dGradP. The
-    // fluid volume of a moving body changes in time, so it is re-summed.
+    // Response of a cell to a unit change of the force: the source of cell
+    // P is gradP alpha V, so du_P = rAU alpha dGradP. In a linked group
+    // (one control volume, whose velocity the pressure corrector makes
+    // uniform) the response is the group's: the volume mean over the group,
+    // so that the correction keeps the velocity uniform there.
+    volScalarField response
+    (
+        IOobject
+        (
+            name_ + ":response",
+            mesh_.time().timeName(),
+            mesh_,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE,
+            false
+        ),
+        mesh_,
+        dimensionedScalar(dimless, Zero)
+    );
+    response.primitiveFieldRef() = rAU*a.primitiveField();
+    if (mesh_.foundObject<cutCellGeometry>("ibmProperties"))
+    {
+        mesh_.lookupObject<cutCellGeometry>("ibmProperties").groupMean(response);
+    }
+    const scalarField& f = response.primitiveField();
+
+    // Response of the bulk velocity. The fluid volume of a moving body
+    // changes in time, so it is re-summed.
     scalar rAUave = 0.0;
     scalar Vfluid = 0.0;
     forAll(cells_, i)
     {
         const label celli = cells_[i];
-        rAUave += rAU[celli]*a[celli]*a[celli]*cv[celli];
+        rAUave += f[celli]*a[celli]*cv[celli];
         Vfluid += a[celli]*cv[celli];
     }
     reduce(rAUave, sumOp<scalar>());
@@ -173,7 +199,7 @@ void Foam::fv::ibmMeanVelocityForce::correct(volVectorField& U)
     forAll(cells_, i)
     {
         const label celli = cells_[i];
-        U[celli] += flowDir_*rAU[celli]*a[celli]*dGradPnew;
+        U[celli] += flowDir_*f[celli]*dGradPnew;
     }
     U.correctBoundaryConditions();
 
