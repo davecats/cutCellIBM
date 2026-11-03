@@ -164,3 +164,14 @@ L6_NL_SO               Cl 0.32400  Cd 0.011231 (p 0.002337 v 0.008894)  dCd +0.8
 L7_NL_SO               Cl 0.32401  Cd 0.011207 (p 0.002337 v 0.008870)  dCd +0.65% (p +1.0% v +0.56%) dCl +0.25%
 # second order: linked - unlinked Cd 2.6 / 0.48 / 0.09 % at L5/L6/L7 (first order 7.3 / 3.0 / 1.4 %);
 # both series extrapolate to about +0.65 %: pressure +1.0 % (unlinked L6 = L7), viscous +0.4..0.6 %.
+# wr5 (2026-11-03): second order with the second-order continuity flux (commit a550df6), SIMPLE as wr4,
+# 30k / 26k / 16-17k iterations (L5 / L6 / L7), dCd/500 <= 1e-9. Runs in naca3/wr5.
+L5_L_SO                Cl 0.32214  Cd 0.011722 (p 0.002577 v 0.009145)  dCd +5.28% (p +11.4% v +3.68%) dCl -0.32%
+L6_L_SO                Cl 0.32377  Cd 0.011274 (p 0.002420 v 0.008854)  dCd +1.26% (p +4.6% v +0.39%) dCl +0.18%
+L7_L_SO                Cl 0.32398  Cd 0.011213 (p 0.002395 v 0.008817)  dCd +0.70% (p +3.5% v -0.03%) dCl +0.24%
+L5_NL_SO               Cl 0.32347  Cd 0.011442 (p 0.002443 v 0.008999)  dCd +2.76% (p +5.6% v +2.03%) dCl +0.09%
+L6_NL_SO               Cl 0.32402  Cd 0.011227 (p 0.002385 v 0.008842)  dCd +0.83% (p +3.1% v +0.25%) dCl +0.26%
+L7_NL_SO               Cl 0.32402  Cd 0.011206 (p 0.002382 v 0.008824)  dCd +0.64% (p +2.9% v +0.05%) dCl +0.26%
+# linked - unlinked Cd 2.5 / 0.42 / 0.06 % at L5/L6/L7. At L7 the viscous drag is within 0.03 % of 897;
+# the remaining +0.64 % is pressure drag (+2.9..3.5 %, larger than before the flux fix: +1.0..2.0 %),
+# consistent with the first-order cut-cell pressure (doc/secondOrderStudy.md, Fix of 2026-11-02).

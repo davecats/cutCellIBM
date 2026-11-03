@@ -548,6 +548,9 @@ NACA 0012 wall-resolved, second order, C_d against 897 SIMPLEC (wr5, SIMPLE as w
 |---|---|---|
 | L5 | +5.50 → +5.28 % | +2.88 → +2.76 % |
 | L6 | +1.35 → +1.26 % | +0.87 → +0.83 % |
-| L7 | +0.74 → (running) | +0.65 → (running) |
+| L7 | +0.74 → +0.70 % | +0.65 → +0.64 % |
 
-The flux fix is a small gain on the airfoil: the L5 spread is wall resolution, not the flux.
+The flux fix is a small gain on the airfoil: the L5 spread is wall resolution, not the flux. At
+L7 the linked/unlinked spread is 0.06 %, the viscous drag is within 0.03 % of 897 (was +0.4–0.6 %),
+and the remaining +0.64 % is pressure drag (+2.9–3.5 %, up from +1.0–2.0 %): the first-order
+cut-cell pressure above, now no longer partly cancelled by the viscous error. C_l +0.25 %.
