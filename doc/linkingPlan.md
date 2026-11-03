@@ -95,6 +95,9 @@ second-order Richardson limit is about 0.7205).
   doubles; the masters carry the group pressure. Velocity and torque are as accurate as unlinked.
   Only the second-order face values fix it. Consequence: `secondOrder` is the default
   (`doc/secondOrderStudy.md`, "Second order is the default").
+  Alpha-field bodies were not second order (no centroids, layer wall distance), not because of
+  their geometry; fixed with centroids and a wall distance from the interpolant
+  (`doc/secondOrderStudy.md`, "Alpha-field bodies at second order").
 - Inclined wall-function channel: linked errors of the same size as before; unlinked unchanged.
 - The ibmMeanVelocityForce correction had to become group-uniform (8aebbce).
 - NACA wall functions serial vs scotch 8/16 needed SA-neg (e99057b) to converge at all. Converged,

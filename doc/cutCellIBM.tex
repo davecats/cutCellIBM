@@ -427,8 +427,9 @@ moving).
 Its cell fractions are the field values (clipped to $[0,1]$, optionally converted from a
 solid fraction); point values are obtained by inverse-distance interpolation, $\alpha-\tfrac12$
 serves as a point level set, edge crossings are found by linear interpolation of that level
-set, and the same polygon construction gives $\theta_f$. This route smears the wall over about
-one cell (Section~\ref{sec:limits}).
+set, and the same polygon construction gives $\theta_f$. The wall position has an $O(h^2)$
+error, but $\theta_f$ is not consistent with $\alpha$ cell by cell
+(Section~\ref{sec:limits}).
 
 The level sets of all bodies with a level set are combined by their minimum before the
 fractions are computed, so overlapping bodies form an exact union; fraction-field bodies are
@@ -1493,7 +1494,10 @@ $O(h)$ error in position. Two centroids are computed (Fig.~\ref{fig:centroids}):
       of Section~\ref{sec:geomcomp}, by fan triangulation, $\xx'_f=\sum_i|\bm a_i|(\bm p_0+\bm
       p_i+\bm p_{i+1})/(3\sum_i|\bm a_i|)$, exact for the polygon.
 \end{itemize}
-Fraction-field bodies have no sub-samples and keep $\bm o_P=\bm 0$.
+Fraction-field bodies have no level set to sample; with the switch on, their fluid centroid is
+the mean of the fluid samples ($n_s$ per direction) of the trilinear interpolant of the point
+level set $\alpha-\tfrac12$, whose edge crossings are those of the face polygons
+(axis-aligned hexahedra; other cells keep $\bm o_P=\bm 0$ with a warning).
 
 \begin{figure}[htbp]\centering
 \includegraphics[width=0.45\textwidth]{fig_centroids.pdf}
@@ -1622,8 +1626,9 @@ d_c=\max\big(\varphi(\xx_{c,P}),\;10^{-3}V_P^{1/3}\big),
 \label{eq:dc}
 \end{equation}
 evaluated with the union level set (V1). It is the exact centroid distance for level sets that
-are signed distances (the analytical bodies and triangulated surfaces); fraction-field bodies
-keep \eqref{eq:dwall}. For a fluid cell behind a closed face it is the distance to the true
+are signed distances (the analytical bodies and triangulated surfaces). For fraction-field
+bodies $d_c$ is the distance of $\xx_{c,P}$ from the plane through the mean of the cell's edge
+crossings with normal $\bm S_w/\Aw$, floored in the same way. For a fluid cell behind a closed face it is the distance to the true
 surface rather than to the closed face. The two-point wall flux
 \begin{equation}
 \Gamma\Aw\frac{u_P-u_w}{d_c}=\Gamma\Aw\Big(\partial_nu|_w+\tfrac12d_c\,\partial^2_nu|_w+\dots\Big)
@@ -2259,11 +2264,12 @@ free-slip cylinder relative to the second-order value at $N=321$.}
 \item \emph{Laminar.} Turbulence models are constructed for their effective viscosity only;
       their own transport equations would need the same treatment as%
       \ the scalars.
-\item \emph{Fraction-field bodies.} Reconstructing $\theta$ from the $0.5$ iso-surface of the
-      point-interpolated fraction smears the wall over one cell (drag $-0.16\%$ on the
-      cylinder, $\theta$ errors up to $0.11$); a per-cell iso-value reproducing each cell's
-      $\alpha$ would bring it to $O(h^2)$.
-      These bodies have no centroids and stay first order.
+\item \emph{Fraction-field bodies.} The wall is the $0.5$ iso-surface of the
+      point-interpolated fraction: $\theta$ differs from the exact fractions by $O(h)$ (up
+      to $0.11$ at $h=0.12$ on the cylinder), the wall position by $O(h^2)$, and $\theta$ is not
+      consistent with $\alpha$ cell by cell (a per-cell iso-value would make it so). With the
+      centroids and the wall distance of the interpolant the drag converges at second order
+      to the level-set value (difference $-0.4\%$ at $h=0.12$, $-0.02\%$ at $h=0.03$).
 \item \emph{One fluid region.} A single pressure reference; a body splitting the fluid would
       need one per region.
 \item \emph{Rotating bodies.} The mass source is the exact flux of the rigid motion through

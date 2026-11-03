@@ -353,6 +353,17 @@ class cutCellGeometry
         //  centroid of its fluid part
         scalar sampleCellFraction(const label celli, point& centroid) const;
 
+        //- Fluid centroid of one cell of an alpha-field body: sub-samples of
+        //  the trilinear interpolant of the point level set (its edge
+        //  crossings are those of the face polygons). Axis-aligned hexahedra
+        //  only; false (centroid unchanged) for other cells.
+        bool sampleInterpolatedCentroid
+        (
+            const label celli,
+            const scalarField& pointPhi,
+            point& centroid
+        ) const;
+
         //- Warn if the laplacian/snGrad schemes do not match secondOrder
         //  (cutCellCorrected with the switch on, another scheme without)
         void checkSchemes() const;

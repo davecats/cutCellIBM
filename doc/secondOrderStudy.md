@@ -771,7 +771,50 @@ All 19 non-order tutorials run with the default (fresh copies, `runs/ibmSA_study
 `secondOrder false`: no-slip cylinder cases −0.17 … −0.23 % (cylinderRe1 0.71951 → 0.71815; the
 Richardson limit is 0.7205, where first order was close by a non-monotone accident), free-slip
 +1.6 … +2.0 %, the alpha-field cylinder −1.4 % (0.7047 → 0.6948, further from the level-set
-value 0.7181: its geometry is smeared over a cell and its centroids come from the 0.5
-iso-surface, not from α; to be looked at before first order is removed). Same warnings and
+value 0.7181; the next section explains and fixes it: 0.7153 now). Same warnings and
 convergence as first order; the notebook comparison (unlinked, first order) moves from 2.97 to
 2.77 % in drag.
+
+## Alpha-field bodies at second order (2026-11-03)
+
+Question: is an alpha-field body never second order because its geometry is only first order?
+No. The wall is the 0.5 iso-surface of the point-interpolated α; on the periodic cylinder
+(α = the exact level-set fractions of the same mesh) its face fractions θ differ from the
+exact ones by O(h) (rms 0.105, 0.048, 0.030, 0.015 for N = 41 … 321), so the wall position
+error θ·h is O(h²), and the wall area vectors converge too. What was first order is what the
+second-order treatment takes from the geometry:
+
+- **No fluid centroids.** Alpha-field bodies have no level set to sub-sample, so the value
+  points stayed at the cell centres (centroid error 0.25–0.31 h at every N).
+- **Wall distance.** dWall = αV/(2A_w) is the layer estimate, not the distance of the value
+  point from the wall (error 0.23–0.31 h at every N).
+
+**Fix** (`cutCellGeometry`, second order only; first order and level-set bodies are
+unchanged to all digits):
+
+- The fluid centroid of an alpha-field cut cell is the mean of the fluid sub-samples
+  (`nSubSamples` per direction) of the trilinear interpolant of the point level set α − ½,
+  whose edge crossings are those of the face polygons (`sampleInterpolatedCentroid`).
+  Axis-aligned hexahedra only; other cells keep the centre and a warning is printed.
+- The wall distance is that of the centroid from the plane through the mean of the cell's edge
+  crossings, normal S_w/A_w, floored at 1e-3 V^(1/3) like the level-set one.
+
+Centroid and wall-distance errors against the level-set route are now O(h²) (/h: 0.042, 0.022,
+0.012, 0.007 and 0.052, 0.024, 0.013, 0.007). Drag per unit depth
+(`validation/data/secondOrder/alphaField_secondOrder.txt`, `runs/ibmSA_study/alphaField`):
+
+| case | N = 41 | 81 | 161 | 321 | p | difference to the level set |
+|---|---|---|---|---|---|---|
+| level set, second order | 5.7725 | 5.8170 | 5.8318 | 5.8350 | 2.2 | |
+| alpha field, before | 5.4442 | 5.6282 | 5.7423 | 5.7871 | 1.35 | −5.7, −3.2, −1.5, −0.82 % |
+| alpha field, fixed | 5.6703 | 5.7938 | 5.8251 | 5.8337 | 1.9 | −1.8, −0.40, −0.12, −0.023 % |
+| level set, first order | 5.6985 | 5.8281 | 5.8181 | 5.8361 | (non-monotone) | |
+| alpha field, first order | 5.5539 | 5.7085 | 5.7803 | 5.8092 | 1.3 | −2.5, −2.1, −0.65, −0.46 % |
+
+Before the fix the alpha field at second order was worse than at first order (its cut cells
+used the second-order wall flux and gradient with centre values and a layer distance). Fixed,
+it converges at second order to the level-set drag, the difference falling about as h².
+The tutorial `cylinderRe1_alphaField` (N = 81, linked) goes from 0.6948 to 0.7153 (level set
+0.7181). θ is still not consistent with α cell by cell (the interpolant's fluid volume is not
+α V); a per-cell iso-value would make it so, but second order does not need it. The alpha-field
+body is therefore no reason to keep first order.

@@ -620,9 +620,11 @@ bodies are unaffected (the moving-body tutorials reproduce their results to the 
 * `ddtCorr` is implemented in Euler form only; with `backward` the Euler form is used and a
   warning printed once. The extension mirrors `backwardDdtScheme::fvcDdtPhiCorr`.
 * The alpha-field route reconstructs θ from the 0.5 iso-surface of the point-interpolated
-  α (θ errors up to 0.1 on single faces, drag −0.16% on the cylinder). Making θ consistent
-  with α cell by cell (per-cell iso-value search as in geometricVoF's `isoAlpha`, faces cut
-  at that value, shared faces averaged) would bring it to O(h²).
+  α (θ errors up to 0.1 on single faces at h = 0.12, O(h); the wall position is O(h²)).
+  At second order the fluid centroids and the wall distance come from the same interpolant,
+  and the drag converges to the level-set value at second order. θ is still not consistent
+  with α cell by cell (a per-cell iso-value search as in geometricVoF's `isoAlpha` would
+  make it so).
 * Prescribed rigid motion; the `external` motion type and `forces()` are the hooks for a
   rigid-body ODE, and a light body would need an added-mass sub-iteration.
 * One fluid region: a single pressure reference cell; a body splitting the fluid in two

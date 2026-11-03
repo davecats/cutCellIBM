@@ -1,0 +1,28 @@
+# Periodic cylinder Re_D = 1 (R = 1, 10x10 box, cylinderRe1 setup): level-set body (ls) vs alphaField body
+# (alpha = the level-set fractions of the same mesh). af: before the fix (no centroids, dWall = alpha V/(2 Aw));
+# afx: centroids from the trilinear interpolant of alpha - 1/2, dWall to the plane through the edge crossings.
+# so/fo: secondOrder true/false. runs/ibmSA_study/alphaField (run.sh, runfix.sh, geom.py), 2026-11-03
+# drag per unit depth (pressure + viscous), Richardson order p from N = 81, 161, 321, difference to ls of the same order
+case         N=41      N=81     N=161     N=321      p   diff to ls /% (N = 41 ... 321)
+ls_so     5.77245   5.81700   5.83182   5.83502   2.21   +0.000 +0.000 +0.000 +0.000
+af_so     5.44423   5.62815   5.74227   5.78705   1.35   -5.686 -3.246 -1.536 -0.822
+afx_so    5.67031   5.79381   5.82505   5.83367   1.86   -1.769 -0.399 -0.116 -0.023
+ls_fo     5.69853   5.82806   5.81813   5.83613  -0.86   +0.000 +0.000 +0.000 +0.000
+af_fo     5.55388   5.70847   5.78033   5.80922   1.31   -2.538 -2.052 -0.650 -0.461
+#
+# geometry against the level-set route on the same mesh (h = 10/N): dth = theta error on cut faces, dSw = relative
+# wall-area-vector error, dd/h = wall distance error, dxc/h = fluid centroid error; before (af) and after (afx) the fix
+# af:
+#     N    dth rms    dth max    dSw rms  angle max   dd/h rms   dd/h max  dxc/h rms
+#    41  1.051e-01  1.793e-01  2.499e-01       4.16  2.853e-01  4.118e-01  3.093e-01
+#    81  4.836e-02  1.108e-01  1.125e-01       3.02  3.108e-01  4.652e-01  2.739e-01
+#   161  3.033e-02  5.963e-02  1.044e-01       3.15  2.316e-01  4.844e-01  2.894e-01
+#   321  1.519e-02  4.917e-02  5.363e-02       3.80  3.044e-01  6.595e-01  2.537e-01
+# afx:
+#     N    dth rms    dth max    dSw rms  angle max   dd/h rms   dd/h max  dxc/h rms
+#    41  1.051e-01  1.793e-01  2.499e-01       4.16  5.235e-02  6.790e-02  4.218e-02
+#    81  4.836e-02  1.108e-01  1.125e-01       3.02  2.419e-02  3.224e-02  2.170e-02
+#   161  3.033e-02  5.963e-02  1.044e-01       3.15  1.333e-02  3.251e-02  1.240e-02
+#   321  1.519e-02  4.917e-02  5.363e-02       3.80  6.794e-03  2.049e-02  7.377e-03
+#
+# tutorial cylinderRe1_alphaField (N = 81, linked): 0.694834 before, 0.715285 after; cylinderRe1 (level set) 0.718148

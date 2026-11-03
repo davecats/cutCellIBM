@@ -403,6 +403,42 @@ void Foam::cutCellGeometry::calcGeometry()
             );
             merge(a, t, xw, labelList(mesh_.nCells(), bodyi));
             mergeCut(phi, ec);
+
+            // Second order: fluid centroids of the cut cells of this body
+            // (the value points; the cell centre otherwise)
+            if (secondOrder_)
+            {
+                label nNoCentroid = 0;
+                forAll(alpha, celli)
+                {
+                    if
+                    (
+                        cellBody_[celli] != bodyi
+                     || alpha[celli] <= 0 || alpha[celli] >= 1
+                    )
+                    {
+                        continue;
+                    }
+                    point c;
+                    if (sampleInterpolatedCentroid(celli, phi, c))
+                    {
+                        centroidOffset[celli] = c - mesh_.cellCentres()[celli];
+                    }
+                    else
+                    {
+                        ++nNoCentroid;
+                    }
+                }
+                reduce(nNoCentroid, sumOp<label>());
+                if (nNoCentroid)
+                {
+                    WarningInFunction
+                        << "alpha-field body " << bodies_[bodyi].name() << ": "
+                        << nNoCentroid << " cut cells that are not axis-aligned"
+                        << " hexahedra keep the cell centre as value point"
+                        << endl;
+                }
+            }
         }
     }
 
@@ -1145,6 +1181,88 @@ void Foam::cutCellGeometry::faceFractions
 }
 
 
+bool Foam::cutCellGeometry::sampleInterpolatedCentroid
+(
+    const label celli,
+    const scalarField& pointPhi,
+    point& centroid
+) const
+{
+    const labelList& cp = mesh_.cellPoints()[celli];
+    if (cp.size() != 8 || mesh_.cells()[celli].size() != 6) return false;
+    const pointField pts(mesh_.points(), cp);
+    const boundBox bb(pts, false);
+    const vector span(bb.span());
+    if
+    (
+        mag(span.x()*span.y()*span.z() - mesh_.cellVolumes()[celli])
+      > 1e-8*mesh_.cellVolumes()[celli]
+    )
+    {
+        return false;
+    }
+
+    // Corner values of the trilinear interpolant, indexed by the corner bits
+    scalar phiC[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    forAll(pts, i)
+    {
+        label k = 0;
+        for (direction d = 0; d < 3; ++d)
+        {
+            if (pts[i][d] - bb.min()[d] > 0.5*span[d]) k |= (1 << d);
+        }
+        phiC[k] = pointPhi[cp[i]];
+    }
+
+    const Vector<label>& solD = mesh_.solutionD();
+    const label n = nSubSamples_;
+    Vector<label> nDir(n, n, n);
+    for (direction d = 0; d < 3; ++d)
+    {
+        if (solD[d] < 0) nDir[d] = 1;
+    }
+
+    vector sum(Zero);
+    label nFluid = 0;
+    for (label i = 0; i < nDir.x(); ++i)
+    {
+        for (label j = 0; j < nDir.y(); ++j)
+        {
+            for (label k = 0; k < nDir.z(); ++k)
+            {
+                const vector t
+                (
+                    (i + 0.5)/nDir.x(), (j + 0.5)/nDir.y(), (k + 0.5)/nDir.z()
+                );
+                scalar phi = 0;
+                for (label c = 0; c < 8; ++c)
+                {
+                    scalar w = 1;
+                    for (direction d = 0; d < 3; ++d)
+                    {
+                        w *= (c & (1 << d)) ? t[d] : 1 - t[d];
+                    }
+                    phi += w*phiC[c];
+                }
+                if (phi > 0)
+                {
+                    sum += cmptMultiply(t, span);
+                    ++nFluid;
+                }
+            }
+        }
+    }
+    if (nFluid == 0) return false;
+
+    centroid = bb.min() + sum/nFluid;
+    for (direction d = 0; d < 3; ++d)
+    {
+        if (solD[d] < 0) centroid[d] = mesh_.cellCentres()[celli][d];
+    }
+    return true;
+}
+
+
 Foam::scalar Foam::cutCellGeometry::sampleCellFraction
 (
     const label celli,
@@ -1473,7 +1591,7 @@ void Foam::cutCellGeometry::calcDerived()
     scalarField& noSlip = noSlipCoeff_.primitiveFieldRef();
 
     // Level set at the fluid centroids: the wall distance of the second-order
-    // treatment (level-set bodies only; alpha-field bodies keep the estimate)
+    // treatment (level-set bodies; alpha-field bodies use their edge crossings)
     bool haveCentroidLevelSet = false;
     if (secondOrder_)
     {
@@ -1517,12 +1635,42 @@ void Foam::cutCellGeometry::calcDerived()
         {
             wallCells_.set(celli);
             dWall[celli] = alpha[celli]*V[celli]/(2*Awall[celli]);
-            if (haveCentroidLevelSet)
+            const label bodyi = cellBody_[celli];
+            const bool alphaFieldCell =
+                bodyi >= 0 && !bodies_[bodyi].hasLevelSet();
+            if (haveCentroidLevelSet && !alphaFieldCell)
             {
                 // distance of the fluid centroid to the wall, floored at a
                 // small fraction of the cell size
                 dWall[celli] =
                     max(centroidLevelSet_[celli], 1e-3*cbrt(V[celli]));
+            }
+            else if (secondOrder_ && alphaFieldCell)
+            {
+                // alpha-field body: distance of the fluid centroid to the
+                // wall plane through the mean of the cell's edge crossings
+                point xw(Zero);
+                label nCross = 0;
+                for (const label edgei : mesh_.cellEdges()[celli])
+                {
+                    if (edgeCrossGeo_[edgei] == point::max) continue;
+                    xw += edgeCrossGeo_[edgei];
+                    ++nCross;
+                }
+                if (nCross > 0)
+                {
+                    xw /= nCross;
+                    const point xc
+                    (
+                        mesh_.cellCentres()[celli]
+                      + centroidOffset_.primitiveField()[celli]
+                    );
+                    dWall[celli] = max
+                    (
+                        (Sw[celli]/Awall[celli]) & (xw - xc),
+                        1e-3*cbrt(V[celli])
+                    );
+                }
             }
         }
         else
