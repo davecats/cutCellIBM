@@ -65,7 +65,7 @@ quantity makes the discrete geometric conservation law hold by construction, so 
 stream is preserved to machine precision at any body speed.
 Passive scalars are transported by the same face fluxes and see the wall either as a
 fixed-value or as a zero-flux surface; their budgets close to round-off.
-An optional second-order wall treatment replaces the cell centres by the centroids of the
+A second-order wall treatment (the default) replaces the cell centres by the centroids of the
 fluid parts, with a centroid-consistent diffusive face flux and a centroid wall distance; it
 raises the operators and the velocity from first to second order without ghost values or
 stencil growth.
@@ -1463,8 +1463,9 @@ which are then lagged by the sequential solution.
 \label{sec:secondorder}
 
 The treatment of Sections~\ref{sec:static}--\ref{sec:coupling} is first order for no-slip and
-fixed-value walls. This section derives an optional treatment, switched on by
-\code{secondOrder true} in \code{constant/ibmProperties}, that makes the diffusive operators
+fixed-value walls. This section derives the treatment selected by \code{secondOrder true} in
+\code{constant/ibmProperties} (the default; \code{false} restores the first-order treatment, whose
+cut-cell pressure does not converge, see below), that makes the diffusive operators
 and the velocity second order. It rests on one principle --- the value of a cut cell lives at
 the centroid of its fluid part --- and on two ingredients: a diffusive face flux consistent
 with the centroids, and the wall distance of the centroid. Neither needs a ghost value, a
@@ -1730,9 +1731,15 @@ and what remains is the continuity truncation error of the cut-cell faces
 laplacianSchemes { default Gauss linear cutCellCorrected; }
 snGradSchemes    { default cutCellCorrected; }
 \end{lstlisting}
-      Mismatched settings are not detected: \code{cutCellCorrected} with the switch off is the
+      Mismatched settings give a warning: \code{cutCellCorrected} with the switch off is the
       \code{uncorrected} scheme (identical to \code{corrected} on orthogonal meshes), and the
       switch with \code{corrected} gives V1/F0, which is still first order.
+\item Default since 2026-11-03. The first-order treatment takes the continuity flux of a cut
+      face at the face centre, an $O(1)$ flux imbalance per cell volume that gives an $O(1)$
+      cut-cell pressure error, linked or not; velocity and forces converge at first order. A
+      consistent cut-cell pressure needs face values exact for linear fields at the wet-face
+      centroids, i.e.\ a gradient: there is no consistent first-order variant
+      (\code{doc/secondOrderStudy.md}, ``Taylor--Couette first order with linking'').
 \item With the switch off, $\theta$, $\alpha$, $\dw$, the gradient, the forces and the schemes
       are bit-identical to the first-order treatment.
       The changes on this branch that are not behind the switch concern rotating
@@ -1837,7 +1844,7 @@ nSubSamples  32;     // n_s, samples per direction for alpha
 nBisect      40;     // bisection steps per cut edge
 writeFields  true;   writeForces true;
 periodicLengths (10 10 0);   // minimum image for bodies crossing periodic boundaries
-secondOrder  false;          // Section 7
+secondOrder  true;           // Section 7 (default; false: first order)
 bodies
 {
     cylinder

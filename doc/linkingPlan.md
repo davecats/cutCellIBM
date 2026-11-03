@@ -93,7 +93,8 @@ second-order Richardson limit is about 0.7205).
   about 3× worse than unlinked. Explained (`doc/secondOrderStudy.md`, "Taylor–Couette first
   order with linking"): the first-order face-centre continuity flux, which a merged group roughly
   doubles; the masters carry the group pressure. Velocity and torque are as accurate as unlinked.
-  Only the second-order face values fix it.
+  Only the second-order face values fix it. Consequence: `secondOrder` is the default
+  (`doc/secondOrderStudy.md`, "Second order is the default").
 - Inclined wall-function channel: linked errors of the same size as before; unlinked unchanged.
 - The ibmMeanVelocityForce correction had to become group-uniform (8aebbce).
 - NACA wall functions serial vs scotch 8/16 needed SA-neg (e99057b) to converge at all. Converged,

@@ -545,10 +545,11 @@ fields. `multiScalar` carries three scalars in one run: T and c reproduce the bu
 first-order decay through `scalarSemiImplicitSource` (`fields (d)` only), whose sink is
 accounted in the injected column so that the budget still closes.
 
-## 8. Second-order wall treatment (`secondOrder true`)
+## 8. Second-order wall treatment (`secondOrder true`, the default)
 
 `doc/secondOrderStudy.md` identifies what limits the order of the no-slip wall and tests the
-remedy; this branch implements it. Switch it on per case with
+remedy; this branch implements it. It is the default since 2026-11-03 and needs the
+`cutCellCorrected` schemes (the solvers warn when the schemes and the switch do not match):
 
 ```
 // constant/ibmProperties
@@ -558,8 +559,12 @@ laplacianSchemes { default Gauss linear cutCellCorrected; }
 snGradSchemes    { default cutCellCorrected; }
 ```
 
-With `secondOrder false` (the default) everything is bit-identical to before, and the
-`cutCellCorrected` scheme then reduces to the plain corrected one.
+With `secondOrder false` everything is bit-identical to the first-order treatment, and the
+`cutCellCorrected` scheme then reduces to the uncorrected one (the same as corrected on
+orthogonal meshes). First order takes the continuity flux of a cut face at the face centre: the
+cut-cell pressure then has an O(1) error that does not converge, linked or not (velocity and
+forces converge at first order; `doc/secondOrderStudy.md`, "Taylor–Couette first order with
+linking"). The solvers warn when it is used.
 
 What it does:
 

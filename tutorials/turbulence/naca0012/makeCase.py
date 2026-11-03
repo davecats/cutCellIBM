@@ -2,7 +2,7 @@
 """NACA 0012 at Re = 1e6, Spalart-Allmaras, body-fitted or immersed.
 
     makeCase.py <caseDir> --kind bf|ibm [--alpha deg] [--mesh wf|wr] [--h h]
-                [--mergeAlpha a] [--secondOrder] [--Nn n] [--grid g.p2dfmt] [--R r]
+                [--mergeAlpha a] [--firstOrder] [--Nn n] [--grid g.p2dfmt] [--R r]
                 [--endTime n] [--levels n --nFine n --nBand n] [--np n]
                 [--wallFunction spalartAllmaras|none] [--wallSample s]
 
@@ -336,7 +336,10 @@ def main():
     ap.add_argument("--R", type=float, default=50.0, help="ibm: far-field distance (500 with --grid runs)")
     ap.add_argument("--h", type=float, default=2e-3, help="ibm: core cell size")
     ap.add_argument("--mergeAlpha", type=float, default=0.5)
-    ap.add_argument("--secondOrder", action="store_true")
+    ap.add_argument("--firstOrder", action="store_true",
+                    help="ibm: first-order wall treatment (inconsistent cut-cell pressure; default second order)")
+    ap.add_argument("--secondOrder", action="store_true",
+                    help="ibm: second-order wall treatment with cutCellCorrected schemes (the default)")
     ap.add_argument("--endTime", type=int, default=8000)
     ap.add_argument("--levels", type=int, default=0, help="ibm: refinement levels around the airfoil")
     ap.add_argument("--nFine", type=int, default=10, help="ibm: finest-level cells from the wall")
@@ -345,6 +348,7 @@ def main():
     ap.add_argument("--wallFunction", choices=("spalartAllmaras", "none"), default="spalartAllmaras")
     ap.add_argument("--wallSample", type=float, default=1.5)
     a = ap.parse_args()
+    a.secondOrder = not a.firstOrder
     d = a.case
     ca, sa = math.cos(math.radians(a.alpha)), math.sin(math.radians(a.alpha))
     Uinf = "(%.12g %.12g 0)" % (ca, sa)
@@ -429,7 +433,7 @@ SIMPLE
     residualControl { p 1e-7; U 1e-8; nuTilda 1e-8; }
 }
 // SIMPLEC; U and nuTilda at 0.7, not 0.9: with 0.9 the linked wall-resolved IBM runs end in a
-// limit cycle (Cd +-0.15 %), with 0.7 they converge to the SIMPLE value in a third of the iterations
+// limit cycle (Cd +-0.15 %%), with 0.7 they converge to the SIMPLE value in a third of the iterations
 relaxationFactors
 {
     fields    { p 1; }

@@ -353,6 +353,10 @@ class cutCellGeometry
         //  centroid of its fluid part
         scalar sampleCellFraction(const label celli, point& centroid) const;
 
+        //- Warn if the laplacian/snGrad schemes do not match secondOrder
+        //  (cutCellCorrected with the switch on, another scheme without)
+        void checkSchemes() const;
+
         //- Value points (valueOffset_): fluid centroids, group centroids on
         //  the cells of linked groups
         void calcValueOffset();

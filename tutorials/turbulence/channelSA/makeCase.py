@@ -2,7 +2,7 @@
 """Spalart-Allmaras plane channel, body-fitted or with immersed walls.
 
     makeCase.py <caseDir> --kind bf|ibm --mesh wr|wf [--offset f] [--wallFunction spalartAllmaras|none]
-                [--nh n --h1 h] [--mergeAlpha a] [--secondOrder] [--hPlus lo hi] [--wallSample s]
+                [--nh n --h1 h] [--mergeAlpha a] [--firstOrder] [--hPlus lo hi] [--wallSample s]
                 [--incline p q]
                 [--init bfCase]
 
@@ -208,8 +208,10 @@ def main():
     ap.add_argument("--h1", type=float, help="first cell size (overrides --mesh)")
     ap.add_argument("--mergeAlpha", type=float, default=0.5,
                     help="ibm: link cut cells with alpha below this to a neighbour")
+    ap.add_argument("--firstOrder", action="store_true",
+                    help="ibm: first-order wall treatment (inconsistent cut-cell pressure; default second order)")
     ap.add_argument("--secondOrder", action="store_true",
-                    help="ibm: second-order wall treatment (cutCellCorrected schemes)")
+                    help="ibm: second-order wall treatment with cutCellCorrected schemes (the default)")
     ap.add_argument("--hPlus", type=float, nargs=2, metavar=("RESOLVED", "MODELLED"),
                     help="ibm: h+ range over which the wall law takes over (default 1 10)")
     ap.add_argument("--wallSample", type=float, default=1.5,
@@ -218,6 +220,7 @@ def main():
                     help="ibm: walls inclined at tan(alpha) = P/Q to the grid, uniform cells")
     ap.add_argument("--init", help="with --incline: initial profiles from this body-fitted run")
     a = ap.parse_args()
+    a.secondOrder = not a.firstOrder
     d = a.case
     if a.incline and a.kind != "ibm":
         raise SystemExit("--incline needs --kind ibm")

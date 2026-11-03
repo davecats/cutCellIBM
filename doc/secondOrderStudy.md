@@ -754,3 +754,24 @@ wall (N = 80 / 160 / 320):
 - No first-order fix short of the second-order face values: without a gradient there is no way
   to move a value to the wet part of a face. The first-order scheme is consistent in velocity and
   torque and inconsistent in the cut-cell pressure, linked or not.
+
+## Second order is the default (2026-11-03)
+
+There is no consistent first-order variant: a cut-cell pressure that converges needs a flux
+imbalance per cut control volume that vanishes with h, i.e. face values with O(h²) error at the
+wet-face centroids. Cut cells have no opposite face to cancel an O(h) face-value error, as full
+cells do, and a value exact for linear fields at an off-centre point needs a gradient (or an
+equivalent multi-point stencil): that is the second-order treatment. `secondOrder` now defaults
+to true; the solvers warn when `secondOrder false` is used and when the laplacian/snGrad schemes
+do not match the switch (`cutCellGeometry::checkSchemes`). Tutorials use `cutCellCorrected`; the
+channel and NACA generators write second order unless `--firstOrder`.
+
+All 19 non-order tutorials run with the default (fresh copies, `runs/ibmSA_study/soDefault`;
+`validation/data/secondOrder/tutorials_secondOrderDefault.txt`). Drag changes against
+`secondOrder false`: no-slip cylinder cases −0.17 … −0.23 % (cylinderRe1 0.71951 → 0.71815; the
+Richardson limit is 0.7205, where first order was close by a non-monotone accident), free-slip
++1.6 … +2.0 %, the alpha-field cylinder −1.4 % (0.7047 → 0.6948, further from the level-set
+value 0.7181: its geometry is smeared over a cell and its centroids come from the 0.5
+iso-surface, not from α; to be looked at before first order is removed). Same warnings and
+convergence as first order; the notebook comparison (unlinked, first order) moves from 2.97 to
+2.77 % in drag.

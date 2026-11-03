@@ -8,6 +8,7 @@
 #include "pointFields.H"
 #include "extrapolatedCalculatedFvPatchFields.H"
 #include "coupledFvPatchField.H"
+#include "OStringStream.H"
 #include "boundBox.H"
 #include "globalIndex.H"
 #include "coupledPolyPatch.H"
@@ -117,7 +118,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
                  IOobject::NO_READ, IOobject::NO_WRITE),
         mesh, dimensionedScalar(dimless, -1), "zeroGradient"
     ),
-    secondOrder_(getOrDefault<bool>("secondOrder", false)),
+    secondOrder_(getOrDefault<bool>("secondOrder", true)),
     centroidOffset_
     (
         IOobject("ibmCentroidOffset", mesh.time().timeName(), mesh,
@@ -211,6 +212,16 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
         centroidOffset_.writeOpt(IOobject::AUTO_WRITE);
         if (mergeAlpha_ > 0) valueOffset_.writeOpt(IOobject::AUTO_WRITE);
     }
+    else
+    {
+        WarningInFunction
+            << "secondOrder false: the first-order wall treatment takes the "
+            << "flux of a cut face at the face centre, so the cut-cell "
+            << "pressure has an O(1) error that does not converge "
+            << "(doc/secondOrderStudy.md). Velocity and forces converge at "
+            << "first order." << endl;
+    }
+    checkSchemes();
 
     // Bodies
     const dictionary& bdict = subDict("bodies");
@@ -985,6 +996,39 @@ void Foam::cutCellGeometry::wallDistance
         }
     }
     unionLevelSet(pts, d);
+}
+
+
+void Foam::cutCellGeometry::checkSchemes() const
+{
+    // The second-order viscous fluxes live in the cutCellCorrected schemes:
+    // with the switch on and another laplacian or snGrad scheme the wall
+    // treatment is only partly second order (V1/F0, still first order), and
+    // with the switch off cutCellCorrected is the uncorrected scheme
+    const dictionary& schemes = mesh_.schemesDict();
+    for (const word sub : {"laplacianSchemes", "snGradSchemes"})
+    {
+        const dictionary* dictPtr = schemes.findDict(sub);
+        if (!dictPtr) continue;
+        for (const entry& e : *dictPtr)
+        {
+            if (e.isDict()) continue;
+            OStringStream os;
+            os << e.stream();
+            const bool cut = os.str().find("cutCellCorrected") != string::npos;
+            const bool none = os.str().find("none") != string::npos;
+            if (none || cut == secondOrder_) continue;
+            WarningInFunction
+                << sub << ' ' << e.keyword() << " is " << os.str()
+                << (
+                       secondOrder_
+                     ? ": the second-order wall treatment needs cutCellCorrected"
+                     : ": cutCellCorrected without secondOrder is the"
+                       " uncorrected scheme"
+                   )
+                << endl;
+        }
+    }
 }
 
 
