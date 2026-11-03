@@ -612,7 +612,9 @@ that the linear solvers see a well-posed system.
       and the blanking source $\nu b_PV_P\ub(\xx_P)$ is added, so $\uu_P=\ub$
       exactly, independently of the size of $b_P$.
 \item \emph{Pressure.} The diagonal $-\bar a$, with $\bar a$ the mean magnitude of the
-      diagonal over the non-solid cells, and a zero source, so $p_P=0$.
+      diagonal over the non-solid cells, and a zero source, so $p_P=0$. The diagonal includes
+      the coefficients of coupled faces, which OpenFOAM keeps apart from it: $\bar a$ enters
+      the normalisation of the solver residual, which must not depend on the decomposition.
 \end{itemize}
 Neither value affects the fluid. The coefficient of the momentum row matters only for the
 rate at which an iterative solver converges; its size makes the solid rows neither dominate nor
@@ -925,6 +927,17 @@ pressure $10^{-10}$; the oscillating cylinder with and without linking, $10^{-12
 scalar, wall flux $10^{-11}$; an inclined wall-function channel with a link over the cyclic and
 all its wall-law samples on other processors, $2\times10^{-9}$ (residual control); the
 wall-law samples of a NACA~0012 identical on 1, 4 and 8 ranks.
+
+Steady runs reach the same solution only as far as they are converged, and a link across a
+processor face converges slowly in parallel: its penalty is a stiff coupling that the
+agglomeration of GAMG cannot merge across processors (one pressure solve to $10^{-15}$: 164
+iterations serial, more than 3000 on 8 ranks). With an absolute pressure tolerance the
+pressure solve stops before that mode is resolved, so the forces of a converged NACA~0012
+(wall functions, 175k cells) differ by $10^{-6}$ (lift) between 1, 8 and 16 ranks after
+20000 iterations, while one iteration from the same state with the pressure solved to
+$10^{-17}$ by PCG gives the same pressure to $4\times10^{-11}$ and velocity to $10^{-10}$:
+the discretisation is independent of the decomposition, the residual difference is the
+iteration.
 
 \section{Moving bodies}
 \label{sec:moving}

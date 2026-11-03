@@ -554,3 +554,47 @@ The flux fix is a small gain on the airfoil: the L5 spread is wall resolution, n
 L7 the linked/unlinked spread is 0.06 %, the viscous drag is within 0.03 % of 897 (was +0.4–0.6 %),
 and the remaining +0.64 % is pressure drag (+2.9–3.5 %, up from +1.0–2.0 %): the first-order
 cut-cell pressure above, now no longer partly cancelled by the viscous error. C_l +0.25 %.
+
+## 12. Linking by default, SA-neg, parallel (2026-11-03)
+
+Linking is the default and independent of the decomposition (`doc/linkingPlan.md`, Status;
+`cutCellIBM.tex`, "Cell linking"). Consequences for the turbulence cases:
+
+**Flow-rate forcing with linked cells** (8aebbce). `ibmMeanVelocityForce` corrected every cell
+by rAU·α·ΔG. That correction is not uniform within a group, so it broke the group-uniform
+velocity that the pressure corrector produces. The 45° wall-function channel then had a U
+residual floor of 1e-9 and GAMG hit maxIter every iteration. The response is now the group mean
+(floor 2e-12; cylinderRe1 linked: same drag, 1565 instead of 2145 iterations).
+
+**Inclined wall-function channel, rerun** (tables: `runs/ibmSA_study/linkC/inc/table.txt`).
+Unlinked runs are unchanged. Linked runs have errors of the same size as before (n56,
+tan α = 1/4: u_τ +7.06 % against +6.26 %). The conclusions of §8 stand.
+
+**SA-neg** (e99057b; Allmaras, Johnson & Spalart, ICCFD7-1902, 2012), switch
+`ibmSpalartAllmarasCoeffs { negativeNuTilda true; }` (default).
+- Problem: in the NACA 0012 wall-function case, ν̃ undershot in about 95 full cells at the edge
+  of the far wake (x = 3–33 c) every iteration. bound() clipped them, so the ν̃ residual
+  stalled at 2e-5 and the run never reached a fixed point. Serial and parallel could only
+  agree to the drift (1.4e-4 in drag).
+- Where ν̃ < 0:
+  - production C_b1 (1 − C_t3) Ω ν̃;
+  - destruction −C_w1 (ν̃/d)²;
+  - diffusivity (ν + f_n ν̃)/σ, with f_n = (C_n1 + χ³)/(C_n1 − χ³);
+  - ν_t = 0, and no clipping.
+- Where ν̃ ≥ 0, every term is the standard one to the bit.
+- Effect on existing cases: a channel without undershoot is byte-identical with the switch on or
+  off; a channel that clipped once differs by 1e-11.
+- NACA h2 wall functions, linked, 175k cells (`runs/ibmSA_study/linkC/nacaneg`): converges by
+  residual control (p 1e-7) in about 3600 iterations; ν̃ residual 4e-10.
+  - Serial / scotch 8 / scotch 16: F_y 1.617871e-3 / 1.617842e-3 / 1.617849e-3; F_x
+    −2.16692e-5 / −2.16622e-5 / −2.16680e-5.
+  - Restarted with residual control 1e-11/1e-12 and run to 20000 iterations, the gap shrinks
+    (F_y 2.8e-7 / 1.1e-6, F_x 4e-6 relative) and is still closing in the parallel runs.
+  - Why the gap: one iteration from the same state, with all equations solved to round-off
+    (pressure by PCG to 1e-17), gives the same p to 4e-11 and U to 1e-10. So the
+    discretisation is independent of the decomposition, and the gap is convergence. A link over
+    a processor face is a stiff mode that parallel GAMG reduces slowly, and with an absolute
+    p tolerance (1e-10) the pressure solve stops before it is resolved.
+  - A real decomposition dependence found on the way and fixed (b81d779): the solid-row
+    diagonal of the pressure matrix (only the residual normalisation) lacked the coupled-face
+    coefficients.

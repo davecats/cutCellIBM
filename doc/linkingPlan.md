@@ -20,7 +20,8 @@ build with `./Allwmake`. OpenFOAM sources: `/opt/OpenFOAM/OpenFOAM-v2106_prf/src
 
 ## Status (2026-11-03, executed)
 
-Commits: 5baba93 (A), 7f50469 (B core), a3c5c06 (B6), 0fe162c (C1). Nothing pushed.
+Commits: 5baba93 (A), 7f50469 (B core), a3c5c06 (B6), 0fe162c (C1), 5300cfc (C3 docs), 8aebbce
+(flow-rate forcing), e99057b (SA-neg), b81d779 (solid-row diagonal). Nothing pushed.
 
 **Phase A** (5baba93): A1 scalar linked (`ibm_.linkCells(TEqn)` after `relax()`, before the
 fvOptions constraints, as ν̃: the constraints must see the linked row); A2 fluid cells with no
@@ -76,9 +77,25 @@ inside a group (only link faces are internal to the merged CV, as before).
 and generators updated. Group wall distance of alpha-field bodies fixed (it averaged the
 meaningless distances of non-wall cells; cylinderRe1_alphaField 0.649 → 0.705, level set 0.7195).
 All 22 tutorials run; first-order drags change, e.g. cylinderRe1 0.6988 → 0.7195 (+3.0 %; the
-second-order Richardson limit is about 0.7205). Reruns in progress / pending: Richardson drag
-(runs/ibmSA_study/rich_linkC), inclined channel (scratchpad inc/c1), NACA WF serial vs scotch 8,
-TC series, NACA L5–L7.
+second-order Richardson limit is about 0.7205).
+
+**C2 reruns** (details in `doc/secondOrderStudy.md`, "Linking by default", and
+`doc/iddesPlan.md` §12):
+- Richardson drag: no-slip first order is much closer to the limit (0.1 % at N = 161 instead of
+  1.6 %) but not monotone; no-slip second order is unchanged.
+- Free-slip drag is 1–3 % lower than unlinked with both treatments and still rising at N = 321.
+  **Open point.**
+- TC second order: inner cut-cell rms 3.98e-3 at N = 320 (old default 9.40e-3).
+- TC first order: the cut cells do not converge (rms about 0.30), and the first full layer is
+  about 3× worse than unlinked. **Open point**, first order only.
+- Inclined wall-function channel: linked errors of the same size as before; unlinked unchanged.
+- The ibmMeanVelocityForce correction had to become group-uniform (8aebbce).
+- NACA wall functions serial vs scotch 8/16 needed SA-neg (e99057b) to converge at all. Converged,
+  the forces agree to 1e-6, limited by the iteration. One exact iteration from the same state:
+  p 4e-11, U 1e-10.
+- That test found the solid-row diagonal of the pressure matrix taken without the coupled-face
+  coefficients (b81d779; it changes only the residual normalisation).
+- NACA L5–L7 wall-resolved: see below.
 
 ## Why (results that led here)
 

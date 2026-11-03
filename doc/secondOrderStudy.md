@@ -620,3 +620,37 @@ and of continuity) and `validation/taylorCouette_truncation.py`.
    (oscillating cylinder, linked second order the smoothest force history), the free stream past
    a translating cylinder stays uniform to 1e-13, and the linked cylinder on 4 processors equals
    serial to 5e-7 (data file, last blocks).
+
+## Linking by default (2026-11-03)
+
+Linking is the default since commit 0fe162c (mergeAlpha 0.5, α_min 0: no sliver absorption; see
+`doc/linkingPlan.md`). Reruns with the default, data in
+`validation/data/secondOrder/richardson.txt` (last block; runs in `runs/ibmSA_study/linkC/rich`).
+
+**Richardson drag** (periodic cylinder, Re_D = 1; before = unlinked, α_min 0.02, after the
+second-order continuity flux; N = 321 stopped at 8000 iterations, the others converged):
+
+| wall | treatment | N = 41 | 81 | 161 | 321 | before (41 / 81 / 161 / 321) |
+|---|---|---|---|---|---|---|
+| no slip | first | 5.6985 | 5.8281 | 5.8181 | 5.8362 | 5.5431 / 5.6604 / 5.7577 / 5.7952 |
+| no slip | second | 5.7725 | 5.8170 | 5.8318 | 5.8351 | 5.7839 / 5.8206 / 5.8319 / 5.8350 |
+| free slip | first | 2.7550 | 2.8717 | 2.9749 | 3.0070 | 2.8377 / 2.9421 / 3.0004 / 3.0354 |
+| free slip | second | 2.8393 | 2.9153 | 2.9877 | 3.0113 | 2.8853 / 2.9668 / 3.0155 / 3.0502 |
+
+- No slip, first order: much closer to the limit (≈ 5.836) from N = 81 on (0.1 % instead of
+  1.6 % at N = 161), but not monotone, so no order can be quoted.
+- No slip, second order: unchanged within 2e-4 from N = 81 on (orders 1.6 / 2.2).
+- Free slip: 1–3 % lower than unlinked at every N with both treatments, and still rising at
+  N = 321 (increments 0.032 / 0.024 against 0.035 / 0.035 before). The limit is not known well
+  enough to tell which series is closer. **Open point.**
+
+**Taylor–Couette** (`tutorials/order/taylorCouette`, default linking), inner-wall cut-cell
+pressure:
+- Second order: rms 1.29e-2 / 6.53e-3 / 3.98e-3 at N = 80 / 160 / 320 (the linked
+  α_min 1e-9 row of the table in the previous section; the old default, unlinked α_min 0.02,
+  had 9.40e-3 at N = 320). Outer wall max 1.8e-4.
+- First order: cut-cell rms about 0.30, not converging (max 0.66 against 1.16 unlinked). The
+  outer-wall error halves. The first full layer at the inner wall (which holds the masters) is
+  about 3× worse than unlinked (rms 0.21 against 0.07). Not investigated; a likely cause is
+  that at first order the group value sits at the master's centre, an O(h) shift that the
+  second-order group value point removes.
