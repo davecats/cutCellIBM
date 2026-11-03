@@ -173,6 +173,10 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     wallCellSize_(),
     sampleCell_(),
     sampleDist_(),
+    sampleSlot_(),
+    nSampleSlots_(0),
+    sampleSendCells_(),
+    sampleRecvSlots_(),
     wallSamplesDone_(false),
     mergeAlpha_(getOrDefault<scalar>("mergeAlpha", 0)),
     mergePenalty_(getOrDefault<scalar>("mergePenalty", 1e4)),
@@ -2462,5 +2466,31 @@ void Foam::cutCellGeometry::writeGeometryFields() const
         }
         role.write();
         master.write();
+    }
+
+    // Wall-law samples, comparable between decompositions: the distance of
+    // the sample from the wall (0: the wall cell samples itself)
+    bool wallFunctions = false;
+    forAll(bodies_, bodyi)
+    {
+        if (bodies_[bodyi].wallFunction() != ibmBody::NOWALLFUNCTION)
+        {
+            wallFunctions = true;
+        }
+    }
+    if (wallFunctions && wallSampleDistance_ > 0)
+    {
+        if (!wallSamplesDone_)
+        {
+            calcWallSamples();
+        }
+        volScalarField sample
+        (
+            IOobject("ibmWallSampleDist", mesh_.time().timeName(), mesh_),
+            mesh_,
+            dimensionedScalar(dimLength, Zero)
+        );
+        sample.primitiveFieldRef() = sampleDist_;
+        sample.write();
     }
 }

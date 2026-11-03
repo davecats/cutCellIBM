@@ -5,6 +5,8 @@
 #include "cutCellGeometry.H"
 #include "DynamicField.H"
 #include "cyclicPolyPatch.H"
+#include "globalIndex.H"
+#include "PstreamBuffers.H"
 
 namespace
 {
@@ -50,10 +52,9 @@ Foam::scalar saUPlus(const Foam::scalar Rey)
 
 Foam::scalar Foam::cutCellGeometry::wallFunctionUTau
 (
-    const volVectorField& U,
+    const vector& Us,
     const volScalarField& nu,
     const label celli,
-    const label samplei,
     const scalar y
 ) const
 {
@@ -70,7 +71,7 @@ Foam::scalar Foam::cutCellGeometry::wallFunctionUTau
 
     // Tangential slip of the sample along the wall of the cell
     const vector n(Sw_[celli]/max(Awall_[celli], VSMALL));
-    vector slip(U[samplei]);
+    vector slip(Us);
     if (moving_)
     {
         slip -= UbPtr_()[celli];
@@ -91,6 +92,16 @@ void Foam::cutCellGeometry::calcWallSamples() const
     sampleCell_ = -1;
     sampleDist_.setSize(nCells);
     sampleDist_ = 0;
+    sampleSlot_.setSize(nCells);
+    sampleSlot_ = -1;
+    nSampleSlots_ = 0;
+    sampleSendCells_.setSize(Pstream::nProcs());
+    sampleRecvSlots_.setSize(Pstream::nProcs());
+    forAll(sampleSendCells_, proci)
+    {
+        sampleSendCells_[proci].clear();
+        sampleRecvSlots_[proci].clear();
+    }
 
     // Extent of the (whole) wall cell along the wall normal, V over its
     // projected area: the resolution of the wall-normal gradients
@@ -123,6 +134,11 @@ void Foam::cutCellGeometry::calcWallSamples() const
         }
     }
 
+    // The point searches below run on some processors only: build the
+    // search structures, whose construction communicates, on all of them
+    (void)mesh_.tetBasePtIs();
+    (void)mesh_.cellTree();
+
     // Sample point: wallSampleDistance h from the wall along the normal of
     // the wall cell, through its fluid centroid
     const pointField xc(fluidCentroids());
@@ -139,11 +155,13 @@ void Foam::cutCellGeometry::calcWallSamples() const
 
     // The cell holding it: its value sits at its fluid centroid, or at the
     // merged centroid for a linked cell. A sample in the wall cell's own
-    // group (or in the solid, or on another processor) leaves the wall
-    // cell sampling itself.
+    // group (or in the solid) leaves the wall cell sampling itself. The
+    // group key is global (the group, or the global cell index), the same
+    // on every processor.
+    const globalIndex cellIndex(nCells);
     auto group = [&](const label c)
     {
-        return (linkGroup_[c] >= 0) ? linkGroup_[c] : -1 - c;
+        return (linkGroup_[c] >= 0) ? linkGroup_[c] : -1 - cellIndex.toGlobal(c);
     };
     // Separations of the translational cyclics: a sample beyond one is
     // looked for in the periodic image
@@ -187,9 +205,24 @@ void Foam::cutCellGeometry::calcWallSamples() const
         return mesh_.findCell(p);
     };
 
+    // The cell of this processor holding a point, also in the periodic
+    // images
+    auto findLocal = [&](const point& xs)
+    {
+        label s = mesh_.findCell(xs);
+        for (label k = 0; s < 0 && k < separations.size(); ++k)
+        {
+            s = mesh_.findCell(xs + separations[k]);
+            if (s < 0) s = mesh_.findCell(xs - separations[k]);
+        }
+        return s;
+    };
+
     label nMissed = 0;
     DynamicList<label> found;
     DynamicField<point> pts;
+    DynamicList<label> queryCells;
+    DynamicField<point> queryPts;
     forAll(cells, i)
     {
         const label celli = cells[i];
@@ -204,7 +237,13 @@ void Foam::cutCellGeometry::calcWallSamples() const
             s = mesh_.findCell(xs + separations[k]);
             if (s < 0) s = mesh_.findCell(xs - separations[k]);
         }
-        if (s < 0 || alpha_[s] <= 0)
+        if (s < 0 && Pstream::parRun())
+        {
+            // On another processor (or outside the domain)
+            queryCells.append(celli);
+            queryPts.append(xs);
+        }
+        else if (s < 0 || alpha_[s] <= 0)
         {
             ++nMissed;
         }
@@ -223,13 +262,164 @@ void Foam::cutCellGeometry::calcWallSamples() const
         sampleDist_[found[i]] = (linkWallDist_[s] > 0) ? linkWallDist_[s] : ds[i];
     }
 
+    // Samples on other processors: every processor looks for the points the
+    // others did not find, the lowest processor holding a point answers
+    // with its cell, whether it is fluid, its group key and the distance of
+    // its value point from the wall; the values are exchanged in wallLaw
+    label nRemote = 0;
+    if (Pstream::parRun())
+    {
+        const label nProcs = Pstream::nProcs();
+        const label myProc = Pstream::myProcNo();
+        List<pointField> allQueries(nProcs);
+        {
+            PstreamBuffers toAll(Pstream::commsTypes::nonBlocking);
+            if (queryPts.size())
+            {
+                for (label proci = 0; proci < nProcs; ++proci)
+                {
+                    if (proci == myProc) continue;
+                    UOPstream os(proci, toAll);
+                    os << pointField(queryPts);
+                }
+            }
+            labelList recvSizes;
+            toAll.finishedSends(recvSizes);
+            forAll(recvSizes, proci)
+            {
+                if (proci == myProc || !recvSizes[proci]) continue;
+                UIPstream is(proci, toAll);
+                is >> allQueries[proci];
+            }
+        }
+
+        // (the wall distance of all the hits in one call: the level set
+        // of a surface body may communicate)
+        List<labelList> cellOf(nProcs);
+        List<labelList> keyOf(nProcs);
+        List<boolList> fluid(nProcs);
+        DynamicList<labelPair> hits;
+        DynamicField<point> hitPts;
+        for (label proci = 0; proci < nProcs; ++proci)
+        {
+            if (proci == myProc) continue;
+            const pointField& q = allQueries[proci];
+            cellOf[proci].setSize(q.size(), -1);
+            keyOf[proci].setSize(q.size(), 0);
+            fluid[proci].setSize(q.size(), false);
+            forAll(q, k)
+            {
+                const label s = findLocal(q[k]);
+                cellOf[proci][k] = s;
+                if (s < 0) continue;
+                keyOf[proci][k] = group(s);
+                fluid[proci][k] = alpha_[s] > 0;
+                hits.append(labelPair(proci, k));
+                hitPts.append(xc[s]);
+            }
+        }
+        scalarField dHit;
+        wallDistance(hitPts, dHit);
+        List<scalarField> distOf(nProcs);
+        forAll(distOf, proci)
+        {
+            distOf[proci].setSize(cellOf[proci].size(), 0);
+        }
+        forAll(hits, j)
+        {
+            const label proci = hits[j].first(), k = hits[j].second();
+            const label s = cellOf[proci][k];
+            distOf[proci][k] = (linkWallDist_[s] > 0) ? linkWallDist_[s] : dHit[j];
+        }
+
+        PstreamBuffers answers(Pstream::commsTypes::nonBlocking);
+        for (label proci = 0; proci < nProcs; ++proci)
+        {
+            if (proci == myProc || allQueries[proci].empty()) continue;
+            UOPstream os(proci, answers);
+            os << cellOf[proci] << keyOf[proci] << fluid[proci] << distOf[proci];
+        }
+        labelList recvSizes;
+        answers.finishedSends(recvSizes);
+
+        // The lowest processor that holds the point
+        labelList fromProc(queryCells.size(), -1);
+        labelList remoteCell(queryCells.size(), -1);
+        for (label proci = 0; proci < nProcs; ++proci)
+        {
+            if (proci == myProc || !recvSizes[proci]) continue;
+            UIPstream is(proci, answers);
+            const labelList cellOf(is);
+            const labelList keyOf(is);
+            const boolList fluid(is);
+            const scalarField distOf(is);
+            forAll(queryCells, k)
+            {
+                if (fromProc[k] >= 0 || cellOf[k] < 0) continue;
+                fromProc[k] = proci;
+                const label celli = queryCells[k];
+                if (!fluid[k])
+                {
+                    remoteCell[k] = -2;
+                }
+                else if (keyOf[k] != group(celli))
+                {
+                    remoteCell[k] = cellOf[k];
+                    sampleDist_[celli] = distOf[k];
+                }
+            }
+        }
+
+        List<DynamicList<label>> request(nProcs);
+        List<DynamicList<label>> slots(nProcs);
+        forAll(queryCells, k)
+        {
+            if (fromProc[k] < 0 || remoteCell[k] == -2)
+            {
+                ++nMissed;
+            }
+            else if (remoteCell[k] >= 0)
+            {
+                sampleSlot_[queryCells[k]] = nSampleSlots_;
+                request[fromProc[k]].append(remoteCell[k]);
+                slots[fromProc[k]].append(nSampleSlots_);
+                ++nSampleSlots_;
+            }
+        }
+        nRemote = nSampleSlots_;
+
+        PstreamBuffers requests(Pstream::commsTypes::nonBlocking);
+        forAll(request, proci)
+        {
+            if (request[proci].size())
+            {
+                UOPstream os(proci, requests);
+                os << labelList(request[proci]);
+            }
+            sampleRecvSlots_[proci].transfer(slots[proci]);
+        }
+        requests.finishedSends(recvSizes);
+        forAll(recvSizes, proci)
+        {
+            if (proci == myProc || !recvSizes[proci]) continue;
+            UIPstream is(proci, requests);
+            sampleSendCells_[proci] = labelList(is);
+        }
+    }
+
     Info<< "    wall-law samples at " << wallSampleDistance_ << " h: "
-        << returnReduce(found.size(), sumOp<label>()) << " wall cells";
+        << returnReduce(found.size() + nRemote, sumOp<label>())
+        << " wall cells";
+    reduce(nRemote, sumOp<label>());
+    if (nRemote > 0)
+    {
+        Info<< " (" << nRemote << " on another processor)";
+    }
     reduce(nMissed, sumOp<label>());
     if (nMissed > 0)
     {
         Info<< ", " << nMissed << " sample themselves (sample in the solid "
-            << "or on another processor)";
+            << "or outside the domain)";
     }
     Info<< endl;
 }
@@ -256,15 +446,48 @@ void Foam::cutCellGeometry::wallLaw
         calcWallSamples();
     }
 
+    // Velocities of the samples on other processors
+    vectorField Uremote(nSampleSlots_, Zero);
+    if (Pstream::parRun())
+    {
+        PstreamBuffers pBufs(Pstream::commsTypes::nonBlocking);
+        forAll(sampleSendCells_, proci)
+        {
+            if (sampleSendCells_[proci].size())
+            {
+                UOPstream os(proci, pBufs);
+                os << vectorField
+                (
+                    UIndirectList<vector>(U.primitiveField(), sampleSendCells_[proci])
+                );
+            }
+        }
+        pBufs.finishedSends();
+        forAll(sampleRecvSlots_, proci)
+        {
+            if (sampleRecvSlots_[proci].size())
+            {
+                UIPstream is(proci, pBufs);
+                const vectorField v(is);
+                UIndirectList<vector>(Uremote, sampleRecvSlots_[proci]) = v;
+            }
+        }
+    }
+
     for (const label celli : wallCells_)
     {
         const label s = sampleCell_[celli];
+        const label slot = sampleSlot_[celli];
+        const bool sampled = (s >= 0 || slot >= 0);
         const scalar utCell =
-            wallFunctionUTau(U, nu, celli, celli, dWall_[celli]);
+            wallFunctionUTau(U[celli], nu, celli, dWall_[celli]);
         const scalar utSample =
-            (s < 0)
+            !sampled
           ? utCell
-          : wallFunctionUTau(U, nu, celli, s, sampleDist_[celli]);
+          : wallFunctionUTau
+            (
+                (s >= 0) ? U[s] : Uremote[slot], nu, celli, sampleDist_[celli]
+            );
         if (utSample <= 0) continue;
 
         const scalar x = min
@@ -280,7 +503,7 @@ void Foam::cutCellGeometry::wallLaw
         const scalar w = sqr(x)*(3 - 2*x);
         weight[celli] = w;
         uTau[celli] =
-            (s < 0 || w <= 0)
+            (!sampled || w <= 0)
           ? utCell
           : ::sqrt((1 - w)*sqr(utCell) + w*sqr(utSample));
     }

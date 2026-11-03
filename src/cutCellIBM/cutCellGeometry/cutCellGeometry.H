@@ -244,10 +244,18 @@ class cutCellGeometry
         mutable scalarField wallCellSize_;
 
         //- Cell whose value samples the wall law of every wall cell (-1:
-        //  the wall cell itself), and the distance of its fluid centroid
-        //  from the wall
+        //  the wall cell itself or a sample on another processor), and the
+        //  distance of its fluid centroid from the wall
         mutable labelList sampleCell_;
         mutable scalarField sampleDist_;
+
+        //- Samples on other processors: the slot of every wall cell (-1:
+        //  none), and per processor the local cells whose values go there
+        //  and the slots that receive values from there
+        mutable labelList sampleSlot_;
+        mutable label nSampleSlots_;
+        mutable labelListList sampleSendCells_;
+        mutable labelListList sampleRecvSlots_;
 
         //- Whether the above belong to the current geometry
         mutable bool wallSamplesDone_;
@@ -380,15 +388,14 @@ class cutCellGeometry
         void groupSum(UList<Type>& f) const;
 
         //- u_tau of a wall cell from the SA law of the wall with the
-        //  tangential slip (along the cell's wall) of the sample cell at
-        //  the distance y: the cell itself at dWall, or sampleCell_ at
-        //  sampleDist_; 0 if the cell has no wall function
+        //  tangential slip (along the cell's wall) of the sample velocity
+        //  Us at the distance y: the cell itself at dWall, or the sample
+        //  at sampleDist_; 0 if the cell has no wall function
         scalar wallFunctionUTau
         (
-            const volVectorField& U,
+            const vector& Us,
             const volScalarField& nu,
             const label celli,
-            const label samplei,
             const scalar y
         ) const;
 
