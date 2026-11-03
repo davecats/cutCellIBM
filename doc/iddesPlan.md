@@ -498,7 +498,8 @@ Taylor–Couette, second order, bulk L2 velocity error (N = 40 / 80 / 160 / 320)
 
 Open: at N 320 the linked error near the rotating inner wall (5.9e-5 at r 0.65 against 2.3e-5
 unlinked) decays into the gap; mid-gap both are 1.2e-5. Something in the moving-wall treatment
-of groups is still first order; it does not affect static walls.
+of groups is still first order; it does not affect static walls. (Resolved in §11: it was the
+continuity flux, and it is not specific to moving walls.)
 
 NACA 0012, α = 3°, wall-resolved, C_d against 897 SIMPLEC:
 
@@ -515,3 +516,38 @@ from L6 to L7. Its source (outer Cartesian resolution, far field, wall distance 
 identified; the 449/897 body-fitted pair differs by 0.03 % in C_d and 0.36 % in C_l. On these grids
 the linking change itself moves C_d by −0.25 / −0.2 / −0.1 points: the linked first-order error on
 the airfoil was mostly resolution, the gain is the vanishing linked/unlinked spread.
+
+## 11. Second-order continuity flux (2026-11-02)
+
+Details and tables: `doc/secondOrderStudy.md`, "Fix of 2026-11-02".
+
+**Cause of the remaining linked error.** `ibm.flux()` (continuity flux of `phiHbyA`, initial φ,
+`ddtCorr`) was the linear interpolate at m_f, without the g_f·(x'_f − m_f) correction that every
+other face value has. A first-order flux on every cut face; for linked cells, whose value point
+is far from the group's faces, large and systematic. Diagnosis: with the outer cylinder rotating
+the excess appeared at both walls (not the moving wall); at Ω = 10⁻³ all errors scaled by 10⁻³
+(a Stokes error, not convection); scalar Dirichlet tests with linking were second order
+(`ibmOrderTest` now links). Ruled out first, without effect: limiting the moving-wall point to the
+group box, the level-set distance of the group centroid, a quadratic group fit.
+
+Taylor–Couette at N 320: bulk 1.94e-5 (unlinked) / 1.80e-5 (linked), both of order 2.1; cut cells
+1.7e-5 / 2.7e-5 (were 9.6e-5 / 1.5e-4); the wall gradient and the cut-cell pressure now converge
+(pressure L2 3.5e-3 → 5.1e-4 unlinked, 7.1e-3 → 4.5e-4 linked). Parallel = serial to 1.4e-8.
+All second-order results change; first order is unchanged.
+
+**Still first order: the cut-cell pressure, hence the forces.** Cut-cell pressures scatter by
+about h·∂p/∂r (a viscous error: it scales with Ω, not Ω²), only their mean converges, at first
+order. Cylinder drag: pressure part orders 0.8–0.95, free slip 1.0–1.1 once sliver absorption is
+switched off (α_min = 0.02 absorbs eight cells at N = 161 and 321 only, which moves the free-slip
+drag by up to 0.9 %). Remedies, not started: an O(h)-truncation (quadratic) viscous flux in
+the cut cells, or a wall pressure fitted on full cells.
+
+NACA 0012 wall-resolved, second order, C_d against 897 SIMPLEC (wr5, SIMPLE as wr4):
+
+| level | linked, before → now | unlinked, before → now |
+|---|---|---|
+| L5 | +5.50 → +5.28 % | +2.88 → +2.76 % |
+| L6 | +1.35 → +1.26 % | +0.87 → +0.83 % |
+| L7 | +0.74 → (running) | +0.65 → (running) |
+
+The flux fix is a small gain on the airfoil: the L5 spread is wall resolution, not the flux.

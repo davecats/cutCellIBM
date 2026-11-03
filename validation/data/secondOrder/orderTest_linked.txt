@@ -1,0 +1,10 @@
+# ibmOrderTest with linking (mergeAlpha 0.5) vs unlinked, secondOrder true, L2 (order) at N 20..320
+CD mergeAlpha 0    20 4.06e-03 40 1.19e-03(1.76) 80 3.11e-04(1.94) 160 7.84e-05(1.99) 320 1.99e-05(1.98)
+CD mergeAlpha 0.5  20 3.80e-03 40 9.53e-04(2.00) 80 2.50e-04(1.93) 160 6.05e-05(2.05) 320 1.47e-05(2.04)
+LD mergeAlpha 0    20 1.55e-03 40 4.09e-04(1.92) 80 9.81e-05(2.06) 160 2.31e-05(2.09) 320 5.52e-06(2.07)
+LD mergeAlpha 0.5  20 1.26e-03 40 2.90e-04(2.12) 80 6.65e-05(2.13) 160 1.51e-05(2.14) 320 3.19e-06(2.24)
+LN mergeAlpha 0    20 3.14e-03 40 7.41e-04(2.08) 80 1.48e-04(2.33) 160 2.66e-05(2.47) 320 6.44e-06(2.05)
+LN mergeAlpha 0.5  20 5.57e-03 40 1.90e-03(1.55) 80 4.12e-04(2.20) 160 1.54e-04(1.42) 320 3.58e-05(2.10)
+# linked Neumann (LN) loses accuracy through the one-sided linear lsq gradient of the groups (exact
+# gradients: 1.52e-4 / 5.12e-5 / 9.92e-6 at N 80/160/320; a quadratic group fit halves the error);
+# it does not carry over to the flow (Taylor-Couette unchanged with the quadratic fit), not adopted.

@@ -29,3 +29,42 @@ unlinked N160        2.22e-04 1.08e-04 8.49e-05 7.50e-05 6.72e-05 6.01e-05 5.34e
 unlinked N320        8.96e-05 2.26e-05 1.68e-05 1.52e-05 1.40e-05 1.29e-05 1.21e-05 1.13e-05 1.05e-05 1.96e-05   5.280e-04 at r=0.508 th=24
 linked new N160      4.62e-04 1.26e-04 8.72e-05 6.43e-05 5.11e-05 4.50e-05 4.39e-05 4.62e-05 5.08e-05 9.67e-05   1.325e-03 at r=0.506 th=167
 linked new N320      1.53e-04 5.95e-05 4.07e-05 2.78e-05 1.85e-05 1.26e-05 1.16e-05 1.48e-05 1.96e-05 3.87e-05   7.109e-04 at r=0.511 th=82
+# --- second-order continuity flux (2026-11-02, later): ibm.flux adds g_f.(x'_f - m_f) as the other
+# face values do; before, the flux of a cut face was the linear interpolate at m_f (first order)
+variant                     N     L2 all   ord     L2 cut   ord    L2 bulk   ord  wall grad   ord
+secondOrder true, mergeAlpha 0   40  1.201e-03        8.375e-04        1.205e-03        1.629e-02      
+                           80  3.200e-04  1.91  2.450e-04  1.77  3.159e-04  1.93  7.719e-03  1.08
+                          160  8.250e-05  1.96  6.027e-05  2.02  8.042e-05  1.97  3.862e-03  1.00
+                          320  1.989e-05  2.05  1.690e-05  1.83  1.944e-05  2.05  2.291e-03  0.75
+secondOrder true, mergeAlpha 0.5   40  1.231e-03        1.220e-03        1.146e-03        1.744e-02      
+                           80  3.467e-04  1.83  4.330e-04  1.49  3.251e-04  1.82  1.123e-02  0.64
+                          160  8.397e-05  2.05  1.266e-04  1.77  7.890e-05  2.04  6.107e-03  0.88
+                          320  1.860e-05  2.17  2.715e-05  2.22  1.796e-05  2.14  2.818e-03  1.12
+# pressure (validation/taylorCouette_pressureError.py), before -> after
+case                              L2     0.55     0.65     0.75     0.85     0.95     1.05     1.15     1.25     1.35     1.45
+before sotrue_m0_N160       5.13e-03  3.0e-02  4.9e-04  2.7e-04  1.8e-04  1.4e-04  1.2e-04  1.3e-04  1.6e-04  2.0e-04  7.1e-03
+before sotrue_m0_N320       3.54e-03  2.9e-02  2.1e-04  9.4e-05  5.6e-05  4.1e-05  3.6e-05  3.7e-05  4.4e-05  5.7e-05  4.4e-03
+before sotrue_m0.5_N160     1.15e-02  5.2e-02  7.9e-04  2.5e-04  9.9e-05  6.1e-05  6.2e-05  8.0e-05  1.1e-04  1.7e-04  1.1e-02
+before sotrue_m0.5_N320     7.08e-03  3.3e-02  3.8e-04  1.1e-04  4.3e-05  2.1e-05  1.9e-05  2.8e-05  4.5e-05  7.7e-05  7.5e-03
+after  sotrue_m0_N160        9.13e-04  5.7e-03  6.7e-04  3.8e-04  2.5e-04  1.8e-04  1.5e-04  1.4e-04  1.6e-04  1.8e-04  4.4e-04
+after  sotrue_m0_N320        5.08e-04  3.0e-03  1.8e-04  1.0e-04  6.7e-05  4.8e-05  4.0e-05  3.8e-05  4.1e-05  4.8e-05  2.9e-04
+after  sotrue_m0.5_N160      9.19e-04  4.2e-03  5.5e-04  3.0e-04  1.9e-04  1.4e-04  1.2e-04  1.2e-04  1.3e-04  1.5e-04  3.2e-04
+after  sotrue_m0.5_N320      4.50e-04  2.1e-03  1.9e-04  1.0e-04  6.4e-05  4.6e-05  3.8e-05  3.6e-05  3.9e-05  4.6e-05  2.0e-04
+# 4 processors (scotch) vs serial, N 80 linked: max |dU| 1.4e-8
+# diagnosis runs (scratch): outer cylinder rotating instead -> linked excess at both walls (not the
+# moving wall); Omega 1e-3 -> all errors x 1e-3 exactly (Stokes error, not convection)
+# pressure error by cell class after the flux fix (unlinked; mean of the bulk removed; bulk = alpha 1 and > 3h
+# from the walls; cut = 0 < alpha < 1; l1/l2 = full cells within 1.5h / 1.5-2.5h of the wall); Omega 1, then
+# Omega 1e-3 (inner cylinder): every entry x1e-3, the mean x1e-6 -> viscous (Stokes) error
+Omega 1                  N  40 bulk 3.00e-03 | inner cut 3.80e-02 mean +2.9e-03 l1 1.47e-02 l2 1.30e-02 | outer cut 4.75e-03 mean -8.4e-05 l1 3.35e-03 l2 2.64e-03
+Omega 1                  N  80 bulk 1.07e-03 | inner cut 1.67e-02 mean +1.6e-03 l1 4.88e-03 l2 5.72e-03 | outer cut 1.68e-03 mean -3.5e-05 l1 1.00e-03 l2 7.90e-04
+Omega 1                  N 160 bulk 3.12e-04 | inner cut 1.35e-02 mean +9.0e-04 l1 2.28e-03 l2 2.27e-03 | outer cut 8.72e-04 mean -9.0e-06 l1 2.93e-04 l2 2.01e-04
+Omega 1                  N 320 bulk 1.01e-04 | inner cut 9.40e-03 mean +5.7e-04 l1 1.75e-03 l2 8.45e-04 | outer cut 8.59e-04 mean -2.7e-06 l1 1.93e-04 l2 7.76e-05
+Om 1e-3                 N  80 bulk 1.07e-06 | inner cut 1.65e-05 mean +1.6e-09 l1 4.82e-06 l2 5.71e-06 | outer cut 1.68e-06 mean -3.5e-11 l1 1.00e-06 l2 7.87e-07
+Om 1e-3                 N 160 bulk 3.11e-07 | inner cut 1.34e-05 mean +9.0e-10 l1 2.23e-06 l2 2.26e-06 | outer cut 8.72e-07 mean -9.0e-12 l1 2.92e-07 l2 2.00e-07
+Om 1e-3                 N 320 bulk 1.01e-07 | inner cut 9.37e-06 mean +5.7e-10 l1 1.74e-06 l2 8.21e-07 | outer cut 8.59e-07 mean -2.7e-12 l1 1.93e-07 l2 7.74e-08
+# moving-wall velocity at the closest level-set point instead of x_c + d n_chord (not kept)
+closestPt                N  40 bulk 2.92e-03 | inner cut 4.29e-02 mean +2.9e-03 l1 1.52e-02 l2 1.28e-02 | outer cut 4.69e-03 mean -8.4e-05 l1 3.29e-03 l2 2.59e-03
+closestPt                N  80 bulk 1.06e-03 | inner cut 1.66e-02 mean +1.6e-03 l1 4.83e-03 l2 5.61e-03 | outer cut 1.68e-03 mean -3.5e-05 l1 1.00e-03 l2 7.86e-04
+closestPt                N 160 bulk 3.18e-04 | inner cut 1.66e-02 mean +9.1e-04 l1 1.74e-03 l2 2.25e-03 | outer cut 8.74e-04 mean -9.3e-06 l1 2.95e-04 l2 2.03e-04
+closestPt                N 320 bulk 9.76e-05 | inner cut 1.39e-02 mean +5.7e-04 l1 1.37e-03 l2 7.50e-04 | outer cut 8.58e-04 mean -2.8e-06 l1 1.93e-04 l2 7.70e-05

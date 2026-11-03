@@ -414,3 +414,77 @@ orders are unchanged (no-slip total 1.6 then 1.9, pressure drag 0.8, free slip 0
 The forces, like the Taylor–Couette pressure, are limited by the conditioning of the cut-cell
 pressure and by the O(α_min h) displacement of sliver absorption, not by the consistency of the
 operators.
+
+## Fix of 2026-11-02: second-order continuity flux
+
+Raw records: `validation/data/secondOrder/taylorCouette_linked.txt` (velocity by cell class,
+pressure profiles), `orderTest_linked.txt`, `richardson.txt` (last block).
+
+`cutCellGeometry::flux` (the flux of `phiHbyA`, of the initial φ and of `ddtCorr`) was the
+linear interpolate θ_f ū_f·S_f, i.e. the value at m_f, while the pressure gradient, the
+convective face values and the snGrad correction all use the wet-face centroid x'_f. With
+`secondOrder` it now adds θ_f (g_f·(x'_f − m_f)) S_f per component, g_f the interpolated
+least-squares gradient (also on processor patches). The continuity flux of a cut face was
+first order; for linked cells, whose value point (the group centroid) sits far from the group's
+outer faces, the defect was large and systematic, and it is what kept linked cells first order
+after the group-centroid change (`doc/iddesPlan.md` §10). First-order runs are unaffected.
+
+Taylor–Couette, second order (L2 velocity error, order in brackets; wall gradient = rms of
+|U − U_ex|/d over the cut cells, relative to the exact wall shear):
+
+| | N | all | cut cells | bulk | wall gradient |
+|---|---|---|---|---|---|
+| unlinked, before | 160 / 320 | 8.12e-5 / 2.51e-5 | 1.38e-4 / 9.62e-5 (0.52) | 7.25e-5 / 1.78e-5 (2.03) | 1.45e-2 / 1.86e-2 |
+| linked, before | 160 / 320 | 1.22e-4 / 4.41e-5 | 3.84e-4 / 1.54e-4 | 7.43e-5 / 3.25e-5 (1.19) | 2.02e-2 / 1.73e-2 |
+| unlinked, now | 160 / 320 | 8.25e-5 / 1.99e-5 | 6.03e-5 / 1.69e-5 (1.83) | 8.04e-5 / 1.94e-5 (2.05) | 3.86e-3 / 2.29e-3 (0.75) |
+| linked, now | 160 / 320 | 8.40e-5 / 1.86e-5 | 1.27e-4 / 2.72e-5 (2.22) | 7.89e-5 / 1.80e-5 (2.14) | 6.11e-3 / 2.82e-3 (1.12) |
+
+Linked and unlinked are now equally accurate, the cut cells are second order, and the wall
+gradient converges (at first order, as a two-point estimate must). The pressure L2 at N = 320
+drops from 3.5e-3 to 5.1e-4 (unlinked) and from 7.1e-3 to 4.5e-4 (linked); in the wall bin
+(0.5 < r < 0.6) from 3e-2 to 2–3e-3, and it now converges. Four processors (scotch) and serial
+agree to 1.4e-8 in U (N = 80, linked).
+
+**What remains: the cut-cell pressure.** Pressure error by cell class (unlinked, mean of the
+bulk removed; l1 = first full layer):
+
+| N | bulk | inner cut cells, rms / mean | inner l1 | outer cut cells |
+|---|---|---|---|---|
+| 40 | 3.0e-3 | 3.8e-2 / +2.9e-3 | 1.5e-2 | 4.8e-3 |
+| 80 | 1.1e-3 | 1.7e-2 / +1.6e-3 | 4.9e-3 | 1.7e-3 |
+| 160 | 3.1e-4 | 1.4e-2 / +9.0e-4 | 2.3e-3 | 8.7e-4 |
+| 320 | 1.0e-4 | 9.4e-3 / +5.7e-4 | 1.8e-3 | 8.6e-4 |
+
+The cut-cell values scatter by about h·∂p/∂r around the exact profile (the sign varies
+around the body, and the smallest cells are not the worst); only their mean
+converges, at first order. With the inner cylinder at Ω = 10⁻³ every entry of this table is
+exactly 10⁻³ times smaller, the mean 10⁻⁶ times: the scatter is a viscous (Stokes) error that
+the cut-cell pressure absorbs, not a convective one and not the centrifugal pressure itself.
+This is the expected behaviour of an O(1) truncation error of the viscous operator in the
+cut cells: the velocity stays second order (supraconvergence), but the wall-normal part of the
+residual can only be balanced by the pressure gradient of the cut cell, an O(h) pressure error.
+Evaluating the moving-wall velocity at the closest point of the level set instead of
+x_c + d n_chord changes nothing (tested, not kept).
+
+Drag of the periodic cylinder (`validation/richardson_drag.sh`, second order), per unit depth:
+
+| wall | α_min | N = 41 | 81 | 161 | 321 | orders |
+|---|---|---|---|---|---|---|
+| no slip | 0.02 | 5.7839 | 5.8206 | 5.8319 | 5.8351 | 1.71, 1.83 |
+| no slip, pressure part | 0.02 | 2.7191 | 2.8155 | 2.8707 | 2.8993 | 0.80, 0.95 |
+| free slip | 0.02 | 2.8853 | 2.9668 | 3.0155 | 3.0502 | 0.74, 0.49 |
+| free slip | 0.002 | 2.8853 | 2.9668 | 3.0040 | 3.0220 | 1.13, 1.04 |
+| no slip | 0.002 | 5.7839 | 5.8206 | 5.8318 | 5.8350 | 1.71, 1.81 |
+
+The flux fix changes the no-slip drag by less than 1e-3 and the free-slip drag by up to 0.4 %
+(N = 41; the first-order runs reproduce the earlier values exactly). The forces remain first order through the cut-cell pressure above. The
+free-slip sequence with α_min = 0.02 was in addition distorted by sliver absorption: N = 41 and
+81 absorb no cell, N = 161 and 321 eight each, and these eight cells move the free-slip drag
+by 0.4 % and 0.9 % (the closed faces leave steps in the wall that a slip flow feels, a no-slip
+flow does not: 3e-5 at N = 161). Without absorption the free-slip drag converges cleanly at
+first order. Sub-sampling α with 128 instead of 32 samples per direction changes the drag by
+less than 2e-4.
+
+Second-order forces therefore need a cut-cell viscous operator with O(h) truncation (a
+quadratic reconstruction for the cut-face and wall fluxes, as in Johansen & Colella 1998), or
+a wall pressure that does not use the cut cells (a fit over the full cells next to the wall).

@@ -172,8 +172,13 @@ int main(int argc, char *argv[])
         mesh
     );
 
-    // Exact solution and source at the fluid centroids
-    const vectorField xc(mesh.C().primitiveField() + ibm.centroidOffset().primitiveField());
+    // Exact solution and source at the fluid centroids (second order: at the
+    // value points, the group centroids of linked cells)
+    const vectorField xc
+    (
+        mesh.C().primitiveField()
+      + (ibm.secondOrder() ? ibm.valueOffset() : ibm.centroidOffset()).primitiveField()
+    );
     scalarField Tex(mesh.nCells()), q(mesh.nCells());
     forAll(xc, celli)
     {
@@ -270,6 +275,10 @@ int main(int argc, char *argv[])
         if (!dirichlet)
         {
             TEqn.setReference(pRefCell, 0.0);
+        }
+        if (ibm.linking())
+        {
+            ibm.linkCells(TEqn);
         }
         TEqn.solve();
         change = gMax(mag(T.primitiveField() - Told.primitiveField()));

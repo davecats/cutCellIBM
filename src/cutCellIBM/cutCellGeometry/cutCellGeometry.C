@@ -1854,6 +1854,53 @@ Foam::tmp<Foam::surfaceScalarField> Foam::cutCellGeometry::flux
 {
     tmp<surfaceScalarField> tphi(theta_*fvc::flux(U));
     tphi.ref().rename("flux(" + U.name() + ')');
+
+    // Second order: the flux at the wet-face centroid, g_f.(x'_f - m_f)
+    // added to the linear interpolate (the value at m_f) as for the other
+    // face values. Without it the continuity flux of a cut face is first
+    // order, which costs the cut cells and the wall gradient their accuracy
+    // and, through the group centroid's distance to its faces, makes linked
+    // cells first order.
+    if (secondOrder_)
+    {
+        surfaceScalarField& phi = tphi.ref();
+        const labelUList& own = mesh_.owner();
+        const labelUList& nei = mesh_.neighbour();
+        const surfaceScalarField& weights = mesh_.weights();
+        const surfaceVectorField& Sf = mesh_.Sf();
+        for (direction cmpt = 0; cmpt < vector::nComponents; ++cmpt)
+        {
+            if (mesh_.solutionD()[cmpt] < 0) continue;
+            const tmp<volVectorField> tg(lsqGrad(U.component(cmpt)));
+            const volVectorField& g = tg();
+            forAll(own, facei)
+            {
+                const vector& r = faceValueOffset_[facei];
+                if (magSqr(r) == 0 || theta_[facei] <= 0) continue;
+                const scalar w = weights[facei];
+                const vector gf(w*g[own[facei]] + (1 - w)*g[nei[facei]]);
+                phi[facei] += theta_[facei]*(gf & r)*Sf[facei][cmpt];
+            }
+            forAll(mesh_.boundary(), patchi)
+            {
+                const fvPatch& fvp = mesh_.boundary()[patchi];
+                if (!fvp.coupled()) continue;
+                const labelUList& fc = fvp.faceCells();
+                const vectorField gN(g.boundaryField()[patchi].patchNeighbourField());
+                const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
+                const fvsPatchVectorField& rp = faceValueOffset_.boundaryField()[patchi];
+                const fvsPatchScalarField& wp = weights.boundaryField()[patchi];
+                const fvsPatchVectorField& Sfp = Sf.boundaryField()[patchi];
+                fvsPatchScalarField& php = phi.boundaryFieldRef()[patchi];
+                forAll(fvp, i)
+                {
+                    if (magSqr(rp[i]) == 0 || tp[i] <= 0) continue;
+                    const vector gf(wp[i]*g[fc[i]] + (1 - wp[i])*gN[i]);
+                    php[i] += tp[i]*(gf & rp[i])*Sfp[i][cmpt];
+                }
+            }
+        }
+    }
     return tphi;
 }
 
