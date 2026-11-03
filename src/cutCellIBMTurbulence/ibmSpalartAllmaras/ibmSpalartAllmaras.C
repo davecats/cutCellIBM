@@ -141,12 +141,15 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
             scalarField uTau, w;
             ibm_.wallLaw(this->U_, nu, uTau, w);
             const scalarField& y = this->y_.field();
+            // With the coefficients of the coupled faces: the same weight
+            // in every decomposition
+            const scalarField diag0(ibm_.coupledDiag(nuTildaEqn()));
             scalarField& diag = nuTildaEqn.ref().diag();
             scalarField& source = nuTildaEqn.ref().source();
             for (const label celli : ibm_.wallCells())
             {
                 if (w[celli] <= 0) continue;
-                const scalar c = diag[celli]*w[celli]/max(1 - w[celli], 1e-3);
+                const scalar c = diag0[celli]*w[celli]/max(1 - w[celli], 1e-3);
                 diag[celli] += c;
                 source[celli] += c*this->kappa_.value()*uTau[celli]*y[celli];
             }

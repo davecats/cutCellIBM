@@ -60,9 +60,11 @@
             // Small cut cells linked to their masters for the solution only:
             // pEqn takes the coefficients of the merged control volumes from
             // the unlinked matrix (ibm.mergeA, ibm.mergeH)
-            fvVectorMatrix UEqnLinked(UEqn);
-            ibm.linkCells(UEqnLinked);
-            solve(UEqnLinked == -ibm.grad(p));
+            // (the residual redistributed in the groups, which the
+            // pressure corrector makes uniform: see cutCellGeometry::linkCells)
+            fvVectorMatrix UEqnLinked(UEqn == -ibm.grad(p));
+            ibm.linkCells(UEqnLinked, true);
+            solve(UEqnLinked);
         }
         else
         {

@@ -143,7 +143,7 @@ void Foam::cutCellGeometry::calcWallSamples() const
     // cell sampling itself.
     auto group = [&](const label c)
     {
-        return (linkMaster_[c] >= 0) ? linkMaster_[c] : c;
+        return (linkGroup_[c] >= 0) ? linkGroup_[c] : -1 - c;
     };
     // Separations of the translational cyclics: a sample beyond one is
     // looked for in the periodic image

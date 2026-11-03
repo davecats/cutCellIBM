@@ -79,6 +79,10 @@ int main(int argc, char *argv[])
             phi = ibm.flux(U);
 
             pRefCell = ibm.pressureRefCell(pRefCellUser);
+
+            // Cells just uncovered carry the solid pressure (zero), a jump
+            // of the size of the pressure level for the momentum predictor
+            ibm.fillUncovered(p);
         }
 
         // --- Pressure-velocity PIMPLE corrector loop

@@ -217,6 +217,9 @@ class cutCellGeometry
         //- Face fractions of the previous geometry (for ddtCorr)
         autoPtr<surfaceScalarField> thetaOldPtr_;
 
+        //- Solid cells of the previous geometry (cells just uncovered)
+        bitSet solidOld_;
+
         //- Diagnostics of the last update: smallest old fluid fraction and
         //  number of cells swept through by more than they hold
         scalar alphaOldMin_;
@@ -260,15 +263,39 @@ class cutCellGeometry
         scalar mergePenalty_;
 
         //- Face linking a cell to its neighbour on the way to its master
-        //  (-1: not linked)
+        //  (-1: not linked): an internal face or a coupled boundary face
+        //  (processor, cyclic), the master may be on another processor
         labelList linkFace_;
 
-        //- Master of every linked cell (end of the chain), -1 otherwise
-        labelList linkMaster_;
+        //- Group of every cell of a merged group (master and slaves): the
+        //  global index of the master cell (globalIndex of the cells), the
+        //  same in every decomposition up to the numbering; -1 outside
+        labelList linkGroup_;
+
+        //- Group of the cell across every coupled boundary face (-1 for
+        //  cells outside a group and for the other boundary faces)
+        labelList nbrLinkGroup_;
+
+        //- Coupled boundary faces that carry a link (from either side)
+        boolList boundaryLink_;
+
+        //- Fluid centroid of every group cell relative to that of its master
+        //  (in the frame of the cell: cyclics are translations)
+        vectorField linkRel_;
 
         //- Distance to the wall of the centroid of the merged fluid volume
         //  (master and slaves), on every cell of a group (0 elsewhere)
         scalarField linkWallDist_;
+
+        //- Local slot of the group of every cell (-1 outside), the group
+        //  of every slot, and the exchange of the group sums: per
+        //  processor, the slots whose partial sums go to the processor of
+        //  the master (sendSlots_) and the slots of local masters that
+        //  receive partial sums from it (recvSlots_)
+        labelList groupSlot_;
+        labelList slotGroup_;
+        labelListList sendSlots_;
+        labelListList recvSlots_;
 
 
     // Private member functions
@@ -336,10 +363,21 @@ class cutCellGeometry
         //  (on first use after a geometry update)
         void calcWallSamples() const;
 
-        //- The open internal face from a cut cell to the fluid neighbour
-        //  with more fluid, preferring the direction away from the wall and
-        //  large wet areas; -1 if there is none
-        label outwardFace(const label celli) const;
+        //- The open internal or coupled face from a cut cell to the fluid
+        //  neighbour with more fluid, preferring the direction away from
+        //  the wall and large wet areas, ties decided by the face centre;
+        //  -1 if there is none. nbrAlpha: alpha across the boundary faces.
+        label outwardFace
+        (
+            const label celli,
+            const scalarField& nbrAlpha
+        ) const;
+
+        //- Sum over every group: on entry the contribution of every cell, on
+        //  exit the sum over its group on every cell of a group (also
+        //  across processors); the other cells keep their values
+        template<class Type>
+        void groupSum(UList<Type>& f) const;
 
         //- u_tau of a wall cell from the SA law of the wall with the
         //  tangential slip (along the cell's wall) of the sample cell at
@@ -614,14 +652,45 @@ public:
                 scalarField& weight
             ) const;
 
+            //- Diagonal of a matrix with the coefficients of the coupled
+            //  faces (processor, cyclic), which the matrix holds in
+            //  internalCoeffs and an internal face in the diagonal: the same
+            //  in every decomposition
+            template<class Type>
+            tmp<scalarField> coupledDiag(const fvMatrix<Type>& eqn) const;
+
+            //- Values of the cells the moving bodies have just uncovered
+            //  (solid before the last update, fluid now): the mean over
+            //  their open faces of the fluid neighbours (also across coupled
+            //  faces), layer by layer. For the pressure, which is defined
+            //  up to a constant: the solid value would make a jump of the
+            //  size of the pressure level (set by the reference cell) seen
+            //  by grad(p) before the first pressure solve of the step.
+            template<class Type>
+            void fillUncovered
+            (
+                GeometricField<Type, fvPatchField, volMesh>& f
+            ) const;
+
             //- Link the small cut cells to their masters in an assembled
             //  equation: a conductance c on the link face, so that the sum of
             //  the two rows is the equation of the merged cell (c cancels)
             //  and the two values coincide as c grows (cell merging without
             //  changing the matrix sparsity). Apply after relax(), before
-            //  solve(). No-op unless mergeAlpha > 0.
+            //  solve(). groupUniform (the momentum predictor, whose solution
+            //  the pressure corrector replaces by values uniform in the
+            //  groups): the residual of every group cell at the current psi,
+            //  less its volume share of the group residual, goes to the
+            //  source, so that a converged solution is uniform in the
+            //  groups and depends neither on the penalty nor on the
+            //  convergence of the linear solver (steady SIMPLE: the
+            //  decomposition). No-op unless mergeAlpha > 0.
             template<class Type>
-            void linkCells(fvMatrix<Type>& eqn) const;
+            void linkCells
+            (
+                fvMatrix<Type>& eqn,
+                const bool groupUniform = false
+            ) const;
 
             //- Replace the values of every merged group (master and slaves)
             //  by their fluid-volume-weighted average: for cell averages of
@@ -641,8 +710,10 @@ public:
 
             //- Diagonal coefficient A (or H1) of the merged control volumes
             //  from the unlinked matrix: (sum_i V_i A_i + sum_l (upper_l
-            //  + lower_l))/sum_i V_i over the cells i and the internal link
-            //  faces l of the group, on every cell of the group. With mergeH,
+            //  + lower_l))/sum_i V_i over the cells i and the link faces l
+            //  of the group (on a coupled link face each side adds the
+            //  coupling of its own row, -boundaryCoeffs), on every cell of
+            //  the group. With mergeH,
             //  the pressure-velocity coupling of the merged cell; rAU from
             //  the linked matrix would hold the penalty and decouple the
             //  pressure along a strip of linked cells.
@@ -652,8 +723,7 @@ public:
 
             //- H of the merged control volumes from the unlinked matrix,
             //  (sum_i V_i H_i + sum_l (upper_l psi_nei + lower_l psi_own))
-            //  /sum_i V_i: the coupling through the internal link faces
-            //  removed. No-op unless mergeAlpha > 0.
+            //  /sum_i V_i: the coupling through the link faces removed. No-op unless mergeAlpha > 0.
             template<class Type>
             void mergeH
             (
@@ -661,8 +731,9 @@ public:
                 GeometricField<Type, fvPatchField, volMesh>& H
             ) const;
 
-            //- Master of every linked cell, -1 otherwise
-            const labelList& linkMaster() const { return linkMaster_; }
+            //- Group (global index of the master) of every cell of a merged
+            //  group, -1 otherwise
+            const labelList& linkGroup() const { return linkGroup_; }
 
             //- True if small cut cells are linked (mergeAlpha > 0)
             bool linking() const { return mergeAlpha_ > 0; }

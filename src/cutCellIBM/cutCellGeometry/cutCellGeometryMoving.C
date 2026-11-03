@@ -43,6 +43,8 @@ void Foam::cutCellGeometry::update()
         thetaOldPtr_() = theta_;
     }
 
+    solidOld_ = solidCells_;
+
     // Geometry at the new time level. The old geometry is never needed: the
     // fluid volume the cells had at the start of the step is recovered from
     // the wall flux (calcMovingTerms), which is what makes the discrete

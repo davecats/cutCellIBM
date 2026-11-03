@@ -1,5 +1,7 @@
 #include "cutCellGeometry.H"
 #include "surfaceInterpolate.H"
+#include "syncTools.H"
+#include "PstreamBuffers.H"
 
 template<class Type>
 void Foam::cutCellGeometry::zeroSolid
@@ -193,11 +195,214 @@ Foam::cutCellGeometry::fluidGrad
 
 
 template<class Type>
-void Foam::cutCellGeometry::linkCells(fvMatrix<Type>& eqn) const
+void Foam::cutCellGeometry::groupSum(UList<Type>& f) const
+{
+    List<Type> s(slotGroup_.size(), Zero);
+    forAll(groupSlot_, celli)
+    {
+        if (groupSlot_[celli] >= 0) s[groupSlot_[celli]] += f[celli];
+    }
+
+    if (Pstream::parRun())
+    {
+        // Partial sums to the processor of the master, which adds them in
+        // processor order, then the totals back
+        PstreamBuffers toMaster(Pstream::commsTypes::nonBlocking);
+        forAll(sendSlots_, proci)
+        {
+            if (sendSlots_[proci].size())
+            {
+                UOPstream os(proci, toMaster);
+                os << List<Type>(UIndirectList<Type>(s, sendSlots_[proci]));
+            }
+        }
+        toMaster.finishedSends();
+        forAll(recvSlots_, proci)
+        {
+            if (recvSlots_[proci].size())
+            {
+                UIPstream is(proci, toMaster);
+                const List<Type> v(is);
+                forAll(v, k)
+                {
+                    s[recvSlots_[proci][k]] += v[k];
+                }
+            }
+        }
+
+        PstreamBuffers fromMaster(Pstream::commsTypes::nonBlocking);
+        forAll(recvSlots_, proci)
+        {
+            if (recvSlots_[proci].size())
+            {
+                UOPstream os(proci, fromMaster);
+                os << List<Type>(UIndirectList<Type>(s, recvSlots_[proci]));
+            }
+        }
+        fromMaster.finishedSends();
+        forAll(sendSlots_, proci)
+        {
+            if (sendSlots_[proci].size())
+            {
+                UIPstream is(proci, fromMaster);
+                const List<Type> v(is);
+                forAll(v, k)
+                {
+                    s[sendSlots_[proci][k]] = v[k];
+                }
+            }
+        }
+    }
+
+    forAll(groupSlot_, celli)
+    {
+        if (groupSlot_[celli] >= 0) f[celli] = s[groupSlot_[celli]];
+    }
+}
+
+
+template<class Type>
+void Foam::cutCellGeometry::fillUncovered
+(
+    GeometricField<Type, fvPatchField, volMesh>& f
+) const
+{
+    if (!moving_ || solidOld_.size() != mesh_.nCells())
+    {
+        return;
+    }
+
+    const labelUList& own = mesh_.owner();
+    const labelUList& nei = mesh_.neighbour();
+    Field<Type>& fI = f.primitiveFieldRef();
+
+    // Known: fluid before and now; to fill: fluid now, solid before
+    boolList known(mesh_.nCells(), false);
+    label nFill = 0;
+    forAll(known, celli)
+    {
+        if (solidCells_.test(celli)) continue;
+        known[celli] = !solidOld_.test(celli);
+        if (!known[celli]) ++nFill;
+    }
+    if (returnReduce(nFill, sumOp<label>()) == 0)
+    {
+        return;
+    }
+
+    for (label layer = 0; layer < 10; ++layer)
+    {
+        f.correctBoundaryConditions();
+        boolList nbrKnown;
+        syncTools::swapBoundaryCellList(mesh_, known, nbrKnown);
+
+        Field<Type> sum(fI.size(), Zero);
+        labelList n(fI.size(), 0);
+        forAll(own, facei)
+        {
+            if (theta_[facei] <= 0) continue;
+            const label o = own[facei], nb = nei[facei];
+            if (known[o] && !known[nb]) { sum[nb] += fI[o]; ++n[nb]; }
+            if (known[nb] && !known[o]) { sum[o] += fI[nb]; ++n[o]; }
+        }
+        forAll(mesh_.boundary(), patchi)
+        {
+            const fvPatch& fvp = mesh_.boundary()[patchi];
+            if (!fvp.coupled()) continue;
+            const labelUList& fc = fvp.faceCells();
+            const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
+            const Field<Type> fN(f.boundaryField()[patchi].patchNeighbourField());
+            forAll(fvp, i)
+            {
+                const label bFacei = fvp.start() + i - mesh_.nInternalFaces();
+                if (tp[i] > 0 && nbrKnown[bFacei] && !known[fc[i]])
+                {
+                    sum[fc[i]] += fN[i];
+                    ++n[fc[i]];
+                }
+            }
+        }
+
+        label nLeft = 0;
+        forAll(known, celli)
+        {
+            if (solidCells_.test(celli) || known[celli]) continue;
+            if (n[celli] > 0)
+            {
+                fI[celli] = sum[celli]/n[celli];
+                known[celli] = true;
+            }
+            else
+            {
+                ++nLeft;
+            }
+        }
+        if (returnReduce(nLeft, sumOp<label>()) == 0)
+        {
+            break;
+        }
+    }
+    f.correctBoundaryConditions();
+}
+
+
+template<class Type>
+Foam::tmp<Foam::scalarField>
+Foam::cutCellGeometry::coupledDiag(const fvMatrix<Type>& eqn) const
+{
+    tmp<scalarField> td(new scalarField(eqn.diag()));
+    scalarField& d = td.ref();
+    forAll(mesh_.boundary(), patchi)
+    {
+        if (!mesh_.boundary()[patchi].coupled()) continue;
+        const labelUList& fc = mesh_.boundary()[patchi].faceCells();
+        const Field<Type>& ic = eqn.internalCoeffs()[patchi];
+        forAll(fc, i)
+        {
+            d[fc[i]] += cmptAv(ic[i]);
+        }
+    }
+    return td;
+}
+
+
+template<class Type>
+void Foam::cutCellGeometry::linkCells
+(
+    fvMatrix<Type>& eqn,
+    const bool groupUniform
+) const
 {
     if (mergeAlpha_ <= 0)
     {
         return;
+    }
+
+    if (groupUniform)
+    {
+        // The residual A psi - b of every group cell at the current psi,
+        // less its volume share of the residual of its group, added to the
+        // source: a psi uniform in the groups that satisfies the merged
+        // equations then satisfies every linked row (the sum over a group is
+        // unchanged and the penalty carries nothing)
+        const scalarField& V = mesh_.V();
+        const Field<Type> r((eqn & eqn.psi())().primitiveField()*V);
+        Field<Type> rGroup(r.size(), Zero);
+        scalarField vol(r.size(), Zero);
+        forAll(linkGroup_, celli)
+        {
+            if (linkGroup_[celli] < 0) continue;
+            rGroup[celli] = r[celli];
+            vol[celli] = V[celli];
+        }
+        groupSum(rGroup);
+        groupSum(vol);
+        Field<Type>& source = eqn.source();
+        forAll(linkGroup_, celli)
+        {
+            if (linkGroup_[celli] < 0) continue;
+            source[celli] += r[celli] - V[celli]/vol[celli]*rGroup[celli];
+        }
     }
 
     const labelUList& own = mesh_.owner();
@@ -207,24 +412,57 @@ void Foam::cutCellGeometry::linkCells(fvMatrix<Type>& eqn) const
     scalarField& upper = eqn.upper();
     scalarField* lowerPtr = symmetric ? nullptr : &eqn.lower();
 
+    // The conductances from the diagonal before linking (independent of the
+    // order of the links, and of the decomposition), and that of the cell
+    // across the coupled faces
+    const scalarField diag0(coupledDiag(eqn));
+    scalarField nbrDiag0;
+    syncTools::swapBoundaryCellList(mesh_, diag0, nbrDiag0);
+
+    // A conductance with the sign of the diagonal (positive for -laplacian,
+    // negative for the pressure laplacian)
+    auto conductance = [&](const scalar dO, const scalar dN, scalar& sgn)
+    {
+        sgn = (dO + dN >= 0) ? 1 : -1;
+        return mergePenalty_*max(mag(dO), mag(dN));
+    };
+
     forAll(linkFace_, celli)
     {
         const label facei = linkFace_[celli];
-        if (facei < 0) continue;
+        if (facei < 0 || facei >= mesh_.nInternalFaces()) continue;
         const label other = (own[facei] == celli) ? nei[facei] : own[facei];
-
-        // A conductance with the sign of the diagonal (positive for
-        // -laplacian, negative for the pressure laplacian)
-        const scalar sgn = (diag[celli] + diag[other] >= 0) ? 1 : -1;
-        const scalar c =
-            mergePenalty_*max(mag(diag[celli]), mag(diag[other]));
-
+        scalar sgn;
+        const scalar c = conductance(diag0[celli], diag0[other], sgn);
         diag[celli] += sgn*c;
         diag[other] += sgn*c;
         upper[facei] -= sgn*c;
         if (lowerPtr)
         {
             (*lowerPtr)[facei] -= sgn*c;
+        }
+    }
+
+    // Links over coupled faces: each side adds the conductance to its own
+    // row (internalCoeffs to the diagonal, -boundaryCoeffs is the
+    // off-diagonal coefficient of the cell across), as the coupled patches
+    // of gaussLaplacianScheme
+    forAll(mesh_.boundary(), patchi)
+    {
+        const fvPatch& fvp = mesh_.boundary()[patchi];
+        if (!fvp.coupled()) continue;
+        const labelUList& fc = fvp.faceCells();
+        Field<Type>& ic = eqn.internalCoeffs()[patchi];
+        Field<Type>& bc = eqn.boundaryCoeffs()[patchi];
+        forAll(fvp, i)
+        {
+            const label bFacei = fvp.start() + i - mesh_.nInternalFaces();
+            if (!boundaryLink_[bFacei]) continue;
+            scalar sgn;
+            const scalar c =
+                conductance(diag0[fc[i]], nbrDiag0[bFacei], sgn);
+            ic[i] += sgn*c*pTraits<Type>::one;
+            bc[i] += sgn*c*pTraits<Type>::one;
         }
     }
 }
@@ -242,28 +480,19 @@ void Foam::cutCellGeometry::groupAverage(Field<Type>& f) const
     const scalarField& V = mesh_.V();
     Field<Type> sum(f.size(), Zero);
     scalarField vol(f.size(), Zero);
-    forAll(linkMaster_, celli)
+    forAll(linkGroup_, celli)
     {
-        const label m = linkMaster_[celli];
-        if (m < 0) continue;
-        sum[m] += alpha[celli]*V[celli]*f[celli];
-        vol[m] += alpha[celli]*V[celli];
+        if (linkGroup_[celli] < 0) continue;
+        sum[celli] = alpha[celli]*V[celli]*f[celli];
+        vol[celli] = alpha[celli]*V[celli];
     }
-    forAll(vol, m)
+    groupSum(sum);
+    groupSum(vol);
+    forAll(linkGroup_, celli)
     {
-        if (vol[m] > 0)
+        if (linkGroup_[celli] >= 0 && vol[celli] > 0)
         {
-            sum[m] += alpha[m]*V[m]*f[m];
-            vol[m] += alpha[m]*V[m];
-            f[m] = sum[m]/vol[m];
-        }
-    }
-    forAll(linkMaster_, celli)
-    {
-        const label m = linkMaster_[celli];
-        if (m >= 0)
-        {
-            f[celli] = f[m];
+            f[celli] = sum[celli]/vol[celli];
         }
     }
 }
@@ -284,16 +513,20 @@ void Foam::cutCellGeometry::groupMean
     Field<Type>& fI = f.primitiveFieldRef();
     Field<Type> sum(fI.size(), Zero);
     scalarField vol(fI.size(), Zero);
-    forAll(linkMaster_, celli)
+    forAll(linkGroup_, celli)
     {
-        const label m = (linkMaster_[celli] >= 0) ? linkMaster_[celli] : celli;
-        sum[m] += V[celli]*fI[celli];
-        vol[m] += V[celli];
+        if (linkGroup_[celli] < 0) continue;
+        sum[celli] = V[celli]*fI[celli];
+        vol[celli] = V[celli];
     }
-    forAll(linkMaster_, celli)
+    groupSum(sum);
+    groupSum(vol);
+    forAll(linkGroup_, celli)
     {
-        const label m = (linkMaster_[celli] >= 0) ? linkMaster_[celli] : celli;
-        fI[celli] = sum[m]/vol[m];
+        if (linkGroup_[celli] >= 0)
+        {
+            fI[celli] = sum[celli]/vol[celli];
+        }
     }
     f.correctBoundaryConditions();
 }
@@ -317,23 +550,42 @@ void Foam::cutCellGeometry::mergeA
     scalarField& AI = A.primitiveFieldRef();
     scalarField sum(AI.size(), Zero);
     scalarField vol(AI.size(), Zero);
-    forAll(linkMaster_, celli)
+    forAll(linkGroup_, celli)
     {
-        const label m = (linkMaster_[celli] >= 0) ? linkMaster_[celli] : celli;
-        sum[m] += V[celli]*AI[celli];
-        vol[m] += V[celli];
+        if (linkGroup_[celli] < 0) continue;
+        sum[celli] = V[celli]*AI[celli];
+        vol[celli] = V[celli];
         const label facei = linkFace_[celli];
-        if (linkMaster_[celli] >= 0 && facei >= 0)
+        if (facei >= 0 && facei < mesh_.nInternalFaces())
         {
             // The coefficients of the internal face drop out of the merged
             // diagonal (A_i holds -sum of the off-diagonals of its row)
-            sum[m] += upper[facei] + lower[facei];
+            sum[celli] += upper[facei] + lower[facei];
         }
     }
-    forAll(linkMaster_, celli)
+    forAll(mesh_.boundary(), patchi)
     {
-        const label m = (linkMaster_[celli] >= 0) ? linkMaster_[celli] : celli;
-        AI[celli] = sum[m]/vol[m];
+        const fvPatch& fvp = mesh_.boundary()[patchi];
+        if (!fvp.coupled()) continue;
+        const labelUList& fc = fvp.faceCells();
+        const Field<Type>& bc = eqn.boundaryCoeffs()[patchi];
+        forAll(fvp, i)
+        {
+            if (boundaryLink_[fvp.start() + i - mesh_.nInternalFaces()])
+            {
+                // Each side: the off-diagonal of its own row, -boundaryCoeffs
+                sum[fc[i]] -= cmptAv(bc[i]);
+            }
+        }
+    }
+    groupSum(sum);
+    groupSum(vol);
+    forAll(linkGroup_, celli)
+    {
+        if (linkGroup_[celli] >= 0)
+        {
+            AI[celli] = sum[celli]/vol[celli];
+        }
     }
     A.correctBoundaryConditions();
 }
@@ -356,27 +608,52 @@ void Foam::cutCellGeometry::mergeH
     const scalarField& V = mesh_.V();
     const scalarField& upper = eqn.upper();
     const scalarField& lower = eqn.lower();
-    const Field<Type>& psi = eqn.psi().primitiveField();
+    const GeometricField<Type, fvPatchField, volMesh>& psi = eqn.psi();
+    const Field<Type>& psiI = psi.primitiveField();
     Field<Type>& HI = H.primitiveFieldRef();
     Field<Type> sum(HI.size(), Zero);
     scalarField vol(HI.size(), Zero);
-    forAll(linkMaster_, celli)
+    forAll(linkGroup_, celli)
     {
-        const label m = (linkMaster_[celli] >= 0) ? linkMaster_[celli] : celli;
-        sum[m] += V[celli]*HI[celli];
-        vol[m] += V[celli];
+        if (linkGroup_[celli] < 0) continue;
+        sum[celli] = V[celli]*HI[celli];
+        vol[celli] = V[celli];
         const label facei = linkFace_[celli];
-        if (linkMaster_[celli] >= 0 && facei >= 0)
+        if (facei >= 0 && facei < mesh_.nInternalFaces())
         {
             // H_own holds -upper psi_nei, H_nei -lower psi_own: inside the
             // merged cell, not a coupling to a neighbour
-            sum[m] += upper[facei]*psi[nei[facei]] + lower[facei]*psi[own[facei]];
+            sum[celli] +=
+                upper[facei]*psiI[nei[facei]] + lower[facei]*psiI[own[facei]];
         }
     }
-    forAll(linkMaster_, celli)
+    forAll(mesh_.boundary(), patchi)
     {
-        const label m = (linkMaster_[celli] >= 0) ? linkMaster_[celli] : celli;
-        HI[celli] = sum[m]/vol[m];
+        const fvPatch& fvp = mesh_.boundary()[patchi];
+        if (!fvp.coupled()) continue;
+        const labelUList& fc = fvp.faceCells();
+        const Field<Type>& bc = eqn.boundaryCoeffs()[patchi];
+        const Field<Type> psiN(psi.boundaryField()[patchi].patchNeighbourField());
+        forAll(fvp, i)
+        {
+            if (boundaryLink_[fvp.start() + i - mesh_.nInternalFaces()])
+            {
+                // H holds +boundaryCoeffs psi_N on a coupled face
+                sum[fc[i]] -= cmptMultiply(bc[i], psiN[i]);
+            }
+        }
+    }
+    groupSum(sum);
+    groupSum(vol);
+    forAll(linkGroup_, celli)
+    {
+        if (linkGroup_[celli] >= 0)
+        {
+            HI[celli] = sum[celli]/vol[celli];
+        }
     }
     H.correctBoundaryConditions();
 }
+
+
+// ************************************************************************* //
