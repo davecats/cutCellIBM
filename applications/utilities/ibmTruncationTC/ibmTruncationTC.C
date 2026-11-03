@@ -17,7 +17,14 @@ Description
       RcontFace, RcontWall: Rcont split into the error of the face fluxes
                (against 3-point Gauss over the wet segment) and that of the
                wall source (against the one closing the exact face fluxes)
-    and Xvalue (value points), ibmAlpha. Analysis:
+    and Xvalue (value points), ibmAlpha.
+    With linking (mergeAlpha > 0), -groupValue master|centroid puts one exact
+    value into every cell of a group, at the fluid centroid of the master or
+    at the centroid of the merged fluid volume (default own: every cell at its
+    own value point), and Rcont, RcontFace, Rvisc are also written as group
+    averages over the merged fluid volume (RcontGroup, RcontFaceGroup,
+    RviscGroup: the residual of the merged equation per unit fluid volume;
+    the faces inside a group cancel). Analysis:
     validation/taylorCouette_truncation.py (doc/secondOrderStudy.md).
 
 \*---------------------------------------------------------------------------*/
@@ -26,6 +33,11 @@ Description
 
 int main(int argc, char *argv[])
 {
+    argList::addOption
+    (
+        "groupValue", "own|master|centroid",
+        "value point of linked groups (default own)"
+    );
     #include "setRootCase.H"
     #include "createTime.H"
     #include "createMesh.H"
@@ -51,6 +63,36 @@ int main(int argc, char *argv[])
     );
     const scalarField& alpha = ibm.alpha().primitiveField();
 
+    // Value point of linked groups (serial: the group is the master's index)
+    const word groupValue(args.getOrDefault<word>("groupValue", "own"));
+    vectorField xv(xc);
+    const labelList& grp = ibm.linkGroup();
+    if (ibm.linking() && groupValue != "own")
+    {
+        const vectorField xf
+        (
+            mesh.C().primitiveField() + ibm.centroidOffset().primitiveField()
+        );
+        const scalarField& V = mesh.V();
+        vectorField sumX(mesh.nCells(), Zero);
+        scalarField sumW(mesh.nCells(), Zero);
+        forAll(grp, i)
+        {
+            if (grp[i] < 0) continue;
+            sumX[grp[i]] += alpha[i]*V[i]*xf[i];
+            sumW[grp[i]] += alpha[i]*V[i];
+        }
+        forAll(grp, i)
+        {
+            if (grp[i] < 0) continue;
+            xv[i] =
+                (groupValue == "master")
+              ? xf[grp[i]]
+              : sumX[grp[i]]/sumW[grp[i]];
+        }
+        Info<< "group value points: " << groupValue << endl;
+    }
+
     volVectorField U
     (
         IOobject("U", runTime.timeName(), mesh),
@@ -62,9 +104,9 @@ int main(int argc, char *argv[])
         mesh, dimensionedScalar(dimPressure/dimDensity, Zero), "zeroGradient"
     );
     vectorField gpEx(mesh.nCells(), Zero);
-    forAll(xc, i)
+    forAll(xv, i)
     {
-        const scalar X = xc[i].x() - c0.x(), Y = xc[i].y() - c0.y();
+        const scalar X = xv[i].x() - c0.x(), Y = xv[i].y() - c0.y();
         const scalar r = Foam::sqrt(X*X + Y*Y);
         const scalar ut = A*r + B/r;
         p[i] = A*A*r*r/2 + 2*A*B*Foam::log(r) - B*B/(2*r*r);
@@ -112,6 +154,7 @@ int main(int argc, char *argv[])
     // Continuity split: face-flux error against 3-point Gauss over the wet
     // segment of each face (contiguous, centroid Cf + wetFaceOffset), and the
     // wall source against the one that closes the exact face fluxes
+    scalarField faceErrCell(mesh.nCells(), 0);
     {
         auto uEx = [&](const point& x)
         {
@@ -152,13 +195,41 @@ int main(int argc, char *argv[])
             faceErr[i] /= alpha[i]*V[i];
         }
         faceErr.write(); wallErr.write();
+        faceErrCell = faceErr.primitiveField();
     }
+    // Residuals of the merged equations: fluid-volume averages over groups
+    if (ibm.linking())
+    {
+        const scalarField& V = mesh.V();
+        const scalarField& rf = faceErrCell;
+        scalarField sW(mesh.nCells(), 0), sC(sW), sF(sW);
+        vectorField sV(mesh.nCells(), Zero);
+        forAll(grp, i)
+        {
+            if (grp[i] < 0) continue;
+            const scalar w = alpha[i]*V[i];
+            sW[grp[i]] += w; sC[grp[i]] += w*cont[i];
+            sF[grp[i]] += w*rf[i]; sV[grp[i]] += w*Rvisc[i];
+        }
+        volScalarField gC("RcontGroup", cont), gF("RcontFaceGroup", cont);
+        gF.primitiveFieldRef() = rf;
+        volVectorField gV("RviscGroup", Rvisc);
+        forAll(grp, i)
+        {
+            if (grp[i] < 0) continue;
+            gC[i] = sC[grp[i]]/sW[grp[i]];
+            gF[i] = sF[grp[i]]/sW[grp[i]];
+            gV[i] = sV[grp[i]]/sW[grp[i]];
+        }
+        gC.write(); gF.write(); gV.write();
+    }
+
     volVectorField Xv
     (
         IOobject("Xvalue", runTime.timeName(), mesh, IOobject::NO_READ, IOobject::NO_WRITE),
         mesh, dimensionedVector(dimLength, Zero)
     );
-    Xv.primitiveFieldRef() = xc; Xv.write();
+    Xv.primitiveFieldRef() = xv; Xv.write();
     volScalarField al
     (
         IOobject("ibmAlpha", runTime.timeName(), mesh, IOobject::NO_READ, IOobject::NO_WRITE),

@@ -90,7 +90,10 @@ second-order Richardson limit is about 0.7205).
   plan: `doc/freeSlipPlan.md` (postponed).
 - TC second order: inner cut-cell rms 3.98e-3 at N = 320 (old default 9.40e-3).
 - TC first order: the cut cells do not converge (rms about 0.30), and the first full layer is
-  about 3× worse than unlinked. **Open point**, first order only.
+  about 3× worse than unlinked. Explained (`doc/secondOrderStudy.md`, "Taylor–Couette first
+  order with linking"): the first-order face-centre continuity flux, which a merged group roughly
+  doubles; the masters carry the group pressure. Velocity and torque are as accurate as unlinked.
+  Only the second-order face values fix it.
 - Inclined wall-function channel: linked errors of the same size as before; unlinked unchanged.
 - The ibmMeanVelocityForce correction had to become group-uniform (8aebbce).
 - NACA wall functions serial vs scotch 8/16 needed SA-neg (e99057b) to converge at all. Converged,

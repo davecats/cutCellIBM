@@ -1,0 +1,115 @@
+# Taylor-Couette first order, linked (mergeAlpha 0.5, alphaMin 0) vs unlinked (alphaMin 0.02 / 1e-9), 2026-11-03
+# runs: runs/ibmSA_study/tc1 (mk.sh), tool: validation/taylorCouette_classes.py
+# L = linked, U = unlinked alphaMin 0.02, U9 = unlinked alphaMin 1e-9
+L_N80  N=80  torque error -2.280e-02
+    wall   class    cells      U rms      p rms      p max
+    inner  slave       44  5.247e-02  3.749e-01  4.957e-01
+    inner  master      44  1.258e-02  3.491e-01  4.850e-01
+    inner  cut         28  1.252e-02  1.988e-01  3.423e-01
+    inner  layer1      60  1.076e-02  7.949e-02  1.583e-01
+    inner  bulk      1328  6.225e-03  4.335e-03  3.030e-02
+    outer  slave      144  7.899e-03  2.256e-02  5.404e-02
+    outer  master     144  1.217e-03  1.818e-02  5.404e-02
+    outer  cut         68  1.616e-03  3.979e-02  6.975e-02
+    outer  layer1     136  5.364e-04  1.541e-02  3.584e-02
+    outer  bulk      1964  2.214e-03  2.988e-03  2.249e-02
+L_N160  N=160  torque error -1.121e-02
+    wall   class    cells      U rms      p rms      p max
+    inner  slave      116  2.660e-02  3.998e-01  7.164e-01
+    inner  master     116  6.751e-03  3.428e-01  7.126e-01
+    inner  cut         28  7.544e-03  3.179e-01  3.851e-01
+    inner  layer1      68  5.207e-03  1.323e-01  2.225e-01
+    inner  bulk      5568  3.100e-03  7.275e-03  6.859e-02
+    outer  slave      252  4.063e-03  1.686e-02  2.980e-02
+    outer  master     248  5.009e-04  1.473e-02  2.980e-02
+    outer  cut        168  7.183e-04  3.498e-02  6.759e-02
+    outer  layer1     316  2.194e-04  1.358e-02  3.109e-02
+    outer  bulk      8892  9.001e-04  1.596e-03  1.729e-02
+L_N320  N=320  torque error -5.016e-03
+    wall   class    cells      U rms      p rms      p max
+    inner  slave      200  1.338e-02  3.353e-01  6.614e-01
+    inner  master     200  3.115e-03  3.154e-01  6.593e-01
+    inner  cut         76  2.870e-03  2.684e-01  5.037e-01
+    inner  layer1     168  2.549e-03  9.892e-02  2.066e-01
+    inner  bulk     22936  1.442e-03  3.302e-03  5.224e-02
+    outer  slave      572  2.024e-03  1.405e-02  3.461e-02
+    outer  master     568  2.831e-04  1.386e-02  3.461e-02
+    outer  cut        264  3.513e-04  3.435e-02  6.507e-02
+    outer  layer1     596  1.192e-04  1.102e-02  2.791e-02
+    outer  bulk     37408  4.217e-04  1.049e-03  1.842e-02
+U_N80  N=80  torque error -2.650e-02
+    wall   class    cells      U rms      p rms      p max
+    inner  cut         92  1.282e-02  1.876e-01  9.534e-01
+    inner  layer1      76  1.098e-02  5.754e-02  1.143e-01
+    inner  bulk      1328  5.850e-03  5.603e-03  3.921e-02
+    outer  cut        276  2.555e-03  3.300e-02  1.135e-01
+    outer  layer1     208  2.182e-03  1.084e-02  3.542e-02
+    outer  bulk      1964  1.223e-03  1.148e-03  6.952e-03
+U_N160  N=160  torque error -1.256e-02
+    wall   class    cells      U rms      p rms      p max
+    inner  cut        156  6.458e-03  1.608e-01  7.613e-01
+    inner  layer1     148  5.654e-03  8.363e-02  1.962e-01
+    inner  bulk      5568  3.008e-03  5.473e-03  4.051e-02
+    outer  cut        512  1.164e-03  3.065e-02  1.193e-01
+    outer  layer1     420  1.000e-03  1.002e-02  2.925e-02
+    outer  bulk      8892  6.310e-04  1.567e-03  1.040e-02
+U_N320  N=320  torque error -6.640e-03
+    wall   class    cells      U rms      p rms      p max
+    inner  cut        340  3.319e-03  1.651e-01  1.161e+00
+    inner  layer1     288  3.086e-03  6.910e-02  1.991e-01
+    inner  bulk     22936  1.653e-03  3.620e-03  5.021e-02
+    outer  cut       1032  5.841e-04  2.804e-02  1.207e-01
+    outer  layer1     844  5.199e-04  8.751e-03  2.881e-02
+    outer  bulk     37408  3.384e-04  1.003e-03  1.103e-02
+U9_N80  N=80  torque error -2.719e-02
+    wall   class    cells      U rms      p rms      p max
+    inner  cut        100  1.311e-02  1.884e-01  1.320e+00
+    inner  layer1      76  1.127e-02  4.958e-02  9.372e-02
+    inner  bulk      1328  6.021e-03  5.168e-03  3.356e-02
+    outer  cut        284  2.578e-03  3.296e-02  1.135e-01
+    outer  layer1     208  2.197e-03  1.049e-02  3.548e-02
+    outer  bulk      1964  1.255e-03  1.167e-03  7.342e-03
+U9_N160  N=160  torque error -1.506e-02
+    wall   class    cells      U rms      p rms      p max
+    inner  cut        180  6.962e-03  1.857e-01  2.031e+00
+    inner  layer1     148  7.051e-03  7.201e-02  1.357e-01
+    inner  bulk      5568  3.669e-03  6.968e-03  5.803e-02
+    outer  cut        564  1.212e-03  3.122e-02  1.175e-01
+    outer  layer1     420  1.054e-03  8.770e-03  1.621e-02
+    outer  bulk      8892  7.521e-04  1.942e-03  1.206e-02
+U9_N320  N=320  torque error -7.033e-03
+    wall   class    cells      U rms      p rms      p max
+    inner  cut        356  3.496e-03  1.710e-01  1.370e+00
+    inner  layer1     288  3.236e-03  6.478e-02  1.993e-01
+    inner  bulk     22936  1.737e-03  3.020e-03  5.022e-02
+    outer  cut       1156  6.310e-04  2.957e-02  1.189e-01
+    outer  layer1     844  5.793e-04  7.582e-03  1.779e-02
+    outer  bulk     37408  3.603e-04  9.429e-04  1.097e-02
+
+# Truncation per cut control volume (unlinked cut cell or merged group): ibmTruncationTC -groupValue own|master|centroid,
+# runs/ibmSA_study/tc1/trunc (tr.sh; validation/taylorCouette_truncationCV.py). cont = sum alpha Rcont h (multiply by 1/h for the flux imbalance per cell volume)
+case                        | inner: cont rms/max (face) visc | outer: cont rms/max (face) visc
+U_sofalse_N80            80 | 2.05e-03/4.50e-03 (2.05e-03) 6.88e-01 | 2.89e-04/5.81e-04 (2.90e-04) 1.37e-01
+Lown_sofalse_N80         80 | 9.97e-04/1.73e-03 (9.97e-04) 1.10e+00 | 1.97e-04/4.11e-04 (1.97e-04) 1.64e-01
+Lmaster_sofalse_N80      80 | 2.84e-03/4.44e-03 (2.84e-03) 8.41e-01 | 9.66e-04/1.84e-03 (9.66e-04) 9.51e-02
+Lcentroid_sofalse_N80    80 | 3.18e-03/6.39e-03 (3.18e-03) 8.32e-01 | 7.33e-04/1.45e-03 (7.33e-04) 7.19e-02
+U_sofalse_N160          160 | 7.12e-04/1.69e-03 (7.32e-04) 8.61e-01 | 1.46e-04/3.03e-04 (1.47e-04) 1.31e-01
+Lown_sofalse_N160       160 | 4.04e-04/8.22e-04 (4.04e-04) 1.54e+00 | 1.02e-04/2.39e-04 (1.02e-04) 1.47e-01
+Lmaster_sofalse_N160    160 | 1.95e-03/4.37e-03 (1.95e-03) 1.05e+00 | 4.32e-04/1.02e-03 (4.32e-04) 9.27e-02
+Lcentroid_sofalse_N160  160 | 1.93e-03/3.23e-03 (1.93e-03) 1.03e+00 | 3.54e-04/7.49e-04 (3.54e-04) 6.97e-02
+U_sofalse_N320          320 | 4.43e-04/1.06e-03 (4.48e-04) 7.74e-01 | 7.00e-05/1.68e-04 (7.13e-05) 1.26e-01
+Lown_sofalse_N320       320 | 2.08e-04/5.25e-04 (2.08e-04) 1.41e+00 | 4.21e-05/1.11e-04 (4.21e-05) 1.48e-01
+Lmaster_sofalse_N320    320 | 9.51e-04/2.28e-03 (9.51e-04) 9.09e-01 | 2.29e-04/5.70e-04 (2.29e-04) 1.03e-01
+Lcentroid_sofalse_N320  320 | 9.10e-04/1.66e-03 (9.10e-04) 9.23e-01 | 1.90e-04/4.02e-04 (1.90e-04) 6.51e-02
+U_sotrue_N80             80 | 4.85e-04/7.46e-04 (4.85e-04) 2.16e-02 | 2.62e-05/4.76e-05 (2.59e-05) 8.67e-04
+Lown_sotrue_N80          80 | 6.87e-04/1.31e-03 (6.87e-04) 6.16e-02 | 3.92e-05/7.13e-05 (3.93e-05) 3.09e-03
+Lmaster_sotrue_N80       80 | 1.64e-03/3.89e-03 (1.64e-03) 4.54e-01 | 5.45e-04/1.55e-03 (5.45e-04) 1.12e-01
+Lcentroid_sotrue_N80     80 | 6.87e-04/1.31e-03 (6.87e-04) 6.16e-02 | 3.92e-05/7.13e-05 (3.93e-05) 3.09e-03
+U_sotrue_N160           160 | 1.54e-04/3.35e-04 (1.48e-04) 1.23e-02 | 8.90e-06/3.94e-05 (6.32e-06) 5.33e-04
+Lown_sotrue_N160        160 | 2.07e-04/3.78e-04 (2.07e-04) 3.97e-02 | 9.20e-06/1.80e-05 (9.20e-06) 1.35e-03
+Lmaster_sotrue_N160     160 | 1.37e-03/2.87e-03 (1.37e-03) 6.46e-01 | 2.32e-04/6.20e-04 (2.32e-04) 9.57e-02
+Lcentroid_sotrue_N160   160 | 2.07e-04/3.78e-04 (2.07e-04) 3.97e-02 | 9.20e-06/1.80e-05 (9.20e-06) 1.35e-03
+U_sotrue_N320           320 | 5.42e-05/2.15e-04 (3.77e-05) 6.95e-03 | 4.84e-06/1.96e-05 (1.53e-06) 4.78e-04
+Lown_sotrue_N320        320 | 5.54e-05/1.06e-04 (5.53e-05) 1.83e-02 | 2.30e-06/4.39e-06 (2.30e-06) 6.93e-04
+Lmaster_sotrue_N320     320 | 6.05e-04/1.36e-03 (6.05e-04) 5.92e-01 | 1.28e-04/3.83e-04 (1.28e-04) 1.09e-01
+Lcentroid_sotrue_N320   320 | 5.54e-05/1.06e-04 (5.53e-05) 1.83e-02 | 2.30e-06/4.39e-06 (2.30e-06) 6.93e-04

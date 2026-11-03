@@ -651,9 +651,9 @@ pressure:
   had 9.40e-3 at N = 320). Outer wall max 1.8e-4.
 - First order: cut-cell rms about 0.30, not converging (max 0.66 against 1.16 unlinked). The
   outer-wall error halves. The first full layer at the inner wall (which holds the masters) is
-  about 3× worse than unlinked (rms 0.21 against 0.07). Not investigated; a likely cause is
-  that at first order the group value sits at the master's centre, an O(h) shift that the
-  second-order group value point removes.
+  about 3× worse than unlinked (rms 0.21 against 0.07). Investigated in "Taylor–Couette first
+  order with linking" below: the masters carry the cut pressure of their groups; the value-point
+  hypothesis is ruled out.
 
 ## Free slip on curved walls: the missing curvature shear (2026-11-03)
 
@@ -704,3 +704,53 @@ instead of the cell value; the friction in the reported force (here the force ou
 pressure only, the drag above is the driving force × volume); concave walls (κ < 0, explicit);
 moving bodies (∇_t(u_b·n) term); alpha-field bodies (no level set). The normal viscous stress
 2ν∂u_n/∂n, the other half of the traction form, is still carried by the cut-cell pressure.
+
+## Taylor–Couette first order with linking (2026-11-03)
+
+Data: `validation/data/secondOrder/taylorCouette_firstOrder.txt`; tools:
+`validation/taylorCouette_classes.py` (errors by cell class at the cell centres, torque from a fit
+u_θ = a r + b/r over the bulk), `ibmTruncationTC -groupValue own|master|centroid` (one exact value
+per group, residuals of the merged equations), `validation/taylorCouette_truncationCV.py`.
+
+**Solver**, inner wall (linked: mergeAlpha 0.5, α_min 0; unlinked: α_min 0.02):
+
+| N = 80 / 160 / 320 | linked | unlinked | unlinked, α_min 1e-9 |
+|---|---|---|---|
+| torque error | −2.28 / −1.12 / −0.50 % | −2.65 / −1.26 / −0.66 % | −2.72 / −1.51 / −0.70 % |
+| bulk U rms | 6.2e-3 / 3.1e-3 / 1.4e-3 | 5.9e-3 / 3.0e-3 / 1.7e-3 | 6.0e-3 / 3.7e-3 / 1.7e-3 |
+| cut-CV p rms (slaves, masters) | 0.37, 0.35 / 0.40, 0.34 / 0.34, 0.32 | 0.19 / 0.16 / 0.17 | 0.19 / 0.19 / 0.17 |
+| cut-CV p max | 0.50 / 0.72 / 0.66 | 0.95 / 0.76 / 1.16 | 1.32 / 2.03 / 1.37 |
+| first full layer p rms (not in a group) | 0.08 / 0.13 / 0.10 | 0.06 / 0.08 / 0.07 | 0.05 / 0.07 / 0.06 |
+
+- Velocity and torque converge at first order, linked as accurate as unlinked (torque slightly
+  better). The open point is the pressure only.
+- The "first full layer 3× worse" of the previous section is the masters: they are part of a
+  merged cut control volume and carry its pressure. Full cells outside the groups are 1.4× worse
+  than unlinked. The near-wall error is a zero-mean oscillation that decays within 3–5 cells, the
+  same in both.
+- The cut pressure does not converge with or without linking. Linking doubles its rms and halves
+  its maximum.
+
+**Cause: the first-order continuity flux of the merged control volume.** Flux imbalance per cut
+control volume (unlinked cut cell or merged group) for the exact solution, per cell volume, inner
+wall (N = 80 / 160 / 320):
+
+| | first order | second order |
+|---|---|---|
+| unlinked | 0.051 / 0.036 / 0.044 | 0.012 / 0.0077 / 0.0054 |
+| linked, group value at the master's fluid centroid | 0.071 / 0.098 / 0.095 | 0.041 / 0.069 / 0.061 |
+| linked, group value at the group centroid | 0.080 / 0.097 / 0.091 | 0.017 / 0.010 / 0.0055 |
+
+- At first order the flux of a partially wet face is the linear interpolate at the face centre
+  (`ibm.flux`, θ·fvc::flux): an O(1) imbalance per cell volume that does not converge (item 3 of
+  "The cut-cell pressure is a continuity error"), hence the O(1) pressure.
+- A group has more partially wet faces, and the one group value enters each of them as if it
+  sat at that cell's centre, which roughly doubles the imbalance. Where the group value is taken
+  to sit does not matter at first order (master 0.095, centroid 0.091 at N = 320). The
+  hypothesis of the previous section (group value at the master's centre, an O(h) shift) is ruled
+  out.
+- At second order the face values are corrected to the wet-face centroids from the group's
+  value point, and the merged control volume converges like an unlinked cut cell.
+- No first-order fix short of the second-order face values: without a gradient there is no way
+  to move a value to the wet part of a face. The first-order scheme is consistent in velocity and
+  torque and inconsistent in the cut-cell pressure, linked or not.
