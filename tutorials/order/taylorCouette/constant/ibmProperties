@@ -3,7 +3,7 @@ FoamFile { version 2.0; format ascii; class dictionary; object ibmProperties; }
 // Omega = 1 (no slip), the outer one is at rest (no slip, fluid inside).
 // Exact solution u_theta = A r + B/r, A = -Omega Ri^2/(Ro^2 - Ri^2),
 // B = Omega Ri^2 Ro^2/(Ro^2 - Ri^2).
-alphaMin      0.02;
+mergeAlpha    0.5;     // cut cells with less fluid are linked to a master (default)
 nSubSamples   32;
 nBisect       40;
 writeFields   true;

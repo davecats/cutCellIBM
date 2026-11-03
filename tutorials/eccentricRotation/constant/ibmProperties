@@ -3,7 +3,7 @@ FoamFile { version 2.0; format ascii; class dictionary; object ibmProperties; }
 // A cylinder turning about a point off its axis (centreOfRotation): the
 // geometry changes every step, cells are swept, absorbed and uncovered. The
 // wall flux must still sum to zero over the domain to round-off.
-alphaMin      0.02;
+mergeAlpha    0.5;     // cut cells with less fluid are linked to a master (default)
 nSubSamples   32;
 nBisect       40;
 writeFields   true;

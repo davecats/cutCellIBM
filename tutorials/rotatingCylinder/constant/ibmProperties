@@ -5,7 +5,7 @@ FoamFile { version 2.0; format ascii; class dictionary; object ibmProperties; }
 // cells next to an absorbed sliver, whose closed face moves with the body
 // (log: max |S|, max |alpha^{n+1} - alpha^n|; sum S = 0 to round-off). The
 // centre is off the mesh symmetry lines on purpose.
-alphaMin      0.02;
+mergeAlpha    0.5;     // cut cells with less fluid are linked to a master (default)
 nSubSamples   32;
 nBisect       40;
 writeFields   true;

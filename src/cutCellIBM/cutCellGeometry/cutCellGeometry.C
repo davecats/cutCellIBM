@@ -49,7 +49,16 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     ),
     mesh_(mesh),
     bodies_(),
-    alphaMin_(getOrDefault<scalar>("alphaMin", 0.02)),
+    // Linked small cells need no absorption beyond the cells without
+    // fluid; without linking slivers are absorbed below 2 %
+    alphaMin_
+    (
+        getOrDefault<scalar>
+        (
+            "alphaMin",
+            getOrDefault<scalar>("mergeAlpha", 0.5) > 0 ? 0 : 0.02
+        )
+    ),
     nSubSamples_(getOrDefault<label>("nSubSamples", 32)),
     nBisect_(getOrDefault<label>("nBisect", 40)),
     writeFields_(getOrDefault<bool>("writeFields", true)),
@@ -178,7 +187,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     sampleSendCells_(),
     sampleRecvSlots_(),
     wallSamplesDone_(false),
-    mergeAlpha_(getOrDefault<scalar>("mergeAlpha", 0)),
+    mergeAlpha_(getOrDefault<scalar>("mergeAlpha", 0.5)),
     mergePenalty_(getOrDefault<scalar>("mergePenalty", 1e4)),
     linkFace_(),
     linkGroup_(),
@@ -192,7 +201,8 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     recvSlots_()
 {
     Info<< "Cut-cell immersed boundary: reading " << name() << nl
-        << "    alphaMin " << alphaMin_
+        << "    mergeAlpha " << mergeAlpha_
+        << ", alphaMin " << alphaMin_
         << ", nSubSamples " << nSubSamples_
         << ", nBisect " << nBisect_
         << (secondOrder_ ? ", second-order wall treatment" : "") << endl;
@@ -856,26 +866,48 @@ void Foam::cutCellGeometry::calcLinks()
     {
         if (!bodies_[bodyi].hasLevelSet()) levelSetOnly = false;
     }
-    const pointField xc(fluidCentroids());
-    scalarField wd(nCells, 0);
+    scalarField volSum(alpha*V);
+    groupSum(volSum);
+    scalarField yGroupSum(nCells, 0), weightSum(nCells, 0);
     if (levelSetOnly)
     {
+        // The level set at the fluid centroids, fluid-volume weighted
+        const pointField xc(fluidCentroids());
+        scalarField wd;
         wallDistance(xc, wd);
+        yGroupSum = alpha*V*wd;
+        weightSum = volSum;
     }
     else
     {
-        wd = dWall_.primitiveField();
+        // Without a level set only the wall cells know their distance, the
+        // first-order alpha V/(2 Awall) of their fluid centroid: each of a
+        // group extends its wall plane to the group centroid, weighted by
+        // its wall area (the level-set result for a planar wall)
+        vectorField momSum(alpha*V*linkRel_);
+        groupSum(momSum);
+        for (const label celli : wallCells_)
+        {
+            if (linkGroup_[celli] < 0) continue;
+            const vector n(Sw_[celli]/max(Awall_[celli], VSMALL));
+            const vector toCentroid
+            (
+                momSum[celli]/max(volSum[celli], VSMALL) - linkRel_[celli]
+            );
+            yGroupSum[celli] =
+                Awall_[celli]*(dWall_[celli] - (n & toCentroid));
+            weightSum[celli] = Awall_[celli];
+        }
     }
-    scalarField volSum(alpha*V), momSum(alpha*V*wd);
-    groupSum(volSum);
-    groupSum(momSum);
+    groupSum(yGroupSum);
+    if (!levelSetOnly) groupSum(weightSum);
     scalarField& dWall = dWall_.primitiveFieldRef();
     scalarField& wallCoeff = wallCoeff_.primitiveFieldRef();
     scalarField& noSlip = noSlipCoeff_.primitiveFieldRef();
     forAll(alpha, celli)
     {
-        if (linkGroup_[celli] < 0) continue;
-        const scalar yGroup = momSum[celli]/max(volSum[celli], VSMALL);
+        if (linkGroup_[celli] < 0 || weightSum[celli] <= 0) continue;
+        const scalar yGroup = yGroupSum[celli]/weightSum[celli];
         linkWallDist_[celli] = yGroup;
 
         // The wall of a slave belongs to the merged cell, whose value sits at
@@ -2469,13 +2501,19 @@ void Foam::cutCellGeometry::writeGeometryFields() const
     }
 
     // Wall-law samples, comparable between decompositions: the distance of
-    // the sample from the wall (0: the wall cell samples itself)
+    // the sample from the wall (0: the wall cell samples itself). Only for
+    // level-set bodies (the samples need the wall distance).
     bool wallFunctions = false;
     forAll(bodies_, bodyi)
     {
         if (bodies_[bodyi].wallFunction() != ibmBody::NOWALLFUNCTION)
         {
             wallFunctions = true;
+        }
+        if (!bodies_[bodyi].hasLevelSet())
+        {
+            wallFunctions = false;
+            break;
         }
     }
     if (wallFunctions && wallSampleDistance_ > 0)

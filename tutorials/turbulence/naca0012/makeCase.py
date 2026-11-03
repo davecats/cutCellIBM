@@ -385,7 +385,6 @@ def main():
           % ("SpalartAllmaras" if a.kind == "bf" else "ibmSpalartAllmaras"))
     if a.kind == "ibm":
         write(os.path.join(d, "constant/ibmProperties"), header("dictionary", "ibmProperties") + """
-alphaMin      0.02;
 mergeAlpha    %g;
 secondOrder   %s;
 nSubSamples   32;

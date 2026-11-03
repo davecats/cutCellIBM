@@ -1,7 +1,7 @@
 FoamFile { version 2.0; format ascii; class dictionary; object ibmProperties; }
 
 // Cut-cell immersed boundary (see src/cutCellIBM/cutCellGeometry)
-alphaMin      0.02;    // slivers with less fluid are absorbed into the body
+mergeAlpha    0.5;     // cut cells with less fluid are linked to a master (default)
 nSubSamples   32;      // samples per direction for the cell fluid fraction
 nBisect       40;      // bisection steps for the wall position on cut edges
 writeFields   true;

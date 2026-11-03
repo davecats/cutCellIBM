@@ -1,5 +1,5 @@
 FoamFile { version 2.0; format ascii; class dictionary; object ibmProperties; }
-alphaMin      0.02;
+mergeAlpha    0.5;     // cut cells with less fluid are linked to a master (default)
 nSubSamples   32;
 nBisect       40;
 writeFields   false;

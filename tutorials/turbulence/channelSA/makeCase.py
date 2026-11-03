@@ -206,7 +206,7 @@ def main():
     ap.add_argument("--wallFunction", choices=("spalartAllmaras", "none"), default="spalartAllmaras")
     ap.add_argument("--nh", type=int, help="cells per half-channel (overrides --mesh)")
     ap.add_argument("--h1", type=float, help="first cell size (overrides --mesh)")
-    ap.add_argument("--mergeAlpha", type=float, default=0.0,
+    ap.add_argument("--mergeAlpha", type=float, default=0.5,
                     help="ibm: link cut cells with alpha below this to a neighbour")
     ap.add_argument("--secondOrder", action="store_true",
                     help="ibm: second-order wall treatment (cutCellCorrected schemes)")
@@ -339,7 +339,6 @@ momentumSource
 """ % ("meanVelocityForce" if a.kind == "bf" else "ibmMeanVelocityForce", Ubar))
     if a.kind == "ibm":
         write(os.path.join(d, "constant/ibmProperties"), header("dictionary", "ibmProperties") + """
-alphaMin      0.02;
 mergeAlpha    %g;
 secondOrder   %s;
 %snSubSamples   32;

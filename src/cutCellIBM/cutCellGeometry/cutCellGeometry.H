@@ -23,7 +23,11 @@ Description
 
     All fields are computed once at construction from constant/ibmProperties:
     \verbatim
-    alphaMin      0.02;   // cells with less fluid are absorbed into the body
+    mergeAlpha    0.5;    // cells with less fluid are linked to a master
+                          // (merged control volume; 0: no linking)
+    alphaMin      0;      // cells with less fluid are absorbed into the
+                          // body (default 0 with linking: only cells
+                          // without fluid; 0.02 without)
     nSubSamples   32;     // per direction, for the cell fluid fraction
     nBisect       40;     // bisection steps locating the wall on cut edges
     writeFields   true;   // write ibmAlpha, ibmTheta, ... at start-up
@@ -264,7 +268,7 @@ class cutCellGeometry
     // Cell linking (merging) of small cut cells, mergeAlpha > 0 only
 
         //- Cells with 0 < alpha < mergeAlpha_ are linked to a fluid face
-        //  neighbour (0: off)
+        //  neighbour (0: off; default 0.5)
         scalar mergeAlpha_;
 
         //- Link conductance relative to the larger diagonal of the pair
