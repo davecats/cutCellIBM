@@ -10,6 +10,7 @@ ibmRefineFvMeshCoeffs
     maxCells        200000;
     unrefine        true;
     nBufferLayers   2;      // around the vorticity region
+    enableBalancing false;  // true: parallel load balancing (doc/amr.md)
 
     regions
     {

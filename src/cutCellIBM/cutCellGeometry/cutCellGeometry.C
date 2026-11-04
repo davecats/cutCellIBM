@@ -396,8 +396,11 @@ void Foam::cutCellGeometry::calcGeometry()
     // Coupled faces (C2): the two sides of a cyclic or processor face are the
     // same face and must carry the same fraction. Take the minimum, which
     // also propagates the closing of absorbed cells across the boundary.
+    // The geometric fractions (before the absorption, which legitimately
+    // closes one side first) must agree on both sides.
     {
-        scalarField thetaUnsynced(theta);
+        scalarField thetaGeoSynced(thetaGeo_);
+        syncTools::syncFaceList(mesh_, thetaGeoSynced, minEqOp<scalar>());
         syncTools::syncFaceList(mesh_, theta, minEqOp<scalar>());
         scalar maxDiff = 0;
         forAll(mesh_.boundary(), patchi)
@@ -410,7 +413,8 @@ void Foam::cutCellGeometry::calcGeometry()
                     const label facei = fvp.start() + i;
                     maxDiff = max
                     (
-                        maxDiff, mag(theta[facei] - thetaUnsynced[facei])
+                        maxDiff,
+                        mag(thetaGeoSynced[facei] - thetaGeo_[facei])
                     );
                 }
             }

@@ -5,7 +5,13 @@
 #include "syncTools.H"
 #include "wallDist.H"
 #include "processorPolyPatch.H"
+#include "emptyPolyPatch.H"
+#include "mappedPatchBase.H"
 #include "volFields.H"
+#include "decompositionMethod.H"
+#include "fvMeshDistribute.H"
+#include "mapDistributePolyMesh.H"
+#include "fvMeshTools.H"
 #include "addToRunTimeSelectionTable.H"
 
 namespace Foam
@@ -322,19 +328,46 @@ void Foam::ibmRefineFvMesh::unrefine(const labelList& splitElems)
 }
 
 
+Foam::List<Foam::Pair<Foam::word>> Foam::ibmRefineFvMesh::fluxNames
+(
+    const dictionary& dict
+)
+{
+    return dict.getOrDefault<List<Pair<word>>>
+    (
+        "correctFluxes",
+        List<Pair<word>>(1, Pair<word>("phi", "U"))
+    );
+}
+
+
+Foam::tmp<Foam::scalarField> Foam::ibmRefineFvMesh::coupledFluxMismatch
+(
+    const surfaceScalarField& phi
+) const
+{
+    scalarField phiB(nBoundaryFaces(), Zero);
+    forAll(phi.boundaryField(), patchi)
+    {
+        const polyPatch& pp = boundaryMesh()[patchi];
+        if (pp.coupled())
+        {
+            SubList<scalar>(phiB, pp.size(), pp.start() - nInternalFaces()) =
+                phi.boundaryField()[patchi];
+        }
+    }
+    scalarField phiNbr(phiB);
+    syncTools::swapBoundaryFaceList(*this, phiNbr);
+    return mag(phiB + phiNbr)/(mag(phiB) + mag(phiNbr) + VSMALL);
+}
+
+
 void Foam::ibmRefineFvMesh::correctFluxes(const dictionary& dict)
 {
     // The mapped flux is kept where the faces have not changed; on the new,
     // split and merged faces it is the cut-cell flux of the mapped velocity,
     // at every stored time level
-    const List<Pair<word>> fluxes
-    (
-        dict.getOrDefault<List<Pair<word>>>
-        (
-            "correctFluxes",
-            List<Pair<word>>(1, Pair<word>("phi", "U"))
-        )
-    );
+    const List<Pair<word>> fluxes(fluxNames(dict));
 
     for (const Pair<word>& names : fluxes)
     {
@@ -371,6 +404,384 @@ void Foam::ibmRefineFvMesh::correctFluxes(const dictionary& dict)
             U = &U->oldTime();
         }
     }
+}
+
+
+void Foam::ibmRefineFvMesh::updateWallDistance()
+{
+    HashTable<wallDist*> wallDists(lookupClass<wallDist>());
+    forAllIters(wallDists, iter)
+    {
+        iter.val()->movePoints();
+    }
+}
+
+
+Foam::scalar Foam::ibmRefineFvMesh::imbalance(const labelList& nCellsProc)
+{
+    const scalar mean = scalar(sum(nCellsProc))/nCellsProc.size();
+    return max(nCellsProc)/max(mean, SMALL) - 1;
+}
+
+
+Foam::labelList Foam::ibmRefineFvMesh::nCellsProc() const
+{
+    labelField n(Pstream::nProcs(), Zero);
+    n[Pstream::myProcNo()] = nCells();
+    reduce(n, sumOp<labelField>());
+    return labelList(n);
+}
+
+
+template<class Type>
+void Foam::ibmRefineFvMesh::correctCoupledPatches()
+{
+    typedef GeometricField<Type, fvPatchField, volMesh> GeoField;
+
+    // In the same order on every processor (sorted names, old time levels
+    // included), each field with one exchange
+    for (const word& name : sortedNames<GeoField>())
+    {
+        typename GeoField::Boundary& bf =
+            lookupObjectRef<GeoField>(name).boundaryFieldRef();
+
+        const label nReq = Pstream::nRequests();
+        forAll(bf, patchi)
+        {
+            if (bf[patchi].coupled())
+            {
+                bf[patchi].initEvaluate(Pstream::commsTypes::nonBlocking);
+            }
+        }
+        Pstream::waitRequests(nReq);
+        forAll(bf, patchi)
+        {
+            if (bf[patchi].coupled())
+            {
+                bf[patchi].evaluate(Pstream::commsTypes::nonBlocking);
+            }
+        }
+    }
+}
+
+
+void Foam::ibmRefineFvMesh::printFieldSums(const dictionary& dict) const
+{
+    // Per field a sum over the cells that a redistribution does not change:
+    // |net flux| for the fluxes of correctFluxes, |value| for the volume
+    // fields (old time levels included)
+    const List<Pair<word>> fluxes(fluxNames(dict));
+    for (const Pair<word>& names : fluxes)
+    {
+        for (const word& name : sortedNames<surfaceScalarField>())
+        {
+            if (name != names.first() && !name.starts_with(names.first() + "_0"))
+            {
+                continue;
+            }
+            const surfaceScalarField& f = lookupObject<surfaceScalarField>(name);
+            scalarField net(nCells(), Zero);
+            forAll(faceNeighbour(), facei)
+            {
+                net[faceOwner()[facei]] += f[facei];
+                net[faceNeighbour()[facei]] -= f[facei];
+            }
+            forAll(f.boundaryField(), patchi)
+            {
+                const labelUList& fc = boundary()[patchi].faceCells();
+                forAll(fc, i)
+                {
+                    net[fc[i]] += f.boundaryField()[patchi][i];
+                }
+            }
+            Info<< "        " << name << ": sum |net flux| "
+                << gSum(mag(net)) << ", coupled faces max |phi + phi_nbr|/"
+                << "(|phi| + |phi_nbr|) "
+                << gMax(coupledFluxMismatch(f)()) << endl;
+        }
+    }
+    for (const word& name : sortedNames<volScalarField>())
+    {
+        Info<< "        " << name << ": sum |value| "
+            << gSum(mag(lookupObject<volScalarField>(name).primitiveField()))
+            << endl;
+    }
+    for (const word& name : sortedNames<volVectorField>())
+    {
+        Info<< "        " << name << ": sum |value| "
+            << gSum(mag(lookupObject<volVectorField>(name).primitiveField()))
+            << endl;
+    }
+}
+
+
+bool Foam::ibmRefineFvMesh::balance(const dictionary& dict)
+{
+    if
+    (
+        !Pstream::parRun()
+     || !dict.getOrDefault<bool>("enableBalancing", false)
+    )
+    {
+        return false;
+    }
+
+    const scalar allowedImbalance =
+        dict.getOrDefault<scalar>("allowedImbalance", 0.2);
+
+    const labelList nOld(nCellsProc());
+    const scalar oldImbalance = imbalance(nOld);
+    Info<< "    load balance: imbalance " << oldImbalance
+        << " (cells per processor " << min(nOld) << " to " << max(nOld)
+        << ")" << endl;
+    if (oldImbalance <= allowedImbalance)
+    {
+        return false;
+    }
+
+    // Every cell that descends from one cell of the background mesh goes
+    // to the same processor, so that the refinement history is distributed
+    // whole (refinementHistoryMultiDim::distribute keeps the history of a
+    // family only if all its cells move together). The decomposition works
+    // on these clusters, weighted by their number of cells.
+    const refinementHistoryMultiDim& history = meshCutter_->history();
+    labelList cellToCluster(nCells(), -1);
+    label nClusters = 0;
+    if (history.active())
+    {
+        const labelList& visible = history.visibleCells();
+        const auto& splitCells = history.splitCells();
+        labelList topToCluster(splitCells.size(), -1);
+        forAll(visible, celli)
+        {
+            label index = visible[celli];
+            if (index < 0) continue;
+            while (splitCells[index].parent_ >= 0)
+            {
+                index = splitCells[index].parent_;
+            }
+            if (topToCluster[index] < 0)
+            {
+                topToCluster[index] = nClusters++;
+            }
+            cellToCluster[celli] = topToCluster[index];
+        }
+    }
+    forAll(cellToCluster, celli)
+    {
+        if (cellToCluster[celli] < 0)
+        {
+            cellToCluster[celli] = nClusters++;
+        }
+    }
+
+    pointField clusterCentres(nClusters, Zero);
+    scalarField clusterWeights(nClusters, Zero);
+    forAll(cellToCluster, celli)
+    {
+        clusterCentres[cellToCluster[celli]] += cellCentres()[celli];
+        clusterWeights[cellToCluster[celli]] += 1;
+    }
+    clusterCentres /= clusterWeights;
+
+    // The method of the balancing (default scotch), its coefficients from
+    // system/decomposeParDict if it has them
+    dictionary decompDict;
+    {
+        IOobject io
+        (
+            "decomposeParDict",
+            time().system(),
+            *this,
+            IOobject::MUST_READ,
+            IOobject::NO_WRITE,
+            false
+        );
+        if (io.typeHeaderOk<IOdictionary>(true))
+        {
+            decompDict = IOdictionary(io);
+        }
+    }
+    decompDict.remove("constraints");
+    decompDict.set("numberOfSubdomains", Pstream::nProcs());
+    decompDict.set
+    (
+        "method",
+        dict.getOrDefault<word>("balanceMethod", "scotch")
+    );
+
+    const labelList distribution
+    (
+        decompositionMethod::New(decompDict)->decompose
+        (
+            *this,
+            cellToCluster,
+            clusterCentres,
+            clusterWeights
+        )
+    );
+
+    labelField nNew(Pstream::nProcs(), Zero);
+    for (const label proci : distribution)
+    {
+        ++nNew[proci];
+    }
+    reduce(nNew, sumOp<labelField>());
+    const scalar newImbalance = imbalance(nNew);
+
+    if
+    (
+        newImbalance > allowedImbalance
+     && newImbalance > 0.5*oldImbalance
+    )
+    {
+        Info<< "    load balance: kept, the best decomposition found has "
+            << "imbalance " << newImbalance << endl;
+        return false;
+    }
+
+    // fvMeshDistribute needs a patch that is neither empty nor coupled to
+    // hold the exposed faces for a while. A domain periodic in every solved
+    // direction gets one without faces.
+    {
+        bool found = false;
+        for (const polyPatch& pp : boundaryMesh())
+        {
+            if
+            (
+                !isA<emptyPolyPatch>(pp)
+             && !pp.coupled()
+             && !isA<mappedPatchBase>(pp)
+            )
+            {
+                found = true;
+            }
+        }
+        if (!found)
+        {
+            Info<< "    load balance: adding the patch loadBalancing "
+                << "without faces (no patch is neither empty nor coupled)"
+                << endl;
+
+            // zeroGradient on the volume fields (they may be solved for),
+            // calculated on the surface fields
+            dictionary patchFieldDict;
+            dictionary zeroGradient;
+            zeroGradient.add("type", "zeroGradient");
+            wordList names(this->names<volScalarField>());
+            names.append(this->names<volVectorField>());
+            names.append(this->names<volSphericalTensorField>());
+            names.append(this->names<volSymmTensorField>());
+            names.append(this->names<volTensorField>());
+            for (const word& name : names)
+            {
+                patchFieldDict.add(name, zeroGradient);
+            }
+
+            fvMeshTools::addPatch
+            (
+                *this,
+                polyPatch
+                (
+                    "loadBalancing",
+                    0,
+                    nInternalFaces(),
+                    0,
+                    boundaryMesh(),
+                    polyPatch::typeName
+                ),
+                patchFieldDict,
+                "calculated",
+                true
+            );
+            (void)solutionD();
+            (void)geometricD();
+        }
+    }
+
+    if (debug)
+    {
+        Info<< "    fields before the redistribution:" << endl;
+        printFieldSums(dict);
+    }
+
+    // The faces the adaptation has changed (their flux is rebuilt after the
+    // redistribution; none is created or changed by it)
+    labelList changed(nFaces(), Zero);
+    for (const label facei : changedFaces_)
+    {
+        changed[facei] = 1;
+    }
+
+    // The cut-cell geometry belongs to the old mesh until it is rebuilt.
+    // The mesh changes in several steps; the refinement levels and history
+    // follow at the end.
+    ibm().outOfDate();
+    distributing_ = true;
+    autoPtr<mapDistributePolyMesh> map =
+        fvMeshDistribute(*this).distribute(distribution);
+    distributing_ = false;
+
+    (void)solutionD();
+    (void)geometricD();
+    meshCutter_->distribute(map());
+
+    correctCoupledPatches<scalar>();
+    correctCoupledPatches<vector>();
+    correctCoupledPatches<sphericalTensor>();
+    correctCoupledPatches<symmTensor>();
+    correctCoupledPatches<tensor>();
+
+    if (debug)
+    {
+        Info<< "    fields after the redistribution:" << endl;
+        printFieldSums(dict);
+    }
+
+    map().distributeFaceData(changed);
+
+    // fvMeshDistribute (v2106 to v2506) can give the two sides of a face
+    // that has become a processorCyclic face different fluxes: such faces
+    // are rebuilt with the changed ones (at every stored time level)
+    label nInconsistent = 0;
+    for (const Pair<word>& names : fluxNames(dict))
+    {
+        const surfaceScalarField* phiPtr =
+            cfindObject<surfaceScalarField>(names.first());
+        while (phiPtr)
+        {
+            const scalarField mismatch(coupledFluxMismatch(*phiPtr));
+            forAll(mismatch, bFacei)
+            {
+                const label facei = bFacei + nInternalFaces();
+                if (mismatch[bFacei] > 1e-8 && changed[facei] == 0)
+                {
+                    changed[facei] = 1;
+                    ++nInconsistent;
+                }
+            }
+            phiPtr = phiPtr->nOldTimes() ? &phiPtr->oldTime() : nullptr;
+        }
+    }
+    reduce(nInconsistent, sumOp<label>());
+    if (nInconsistent)
+    {
+        Info<< "    load balance: " << nInconsistent << " coupled faces with "
+            << "different fluxes on their two sides, rebuilt" << endl;
+    }
+    changedFaces_.reset();
+    changedFaces_.resize(nFaces());
+    forAll(changed, facei)
+    {
+        if (changed[facei] != 0) changedFaces_.set(facei);
+    }
+
+    const labelList nNow(nCellsProc());
+    Info<< "    load balance: redistributed, imbalance " << imbalance(nNow)
+        << " (cells per processor " << min(nNow) << " to " << max(nNow)
+        << ")" << endl;
+
+    return true;
 }
 
 
@@ -470,7 +881,8 @@ Foam::ibmRefineFvMesh::ibmRefineFvMesh(const IOobject& io, const bool doInit)
     dynamicFvMesh(io, doInit),
     meshCutter_(hexRef::New(*this)),
     nAdapt_(0),
-    changedFaces_()
+    changedFaces_(),
+    distributing_(false)
 {
     // The engine splits hexahedra: a cell of the background mesh must have
     // six faces of four points each, and a cell refined before (restart)
@@ -622,15 +1034,15 @@ bool Foam::ibmRefineFvMesh::update()
 
     if (changed)
     {
+        // Load balancing, before the rebuild (one rebuild on the final
+        // distribution); the changed faces go with the mesh
+        balance(dict);
+
         // The cut-cell geometry, the fluxes on the changed faces, then the
         // wall distance that depends on the geometry
         ibm().updateMesh();
         correctFluxes(dict);
-        HashTable<wallDist*> wallDists(lookupClass<wallDist>());
-        forAllIters(wallDists, iter)
-        {
-            iter.val()->movePoints();
-        }
+        updateWallDistance();
         checkCutCells(maxLevel);
     }
 
@@ -649,6 +1061,10 @@ void Foam::ibmRefineFvMesh::updateMesh(const mapPolyMesh& mpm)
     // Maps every registered field. The wall distance waits for the cut-cell
     // geometry (patchDistMethods::ibmLevelSet::movePoints).
     dynamicFvMesh::updateMesh(mpm);
+    if (distributing_)
+    {
+        return;
+    }
     meshCutter_->updateMesh(mpm);
 
     // The solved and geometric directions are recomputed on demand with a

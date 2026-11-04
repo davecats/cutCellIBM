@@ -19,6 +19,16 @@ The axisymmetric variant (`hexRef4Axi`), the load balancing and the adaptation
 criteria of multiDimAMR are not included; the refinement criteria of the
 cut-cell IBM are in `../ibmRefineFvMesh`.
 
+The load balancing of `../ibmRefineFvMesh` copies no file from multiDimAMR. It
+uses `hexRef::distribute` and `refinementHistoryMultiDim::distribute` from this
+directory, OpenFOAM's `fvMeshDistribute` (unmodified; multiDimAMR's
+`fvMeshDistributeAddPatch` is not needed) and OpenFOAM's decomposition methods.
+Two ideas are taken from multiDimAMR's `dynamicMultiDimRefineBalancedFvMesh`:
+decompose the graph of the refinement trees (cells grouped by their top
+ancestor in the history, weighted by their number of cells) instead of adding a
+decomposition constraint (`refinementHistoryMultiDimConstraint`), and evaluate
+the coupled patches of the volume fields after the redistribution.
+
 Reference: D. Rettenmaier et al., Load balanced 2D and 3D adaptive mesh
 refinement in OpenFOAM, SoftwareX 10 (2019) 100317.
 

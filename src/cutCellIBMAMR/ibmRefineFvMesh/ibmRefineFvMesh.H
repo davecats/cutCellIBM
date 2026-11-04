@@ -30,6 +30,18 @@ Description
     cut-cell geometry and the wall distance are rebuilt, and the solver
     recomputes the flux (mesh.topoChanging()).
 
+    Load balancing (parallel runs, enableBalancing true): after an
+    adaptation that changed the mesh, if the number of cells per processor
+    exceeds its mean by more than allowedImbalance, the mesh and all fields
+    are redistributed (fvMeshDistribute). The decomposition (balanceMethod,
+    default scotch, coefficients from system/decomposeParDict if needed)
+    keeps every cell that descends from one cell of the background mesh on
+    one processor, so that the refinement history stays complete and the
+    cells can still be coarsened. The mesh is redistributed only if the
+    new decomposition is balanced (imbalance at most allowedImbalance) or
+    at least halves the imbalance. The redistribution comes before the
+    rebuild of the cut-cell geometry, which is done once.
+
     constant/dynamicMeshDict (re-read at every update):
     \verbatim
     dynamicFvMesh   ibmRefineFvMesh;
@@ -42,6 +54,10 @@ Description
         maxCells        1000000;// no solution-based refinement beyond
         unrefine        true;   // coarsen where the targets have dropped
         nBufferLayers   1;      // around the solution-based regions
+
+        enableBalancing  true;  // optional (default false)
+        allowedImbalance 0.2;   // max/mean cells per processor - 1
+        balanceMethod    scotch;// optional (default scotch)
 
         regions
         {
@@ -100,6 +116,10 @@ class ibmRefineFvMesh
         //- Faces created or changed by the current adaptation
         bitSet changedFaces_;
 
+        //- True while fvMeshDistribute changes the mesh: the refinement
+        //  levels and history are distributed afterwards, as a whole
+        bool distributing_;
+
 
     // Private member functions
 
@@ -143,8 +163,41 @@ class ibmRefineFvMesh
         //- Merge the cells around the split points/edges, map the fields
         void unrefine(const labelList& splitElems);
 
+        //- The fluxes and their velocities (correctFluxes, default phi U)
+        static List<Pair<word>> fluxNames(const dictionary& dict);
+
+        //- |phi + phi_nbr|/(|phi| + |phi_nbr|) on the boundary faces, zero
+        //  on the uncoupled ones: the two sides of a coupled face carry
+        //  opposite fluxes
+        tmp<scalarField> coupledFluxMismatch
+        (
+            const surfaceScalarField& phi
+        ) const;
+
         //- Fluxes on the changed faces from the mapped velocity
         void correctFluxes(const dictionary& dict);
+
+        //- Wall distance of the turbulence models, after the cut-cell
+        //  geometry
+        void updateWallDistance();
+
+        //- Number of cells of every processor, and the imbalance:
+        //  max/mean - 1
+        static scalar imbalance(const labelList& nCellsProc);
+        labelList nCellsProc() const;
+
+        //- Evaluate the coupled patches of the volume fields of one type
+        //  (fvMeshDistribute leaves the new processor patches zero)
+        template<class Type>
+        void correctCoupledPatches();
+
+        //- Redistribute the mesh and the fields if the imbalance exceeds
+        //  allowedImbalance and a better decomposition exists. Returns
+        //  true if the mesh has been redistributed.
+        bool balance(const dictionary& dict);
+
+        //- Debug: sums over the cells that a redistribution keeps
+        void printFieldSums(const dictionary& dict) const;
 
         //- Debug: compare the processor patches with their neighbours
         void checkProcessorPatches() const;
