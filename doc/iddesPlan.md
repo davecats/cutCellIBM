@@ -615,3 +615,21 @@ tan α = 1/4: u_τ +7.06 % against +6.26 %). The conclusions of §8 stand.
 - Restarted with SA-neg, L5–L7 meet residual control (p 1e-7, U/ν̃ 1e-8) after 65–78
   iterations, with the same coefficients to the digits shown. The clipping blocked the fixed
   point but did not bias the forces, so the earlier tables stand.
+
+## 13. The linked wall-resolved excess: convective face values (2026-11-04)
+
+Details: `doc/secondOrderStudy.md`, "Convective face values of cut and linked cells";
+data in `validation/data/naca0012/results.txt` (last block).
+
+- The 0.13 points that L5 lost with linking by default (+5.28 → +5.41 %) come from no longer
+  absorbing slivers (alphaMin 0.02 restores +5.28 %).
+- The wall law is not the cause (switched off: +5.84 / +2.83 %).
+- The linked excess is viscous drag at x < 0.2 plus pressure drag. The two-point wall formula
+  is exact on the body-fitted solution, so the error is in the solution.
+- Cause: the convective face value (linearUpwind, U and ν̃) is extrapolated from the cell
+  centre, but a slave carries the group value from about 0.5–0.7 h off the wall.
+- `ibmConvection true` (default off) extrapolates from the value point to the wet-face
+  centroid. C_d linked +1.13 / +0.47 / +0.61 %, unlinked +2.16 / +0.73 / +0.63 % at L5/L6/L7
+  (default: +5.41 / +1.27 / +0.70 and +2.76 / +0.83 / +0.64 %).
+- The remainder at L6/L7 is pressure drag (+3 %), independent of the level and of the linking.
+- The residual-control convergence in §12 is weak: restarts stop after a few iterations.

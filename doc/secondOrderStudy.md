@@ -825,3 +825,81 @@ The tutorial `cylinderRe1_alphaField` (N = 81, linked) goes from 0.6948 to 0.715
 0.7181). θ is still not consistent with α cell by cell (the interpolant's fluid volume is not
 α V); a per-cell iso-value would make it so, but second order does not need it. The alpha-field
 body is therefore no reason to keep first order.
+
+## Convective face values of cut and linked cells (2026-11-04)
+
+Question (open point 4 of the linking report): why does the linked wall-resolved NACA 0012
+over-predict the viscous drag at L5/L6, and which change cost L5 the 0.13 points between the
+first linked runs (wr5, +5.28 %) and linking by default (wrN, +5.41 %)? Runs in
+`runs/ibmSA_study/naca3/mech`, restarts of the converged L5–L7 solutions; numbers in
+`validation/data/naca0012/results.txt` (last block); viscous drag by chord bin and cell class
+with `validation/naca0012_wallClasses.py`.
+
+**The 0.13 points are sliver absorption.** The current code with `alphaMin 0.02` (1414 slivers
+absorbed instead of linked) converges to +5.28 %, the wr5 value, with the same pressure and
+viscous parts. Cross-processor links (4) and remote samples (12) do not matter. Without
+absorption the slivers become slaves, and the mechanism below acts on more cells.
+
+**The wall law is not the cause.** The blending weight is active in the "wall-resolved" runs
+(area mean 0.37 at L5, 0.05 at L6, 0 at L7). With it off, linked +5.84 % and unlinked
++2.83 %: both rise, the linked − unlinked spread stays.
+
+**Where.** The linked excess over unlinked is all viscous drag at x < 0.2. Against 897:
++0.10, +0.27, +0.40, +0.69 (1e-4 C_d) in the bins up to x = 0.002, 0.01, 0.05, 0.2. Mid-chord
+(0.2–0.8) both linked and unlinked have +2.0, the ordinary L5 resolution error.
+
+**Not the wall flux.** The two-point wall formula of the groups evaluated on the body-fitted
+solution (interpolated to each value point, with the exact distance of the value point) gives
+the 897 shear to 0.1 % for x > 0.05. The error is in the solution: at the front, the group
+values are 1.1–1.5× too fast, the cells 1–4 h above are 0.80–0.90× too slow, and ν̃ in the
+outer layer downstream is 1.2–1.28× too high. Unlinked cut cells show the same pattern, milder.
+
+**Mechanism: convective face values from the cell centres.** Convection is the case's scheme
+(`bounded Gauss linearUpwind grad(U)`, the same for ν̃). The upwind face value is the cell
+value extrapolated from the *cell centre* with the Gauss gradient. A slave sits at the wall
+but carries the group value u_G, which belongs to the group centroid about 0.5–0.7 h from the
+wall. So its side faces convect momentum (and ν̃) at master height, too much. This is the
+error class of the continuity flux (`Fix of 2026-11-02`): the value point is far from the
+faces. It was fixed there only for continuity (`cutCellGeometry::flux`), and the convective
+face value was left at C0 (option C1 in "Options", deferred).
+
+**Fix, behind a switch.** `ibmConvection true` (constant/ibmProperties, default false) adds an
+explicit correction φ_f (v_U + g_U·(x'_f − x_v,U) − v_f^scheme) on every wet face of a cut or
+linked upwind cell. v_U is the upwind value at its value point x_v (group centroid, fluid
+centroid or centre), g_U its least-squares gradient, x'_f the wet-face centroid. It is done
+also over processor faces (`cutCellGeometry::convectionCorrection`). It is applied to U in
+`ibmSimpleFoam` and to ν̃ in `ibmSpalartAllmaras`. With the switch off the code path is not
+entered (results byte-identical).
+
+| C_d vs 897 | L5 | L6 | L7 |
+|---|---|---|---|
+| linked, default | +5.41 % | +1.27 % | +0.70 % |
+| linked, ibmConvection | **+1.13 %** | **+0.47 %** | **+0.61 %** |
+| unlinked, default | +2.76 % | +0.83 % | +0.64 % |
+| unlinked, ibmConvection | +2.16 % | +0.73 % | +0.63 % |
+
+- Linked L5: the pressure drag goes from +11.2 % to +3.3 %, the viscous drag from +3.9 % to
+  +0.56 %. The x < 0.2 excess (+1.46e-4) becomes −1.93e-4. That bin set is now slightly under,
+  like unlinked, and it is compensated by the common mid-chord +2.4e-4.
+- With ibmConvection, linked is better than unlinked at every level, and the viscous drag is
+  within 0.1 % of 897 from L6.
+- The remaining +0.5–0.6 % at L6/L7 is pressure drag, +2.7–3.1 %, the same with and without
+  linking and independent of the level. It is not a wall-cell effect at this resolution.
+- cylinderRe1 (Stokes): drag 0.346853 → 0.346857.
+
+**Not done yet.** `ibmPimpleFoam` and the scalar transport do not have the correction. The
+tutorials and the order study have not been rerun with it. The correction is explicit, and it
+converged in all six NACA runs.
+
+**Convergence pitfall found on the way.** In these restarts the normalised residuals of
+wall-local changes are about 1e-9, so `residualControl` (p 1e-7, U/ν̃ 1e-8) stops after 1–7
+iterations. The "65–78 iterations" of the SA-neg restarts (`doc/iddesPlan.md` §12) is
+therefore weak evidence of convergence. The tables there still stand: they come from the
+30k-iteration runs before the restart, and the unlinked L5 restart, run here for about 18000 fixed
+iterations, moves by 0.01 points (+2.76 → +2.77 %). The restarts here ran a fixed number of
+iterations.
+
+**Side notes.** The NACA STL has 400 panels per side, so dWall/d_exact of the value points is
+1.005–1.10 (largest at the nose). That would lower the shear, not raise it. The TMR 897 wall
+lies about 3.6e-6 (0.2 wall units) inside the analytic profile; the a-priori interpolation
+corrects for it.

@@ -181,3 +181,28 @@ L7_NL_SO               Cl 0.32402  Cd 0.011206 (p 0.002382 v 0.008824)  dCd +0.6
 L5_L_SO  Cl 0.32205 Cd 0.011737 (p 0.002574 v 0.009163)  dCd +5.41% dCl -0.35%
 L6_L_SO  Cl 0.32376 Cd 0.011276 (p 0.002416 v 0.008860)  dCd +1.27% dCl +0.18%
 L7_L_SO  Cl 0.32398 Cd 0.011213 (p 0.002392 v 0.008821)  dCd +0.70% dCl +0.25%
+# Point 4 (2026-11-04): mechanism of the linked L5 excess. Restarts from wrC (linked) / wr5 (unlinked) L5-L7
+# converged solutions, run a fixed number of iterations (residualControl off: wall-local changes give
+# normalised residuals ~1e-9, so residual control stops a restart after 1-7 iterations). Runs: naca3/mech.
+# Viscous drag by chord bin and cell class: validation/naca0012_wallClasses.py --ref tmr897_simplec.
+# 0.13 points (wr5 +5.28 -> default +5.41 %): sliver absorption. alphaMin 0.02 on the current code:
+L5_L_abs     Cl 0.32214 Cd 0.011722 (p 0.002577 v 0.009145)  dCd +5.28%   (1414 slivers absorbed instead of linked)
+# wall law (hPlusModelled 10, weight 0.37 at L5) off: excess remains, linked - unlinked unchanged
+L5_L_noWF    Cl 0.32185 Cd 0.011785 (p 0.002585 v 0.009200)  dCd +5.84%
+L5_NL_noWF   Cl 0.32346 Cd 0.011449 (p 0.002441 v 0.009009)  dCd +2.83%
+# ibmConvection true: convective face values (U, nuTilda) of cut and linked cells from the upwind value
+# point extrapolated to the wet-face centroid with the least-squares gradient (8000 / 5000 its restarts;
+# drift <= 5e-7 per 1000 its). Default (off) for comparison: linked wrN +5.41/+1.27/+0.70, unlinked +2.76/+0.83/+0.64.
+L5_L_conv    Cl 0.32435 Cd 0.011260 (p 0.002391 v 0.008869)  dCd +1.13% p +3.3% v +0.56%
+L6_L_conv    Cl 0.32422 Cd 0.011187 (p 0.002376 v 0.008811)  dCd +0.47% p +2.7% v -0.10%
+L7_L_conv    Cl 0.32404 Cd 0.011202 (p 0.002385 v 0.008817)  dCd +0.61% p +3.1% v -0.04%
+L5_NL_conv   Cl 0.32385 Cd 0.011375 (p 0.002410 v 0.008964)  dCd +2.16% p +4.2% v +1.64%
+L6_NL_conv   Cl 0.32409 Cd 0.011215 (p 0.002378 v 0.008836)  dCd +0.73% p +2.8% v +0.19%
+L7_NL_conv   Cl 0.32403 Cd 0.011204 (p 0.002381 v 0.008823)  dCd +0.63% p +2.9% v +0.04%
+# L5 viscous drag minus 897 by chord bin, 1e-4 C_d (bins <.002 <.01 <.05 <.2 <.5 <.8 <.95 <.99 <1):
+#   linked default   +0.10 +0.27 +0.40 +0.69 +0.71 +1.30 +0.08 +0.07 +0.00  total +3.62
+#   linked conv      +0.07 +0.04 -1.13 -0.91 +1.01 +1.35 +0.12 +0.09 +0.00  total +0.64
+#   unlinked default +0.08 +0.09 -0.41 -0.32 +0.83 +1.29 +0.09 +0.08 +0.00  total +1.75
+#   unlinked conv    +0.09 +0.07 -0.69 -0.57 +0.91 +1.34 +0.11 +0.08 +0.00  total +1.34
+# The linked-specific excess (x < 0.2) is gone; the 0.2-0.8 excess is common to all variants (L5 resolution).
+# Remaining at L6/L7: pressure drag +2.7..3.1 %, level-independent, linked = unlinked.

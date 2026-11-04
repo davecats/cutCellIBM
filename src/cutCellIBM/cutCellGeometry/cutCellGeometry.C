@@ -119,6 +119,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
         mesh, dimensionedScalar(dimless, -1), "zeroGradient"
     ),
     secondOrder_(getOrDefault<bool>("secondOrder", true)),
+    ibmConvection_(getOrDefault<bool>("ibmConvection", false)),
     centroidOffset_
     (
         IOobject("ibmCentroidOffset", mesh.time().timeName(), mesh,
@@ -206,7 +207,9 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
         << ", alphaMin " << alphaMin_
         << ", nSubSamples " << nSubSamples_
         << ", nBisect " << nBisect_
-        << (secondOrder_ ? ", second-order wall treatment" : "") << endl;
+        << (secondOrder_ ? ", second-order wall treatment" : "")
+        << (ibmConvection_ ? ", convective face values from the value points" : "")
+        << endl;
     if (secondOrder_)
     {
         centroidOffset_.writeOpt(IOobject::AUTO_WRITE);

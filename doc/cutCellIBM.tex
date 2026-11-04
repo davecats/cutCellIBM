@@ -1750,9 +1750,15 @@ snGradSchemes    { default cutCellCorrected; }
       The changes on this branch that are not behind the switch concern rotating
       bodies only: the evaluation point \eqref{eq:ubpoint} of the wall velocity, which
       uses the centroid in both cases, and the rotational source \eqref{eq:srot}.
-\item The convective face value is not reconstructed at the wet-face centroid: in the order
-      study this refinement (C1) changes the error by 10--30\% on coarse meshes and nothing
-      asymptotically, and convection uses the scheme of the case.
+\item By default the convective face value is not reconstructed at the wet-face centroid, and
+      convection uses the scheme of the case. In the laminar order study this refinement (C1)
+      changes the error by 10--30\% on coarse meshes and nothing asymptotically. For linked
+      cells on wall-resolved turbulent meshes it matters: a slave carries the group value from
+      about half a cell off the wall, and the centre-based upwind value over-predicts the near-wall
+      convection. \code{ibmConvection true} (\code{constant/ibmProperties}, default off; U in
+      \code{ibmSimpleFoam}, $\tilde\nu$ in the SA model) extrapolates the upwind value from its
+      value point to the wet-face centroid with the least-squares gradient. The linked NACA 0012
+      drag at L5 goes from $+5.4\%$ to $+1.1\%$ (\code{doc/secondOrderStudy.md}).
 \item For moving bodies all centroid quantities and wall pieces are recomputed with the
       geometry at every step. The combination has been exercised only with a body rotating in
       place (Section~\ref{sec:tc}).

@@ -110,6 +110,9 @@ second-order Richardson limit is about 0.7205).
 - NACA L5–L7 wall-resolved, linked by default: C_d +5.41 / +1.27 / +0.70 % against 897 (before
   +5.28 / +1.26 / +0.70 %). The runs clipped ν̃ throughout; with SA-neg they converge to the
   same values.
+- Why linked L5/L6 were high, and the 0.13 points (2026-11-04): sliver absorption is the 0.13; the
+  excess is the convective face value of slaves taken from the cell centre. `ibmConvection true`
+  (default off): linked +1.13 / +0.47 / +0.61 % (`doc/secondOrderStudy.md`, "Convective face values").
 
 ## Why (results that led here)
 

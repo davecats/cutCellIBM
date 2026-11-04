@@ -108,6 +108,138 @@ Foam::cutCellGeometry::snGradCorrection
 
 
 template<class Type>
+Foam::tmp<Foam::GeometricField<Type, Foam::fvsPatchField, Foam::surfaceMesh>>
+Foam::cutCellGeometry::convectionCorrection
+(
+    const surfaceScalarField& phi,
+    const GeometricField<Type, fvPatchField, volMesh>& vf,
+    const GeometricField<Type, fvsPatchField, surfaceMesh>& vSchemeFace
+) const
+{
+    typedef GeometricField<Type, fvsPatchField, surfaceMesh> SurfaceField;
+
+    tmp<SurfaceField> tcorr
+    (
+        new SurfaceField
+        (
+            IOobject
+            (
+                "ibmConvectionCorr(" + vf.name() + ')',
+                vf.instance(),
+                mesh_,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            mesh_,
+            dimensioned<Type>(phi.dimensions()*vf.dimensions(), Zero)
+        )
+    );
+    if (!ibmConvection_)
+    {
+        return tcorr;
+    }
+    SurfaceField& corr = tcorr.ref();
+
+    const direction nCmpt = pTraits<Type>::nComponents;
+    PtrList<volVectorField> g(nCmpt);
+    for (direction cmpt = 0; cmpt < nCmpt; ++cmpt)
+    {
+        g.set(cmpt, lsqGrad(vf.component(cmpt)).ptr());
+    }
+
+    const labelUList& own = mesh_.owner();
+    const labelUList& nei = mesh_.neighbour();
+    const volVectorField& C = mesh_.C();
+    const surfaceVectorField& Cf = mesh_.Cf();
+    const vectorField& off = valueOffset_.primitiveField();
+
+    // Value of cell c (value point x_c + off_c) extrapolated to the point x
+    auto extrapolate = [&]
+    (
+        const Type& v, const label c, const vector& r
+    )
+    {
+        Type e(v);
+        for (direction cmpt = 0; cmpt < nCmpt; ++cmpt)
+        {
+            setComponent(e, cmpt) += g[cmpt][c] & r;
+        }
+        return e;
+    };
+
+    forAll(own, facei)
+    {
+        const label o = own[facei], n = nei[facei];
+        if (theta_[facei] <= 0 || solidCells_.test(o) || solidCells_.test(n))
+        {
+            continue;
+        }
+        const label u = (phi[facei] >= 0) ? o : n;
+        if (theta_[facei] >= 1 && magSqr(off[u]) == 0)
+        {
+            continue;
+        }
+        const vector r(Cf[facei] + wetFaceOffset_[facei] - C[u] - off[u]);
+        corr[facei] =
+            phi[facei]*(extrapolate(vf[u], u, r) - vSchemeFace[facei]);
+    }
+
+    forAll(mesh_.boundary(), patchi)
+    {
+        const fvPatch& fvp = mesh_.boundary()[patchi];
+        if (!fvp.coupled()) continue;
+        const labelUList& fc = fvp.faceCells();
+        const Field<Type> vN(vf.boundaryField()[patchi].patchNeighbourField());
+        const vectorField offN
+        (
+            valueOffset_.boundaryField()[patchi].patchNeighbourField()
+        );
+        PtrList<vectorField> gN(nCmpt);
+        for (direction cmpt = 0; cmpt < nCmpt; ++cmpt)
+        {
+            gN.set
+            (
+                cmpt,
+                new vectorField(g[cmpt].boundaryField()[patchi].patchNeighbourField())
+            );
+        }
+        const vectorField d(fvp.delta());
+        const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
+        const fvsPatchScalarField& php = phi.boundaryField()[patchi];
+        const fvsPatchVectorField& Cfp = Cf.boundaryField()[patchi];
+        const fvsPatchVectorField& wop = wetFaceOffset_.boundaryField()[patchi];
+        const fvsPatchField<Type>& vsp = vSchemeFace.boundaryField()[patchi];
+        fvsPatchField<Type>& cp = corr.boundaryFieldRef()[patchi];
+        forAll(fvp, i)
+        {
+            const label c = fc[i];
+            if (tp[i] <= 0 || solidCells_.test(c)) continue;
+            const point xf(Cfp[i] + wop[i]);
+            Type v;
+            if (php[i] >= 0)
+            {
+                if (tp[i] >= 1 && magSqr(off[c]) == 0) continue;
+                v = extrapolate(vf[c], c, xf - C[c] - off[c]);
+            }
+            else
+            {
+                if (tp[i] >= 1 && magSqr(offN[i]) == 0) continue;
+                const vector r(xf - (C[c] + d[i]) - offN[i]);
+                v = vN[i];
+                for (direction cmpt = 0; cmpt < nCmpt; ++cmpt)
+                {
+                    setComponent(v, cmpt) += gN[cmpt][i] & r;
+                }
+            }
+            cp[i] = php[i]*(v - vsp[i]);
+        }
+    }
+
+    return tcorr;
+}
+
+
+template<class Type>
 Foam::tmp
 <
     Foam::GeometricField
