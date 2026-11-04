@@ -87,6 +87,12 @@ first order (small-cell problem of the pressure; cell merging is the next step);
 one fluid region. The mass source of a body rotating in place is zero except in the cells next
 to an absorbed sliver, whose closed face moves with the body.
 
+License: cutCellIBM is free software, distributed under the GNU General Public License,
+version 3 or (at your option) any later version; see `COPYING`. It is built on and links
+OpenFOAM, which is under the same license. The refinement engine in
+`src/cutCellIBMAMR/hexRef` comes from OpenFOAM and multiDimAMR under the same license and
+keeps its original copyright notices (`src/cutCellIBMAMR/hexRef/README.md`).
+
 Contents
 
 1. [Layout, build, run](#1-layout-build-and-run)

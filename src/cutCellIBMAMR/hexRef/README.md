@@ -26,5 +26,5 @@ refinement in OpenFOAM, SoftwareX 10 (2019) 100317.
 
 The code is derived from OpenFOAM and is distributed, like OpenFOAM and
 multiDimAMR, under the GNU General Public License v3 or later; the original
-copyright headers are kept in every file. Any distribution of this project
-that includes these files must therefore be under GPL v3 (or later) as well.
+copyright headers are kept in every file. The project as a whole is distributed under the
+same license (`COPYING` at the top of the repository).
