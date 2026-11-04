@@ -119,7 +119,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
         mesh, dimensionedScalar(dimless, -1), "zeroGradient"
     ),
     secondOrder_(getOrDefault<bool>("secondOrder", true)),
-    ibmConvection_(getOrDefault<bool>("ibmConvection", false)),
+    ibmConvection_(getOrDefault<bool>("ibmConvection", secondOrder_)),
     centroidOffset_
     (
         IOobject("ibmCentroidOffset", mesh.time().timeName(), mesh,

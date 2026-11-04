@@ -272,6 +272,10 @@ int main(int argc, char *argv[])
          ==
             source*ibm.alpha()
         );
+        if (ibm.ibmConvection())
+        {
+            TEqn += ibm.convectionSource(phi, T);
+        }
         if (!dirichlet)
         {
             TEqn.setReference(pRefCell, 0.0);

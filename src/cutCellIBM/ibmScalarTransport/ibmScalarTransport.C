@@ -204,6 +204,13 @@ void Foam::ibmScalarTransport::solve()
       + srcEqn
     );
 
+    if (ibm_.ibmConvection())
+    {
+        // Convective face values of cut and linked cells from their value
+        // points (cutCellGeometry::convectionCorrection)
+        TEqn += ibm_.convectionSource(phi_, T_);
+    }
+
     TEqn.relax();
     // Linked cells: the wall coefficient is that of the merged cell
     // (calcLinks), so the scalar is merged as well (conservative penalty)

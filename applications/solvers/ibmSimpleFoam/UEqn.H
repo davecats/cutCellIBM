@@ -31,17 +31,7 @@
     {
         // Convective face values of cut and linked cells from their value
         // points (cutCellGeometry::convectionCorrection)
-        tmp<fv::convectionScheme<vector>> tcs
-        (
-            fv::convectionScheme<vector>::New
-            (
-                mesh, phi, mesh.divScheme("div(" + phi.name() + ',' + U.name() + ')')
-            )
-        );
-        UEqn += fvc::surfaceIntegrate
-        (
-            ibm.convectionCorrection(phi, U, tcs().interpolate(phi, U)())
-        );
+        UEqn += ibm.convectionSource(phi, U);
     }
 
     if (ibmTurbulent)

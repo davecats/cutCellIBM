@@ -1,6 +1,4 @@
 #include "ibmSpalartAllmaras.H"
-#include "convectionScheme.H"
-#include "surfaceInterpolate.H"
 #include "cutCellGeometry.H"
 #include "fvOptions.H"
 #include "bound.H"
@@ -232,25 +230,7 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
 
         if (ibm_.ibmConvection())
         {
-            tmp<fv::convectionScheme<scalar>> tcs
-            (
-                fv::convectionScheme<scalar>::New
-                (
-                    this->mesh_,
-                    this->phi_,
-                    this->mesh_.divScheme
-                    (
-                        "div(" + this->phi_.name() + ',' + nuTilda.name() + ')'
-                    )
-                )
-            );
-            nuTildaEqn.ref() += fvc::surfaceIntegrate
-            (
-                ibm_.convectionCorrection
-                (
-                    this->phi_, nuTilda, tcs().interpolate(this->phi_, nuTilda)()
-                )
-            );
+            nuTildaEqn.ref() += ibm_.convectionSource(this->phi_, nuTilda);
         }
 
         nuTildaEqn.ref().relax();

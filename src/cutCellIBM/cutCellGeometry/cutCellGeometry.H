@@ -149,7 +149,7 @@ class cutCellGeometry
         bool secondOrder_;
 
         //- Convective face values of cut and linked cells reconstructed from
-        //  the value point of the upwind cell (ibmConvection, default off)
+        //  the value point of the upwind cell (ibmConvection, default secondOrder)
         bool ibmConvection_;
 
         //- Fluid centroid minus cell centre
@@ -570,6 +570,17 @@ public:
                 const surfaceScalarField& phi,
                 const GeometricField<Type, fvPatchField, volMesh>& vf,
                 const GeometricField<Type, fvsPatchField, surfaceMesh>& vSchemeFace
+            ) const;
+
+            //- convectionCorrection against the case's scheme div(phi,vf),
+            //  integrated over the cells: add it to the matrix of
+            //  fvm::div(phi, vf) when ibmConvection() is set
+            template<class Type>
+            tmp<GeometricField<Type, fvPatchField, volMesh>>
+            convectionSource
+            (
+                const surfaceScalarField& phi,
+                const GeometricField<Type, fvPatchField, volMesh>& vf
             ) const;
 
             template<class Type>

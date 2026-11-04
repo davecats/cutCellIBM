@@ -25,6 +25,13 @@ tmp<fvVectorMatrix> tUEqn
 );
 fvVectorMatrix& UEqn = tUEqn.ref();
 
+if (ibm.ibmConvection())
+{
+    // Convective face values of cut and linked cells from their value
+    // points (cutCellGeometry::convectionCorrection)
+    UEqn += ibm.convectionSource(phi, U);
+}
+
 if (ibmTurbulent)
 {
     // Transpose part of the viscous stress, div(nuEff dev2(T(grad U))), on the

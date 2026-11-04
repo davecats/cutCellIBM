@@ -1,5 +1,7 @@
 #include "cutCellGeometry.H"
 #include "surfaceInterpolate.H"
+#include "fvcSurfaceIntegrate.H"
+#include "convectionScheme.H"
 #include "syncTools.H"
 #include "PstreamBuffers.H"
 
@@ -104,6 +106,28 @@ Foam::cutCellGeometry::snGradCorrection
     }
 
     return tcorr;
+}
+
+
+template<class Type>
+Foam::tmp<Foam::GeometricField<Type, Foam::fvPatchField, Foam::volMesh>>
+Foam::cutCellGeometry::convectionSource
+(
+    const surfaceScalarField& phi,
+    const GeometricField<Type, fvPatchField, volMesh>& vf
+) const
+{
+    tmp<fv::convectionScheme<Type>> tcs
+    (
+        fv::convectionScheme<Type>::New
+        (
+            mesh_, phi, mesh_.divScheme("div(" + phi.name() + ',' + vf.name() + ')')
+        )
+    );
+    return fvc::surfaceIntegrate
+    (
+        convectionCorrection(phi, vf, tcs().interpolate(phi, vf)())
+    );
 }
 
 
