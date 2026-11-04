@@ -62,6 +62,12 @@ ibmRefineFvMeshCoeffs
     }
 
     correctFluxes   ((phi U));  // optional (this default): flux and velocity
+
+    enableBalancing  true;    // parallel load balancing (optional, default false)
+    allowedImbalance 0.2;     // balance when max/mean cells per processor - 1
+                              // exceeds it (optional, this default)
+    balanceMethod    scotch;  // optional (this default); coefficients of other
+                              // methods from system/decomposeParDict
 }
 ```
 
@@ -83,6 +89,9 @@ ibmRefineFvMeshCoeffs
 - The refined mesh, `cellLevel`, `pointLevel` and the refinement history are written with
   every time directory (`<time>/polyMesh`), and a restart continues from them. The field
   `refinementLevel` is written for post-processing.
+- In parallel, `enableBalancing true` redistributes the mesh and the fields across the
+  processors when an adaptation has made the cell counts uneven (section 3, load
+  balancing). Without it, or with it off, nothing changes.
 
 ## 3. How it works
 
@@ -114,8 +123,57 @@ adaptation has the following steps.
 The refinement engine itself, `hexRef3D` (3-D, 1 → 8) and `hexRef4` (2-D one cell thick,
 1 → 4), with the 2:1 balance and the refinement history for unrefinement and restarts, is
 taken unchanged from multiDimAMR (`src/cutCellIBMAMR/hexRef`, see its README).
-The criteria, the load balancing and the axisymmetric variant of multiDimAMR are
-not used.
+The criteria, the balancing class (`dynamicMultiDimRefineBalancedFvMesh`, its modified
+`fvMeshDistribute` and its decomposition constraint) and the axisymmetric variant of
+multiDimAMR are not used; the load balancing above uses OpenFOAM's `fvMeshDistribute`
+and decomposition methods directly.
+
+### Load balancing (parallel)
+
+Refinement around a body concentrates cells on the processors that hold it. With
+`enableBalancing true`, every adaptation that changed the mesh is followed by a balance
+check, before the cut-cell geometry is rebuilt:
+
+1. **Imbalance.** `max/mean − 1` of the cells per processor is logged
+   (`load balance: imbalance 3.13 (cells per processor 160 to 1762)`). Nothing happens
+   at or below `allowedImbalance`.
+2. **Decomposition by refinement trees.** All cells that descend from one cell of the
+   background mesh form a cluster (the top ancestor in the refinement history), and the
+   decomposition method (`balanceMethod`, default `scotch`) partitions the graph of the
+   clusters, weighted by their numbers of cells. A family therefore never straddles a
+   processor boundary, so the refinement history is distributed whole and every cell can
+   still be coarsened later. This is what OpenFOAM's own history constraint for `hexRef8`
+   and multiDimAMR's balancing do as well. The price is granularity: a cluster holds up to
+   `(2^D)^maxLevel` cells (256 in 2-D at `maxLevel 4`), so the background mesh needs
+   many cells per processor.
+3. **Only if it helps.** The new imbalance is known before anything moves. The mesh is
+   redistributed only if the new decomposition is within `allowedImbalance` or at least
+   halves the imbalance; otherwise the log says `kept` (no repeated redistribution for a
+   few percent).
+4. **Redistribution.** OpenFOAM's `fvMeshDistribute` moves the mesh and all registered
+   volume and surface fields, old time levels included; the refinement levels and the
+   history follow as a whole (`hexRef::distribute`, from multiDimAMR). The values on the
+   new processor patches are evaluated (`fvMeshDistribute` leaves them zero). Faces
+   between processors become internal and the reverse, but no face is created or changed:
+   the flux of the faces the adaptation left alone is carried over unchanged.
+5. **Rebuild**, once, after the redistribution: the redistribution comes right after the
+   topology change of the adaptation, and the flags of the faces the adaptation changed
+   travel with the mesh. Then, as without balancing: cut-cell geometry, fluxes on the
+   changed faces, wall distance; the solver blanks and finds the reference cell again.
+
+`fvMeshDistribute` needs a patch that is neither empty nor coupled. In a domain periodic
+in every solved direction, the first balancing adds one without faces (`loadBalancing`,
+`zeroGradient` on the volume fields), and it is written with the mesh.
+
+The redistribution is exact: per field, the sum over the cells of |value| (volume fields,
+old time levels included) and of |net flux| (`phi`, `phi_0`) is the same before and after
+to the last digit (`DebugSwitches { ibmRefineFvMesh 1; }` prints these sums and the
+largest relative difference of the fluxes on the two sides of the coupled faces). The
+one exception is a flux mapping error of `fvMeshDistribute` on new `processorCyclic`
+faces, which is repaired (section 5). With linear solver tolerances of 1e-14, the first
+time step of the Re 100 cylinder gives the same drag to 12 digits and lift to 4e-12 in
+serial, on 6 processors without balancing and on 6 processors right after a
+redistribution.
 
 ### Details that matter
 
@@ -148,6 +206,7 @@ not used.
 | `ibmScalarTransport.H/C` | the fluid fractions of the previous step (swept-volume budget of moving bodies) are a registered field, mapped with the others |
 | `ibmSimpleFoam.C`, `ibmPimpleFoam.C`, `createFields.H`, `Make/options` | `createDynamicFvMesh`, `mesh.update()` at the start of every step/iteration, blanking and reference cell after a change, link `libcutCellIBMAMR` |
 | `Allwmake`, `Allwclean` | the new library |
+| `cutCellGeometry.C` | the consistency check of the fluid fractions across coupled faces compares the geometric fractions (before sliver absorption). Before, it warned whenever an absorbed sliver cell lay next to a processor face, which is legitimate (already seen in parallel runs without balancing, frequent with it); the fractions themselves are unchanged |
 
 ## 5. Limitations
 
@@ -172,11 +231,43 @@ not used.
     restart then stops at the hexahedron check of `ibmRefineFvMesh`.
   - `fvMeshDistribute` (v2106 and v2506) needs a patch that is neither empty nor coupled.
     A domain periodic in every solved direction needs a dummy patch without faces
-    (`dummy { type patch; faces (); }`). Even with it, `-reconstruct` crashes on the
-    periodic test case.
-- No load balancing: refinement around a body concentrates cells on the processors that
-  hold it. For large 3-D cases, refine once (`refineInterval 0`), stop, reconstruct
-  and redecompose (`reconstructParMesh`, `decomposePar`).
+    (`dummy { type patch; faces (); }`; the load balancing in the solver adds one
+    itself). Even with it, `-reconstruct` crashes on the periodic test case.
+
+  The load balancing in the solver (section 3) replaces offline redistribution; a restart
+  must use the number of processors the run was written with.
+- Load balancing balances cells, not work, and pays only where the work per processor
+  dominates. On the small 2-D Re 100 cylinder (≈ 9,000 cells on 6 or 8 processors) it
+  makes the run 5–21 % slower although the imbalance drops from 0.45–0.73 to about 0.1:
+  the time per step does not follow the largest subdomain there, and the scotch
+  subdomains have more neighbours and processor faces than slabs (up to 20 % more
+  pressure iterations). The redistributions themselves are cheap (one costs about an
+  adaptation step). On the 3-D torus (205,000 cells on 8 processors) the run is 1.35
+  times faster (section 7). Use it for large cases, not for small 2-D ones.
+- The decomposition keeps whole refinement trees together, so its granularity is a
+  cluster of up to `(2^D)^maxLevel` cells; the background mesh needs many cells per
+  processor. Scotch partitions the cluster graph on the master processor (OpenFOAM's
+  parallel scotch interface gathers it), which is cheap because there are only as many
+  clusters as background cells.
+- `fvMeshDistribute` (v2106 and v2506) can give the two sides of a new `processorCyclic`
+  face different fluxes (domain periodic in every direction: both faces of such a patch,
+  1.4e-5 against −3.6e-3, consistent before the redistribution). After every
+  redistribution, the coupled faces whose two sides differ by more than 1e-8 (relative)
+  get their flux rebuilt from the velocity, like the faces an adaptation changes, and the
+  log reports their number. The check also catches small differences that the pressure
+  flux of the previous step already has on a few processor faces (e.g. 2 faces with
+  6e-7 in the 2-D cylinder, present before the redistribution), so the message is
+  frequent in long runs; rebuilding a few faces is harmless.
+- Observed while testing, not caused by the balancing:
+  - Moving bodies in parallel: after some adaptations the two sides of a coupled face
+    carry fluxes that differ by up to 1e-3 (also without balancing). The solver replaces
+    the flux by `ibm.flux(U)` at the start of every step of a moving-body run, so it does
+    not persist; its origin has not been traced.
+  - The scalar source of `scalarTransportProperties` (`source { centre; radius; rate; }`)
+    is selected once, by cell centre, when the solver starts. In an adaptive run it is
+    selected on the background mesh and then inherited by the refined cells; a restart
+    selects it again on the refined mesh, which covers a smaller area (the injection per
+    step changed by a factor 1.75 in the oscillating scalar test).
 - The flux rebuilt on the changed faces is not divergence-free. The next pressure
   solution corrects it, and the drag kick at an adaptation step is of the order of an
   ordinary time step (section 3).
@@ -234,3 +325,51 @@ the C_l spectrum):
 The adaptive mesh has 7 times fewer cells than the reference. The lift amplitude is
 still growing in both runs at t = 100 (adaptive, t = 60–150: 0.326). No cut cell left
 level 4 in 1,500 adaptations.
+
+### Load balancing
+
+All in `/home/ws/xt8786/runs/amr_study/LB` (scripts `mk_re100.sh`, `mk_case.sh`, `runpar.sh`,
+`launch_final.sh`, `timing.py`, `cellsproc.py`, `invariants.py`); the timings are from
+one concurrent set on istmeridanus (`final_a`, 57 ranks on 64 cores).
+
+| test | setup | result |
+|---|---|---|
+| no `dynamicMeshDict` | `regression.sh` (9 tutorials), `sa_reg/run.sh` (SA, wall function, linking) against the base commit | all written fields byte-identical |
+| balancing off | `amrtests.sh` (steady cylinder, oscillating cylinder, 2-D and 3-D on 4 ranks) against 1d26377 | all written files byte-identical, processor directories included |
+| exactness, first step | Re 100 cylinder, linear solvers to 1e-14: serial, 6 ranks `simple`, 6 ranks `scotch`, 6 ranks redistributed at the first step (imbalance 3.13 → 0.13) | drag equal to 12 digits, lift to 4e-12 |
+| exactness, many steps | Re 100 cylinder to t = 3, `allowedImbalance 0.03`, debug sums | 9 redistributions, every field and old time level unchanged to the last digit |
+| 2-D unsteady | Re 100 cylinder to t = 100, `simple` slabs (cylinder on one or two processors), 6 and 8 ranks | see below |
+| 3-D steady | STL torus (t2b), 8 ranks, `simple` slabs along x, 300 iterations, wake region | see below |
+| moving body, scalar, periodic | `oscillating_fixedValue` on a 21² background, 4 ranks, every direction periodic | `loadBalancing` patch added; 4 redistributions (0.49 → 0.003, 0.21 → 0.003, ...); 71 refinements and 29 coarsenings as in serial; budget error −1.1e-10 (serial −1.3e-10), content 2.13911914 (serial 2.13911915) |
+| restart | oscillating cylinder, 4 ranks: 0 → 10 against 0 → 5 + restart 5 → 10 | same refinement sequence (60/29 against 36 + 24 / 17 + 12), same final mesh (927 → 906), drag equal to 6e-12; cells are coarsened after the restart (history read back) |
+| v2506 | the moving scalar case and the Re 100 cylinder (6 ranks, on and off) | same numbers as v2106 to all printed digits |
+
+Re 100 cylinder, t = 60–100 (imbalance: mean over the written times):
+
+| run | imbalance | wall time | speed-up | C_d mean | C_l amplitude | St |
+|---|---|---|---|---|---|---|
+| serial | – | 2,276 s | 1 | 1.4169 | 0.323 | 0.1765 |
+| 6 ranks | 0.45 | 1,614 s | 1.41 | 1.4169 | 0.333 | 0.1765 |
+| 6 ranks, balanced (26 redistributions) | 0.10 | 1,700 s | 1.34 | 1.4171 | 0.326 | 0.1765 |
+| 8 ranks | 0.73 | 1,483 s | 1.53 | 1.4169 | 0.319 | 0.1765 |
+| 8 ranks, balanced (84 redistributions) | 0.09 | 1,795 s | 1.27 | 1.4170 | 0.335 | 0.1765 |
+
+C_d and St do not depend on the balancing. The lift amplitude is still growing at t = 100
+and scatters by ±2.5 % between all parallel runs, balanced or not. The balanced runs are
+slower (section 5): the time per ordinary step rises from 124 to 158 ms on 8 ranks, with
+135 instead of 112 pressure iterations per step, while all 77 redistributions after
+t = 5 together cost 35 s.
+
+STL torus, 8 ranks, 300 SIMPLE iterations, adaptations at iterations 1, 100, 200 and 300:
+
+| run | imbalance after the adaptations | first iteration | ordinary iteration | total | drag force |
+|---|---|---|---|---|---|
+| slabs | up to 1.97 (first) and 2.70 (wake) | 716 s | 172 ms | 2,344 s | 2.3427761 |
+| balanced (2 redistributions) | 0.008 and 0.010 | 352 s | 118 ms | 1,737 s | 2.3427763 |
+
+Both reach the same mesh (204,968 cells) with all cut cells and their neighbours at the
+finest level after every adaptation. The adaptations (level set of the STL surface on
+every cell) dominate the run: the first iteration takes half the time balanced, the three
+later adaptations 1,349 s instead of 1,576 s (their refinement passes run on the
+distribution of the previous balancing, only the geometry rebuild on the new one), and
+the whole run is 1.35 times faster.
