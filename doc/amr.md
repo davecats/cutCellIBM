@@ -18,7 +18,7 @@ solution. The same mesh class works in 2-D and 3-D, in `ibmSimpleFoam` and
   finest band to the background is graded automatically.
 - **Nothing changes without `constant/dynamicMeshDict`**: the solvers create a
   `staticFvMesh`, and the results are byte-identical to the code before AMR (9 tutorials,
-  including moving bodies and scalars; see section 6).
+  including moving bodies and scalars; see section 7).
 
 ## 2. Usage
 
