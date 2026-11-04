@@ -775,6 +775,13 @@ value 0.7181; the next section explains and fixes it: 0.7153 now). Same warnings
 convergence as first order; the notebook comparison (unlinked, first order) moves from 2.97 to
 2.77 % in drag.
 
+**First order can be removed** (decided 2026-11-04, not started). The alpha-field body, the
+last case where first order looked better, is second order now (next section). To remove:
+`secondOrder false` (and the switch itself), the first-order branches in `cutCellGeometry`
+(cell-centre value points, layer wall distance) and the operators, the `corrected` scheme check
+in `checkSchemes`, `--firstOrder` in the channel and NACA generators, and the first-order
+wording in README §8 and `cutCellIBM.tex`. The first-order results in the docs stay as history.
+
 ## Alpha-field bodies at second order (2026-11-03)
 
 Question: is an alpha-field body never second order because its geometry is only first order?

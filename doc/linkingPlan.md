@@ -98,6 +98,8 @@ second-order Richardson limit is about 0.7205).
   Alpha-field bodies were not second order (no centroids, layer wall distance), not because of
   their geometry; fixed with centroids and a wall distance from the interpolant
   (`doc/secondOrderStudy.md`, "Alpha-field bodies at second order").
+  First order can now be removed (decided 2026-11-04, not started; list in
+  `doc/secondOrderStudy.md`, "Second order is the default").
 - Inclined wall-function channel: linked errors of the same size as before; unlinked unchanged.
 - The ibmMeanVelocityForce correction had to become group-uniform (8aebbce).
 - NACA wall functions serial vs scotch 8/16 needed SA-neg (e99057b) to converge at all. Converged,
