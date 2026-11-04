@@ -149,9 +149,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     cutCells_(mesh.nCells()),
     wallCells_(mesh.nCells()),
     fluidVolume_(0),
-    nCellsGeom_(-1),
-    nFacesGeom_(-1),
-    nPointsGeom_(-1),
+    upToDate_(false),
     forcesFilePtr_(nullptr),
     moving_(false),
     periodicLengths_(getOrDefault<vector>("periodicLengths", Zero)),
@@ -463,9 +461,7 @@ void Foam::cutCellGeometry::calcGeometry()
     calcLinks();
     wallSamplesDone_ = false;
 
-    nCellsGeom_ = mesh_.nCells();
-    nFacesGeom_ = mesh_.nFaces();
-    nPointsGeom_ = mesh_.nPoints();
+    upToDate_ = true;
 }
 
 

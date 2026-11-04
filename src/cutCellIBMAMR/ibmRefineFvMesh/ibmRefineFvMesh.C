@@ -263,6 +263,9 @@ Foam::label Foam::ibmRefineFvMesh::changeTopology(polyTopoChange& meshMod)
 {
     const vectorField SfOld(faceAreas());
 
+    // The cut-cell geometry belongs to the old mesh until it is rebuilt
+    ibm().outOfDate();
+
     autoPtr<mapPolyMesh> map = meshMod.changeMesh(*this, false);
     updateMesh(map());
 

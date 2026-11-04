@@ -59,17 +59,6 @@ void Foam::cutCellGeometry::update()
 }
 
 
-bool Foam::cutCellGeometry::upToDate() const
-{
-    // A refinement adds cells, faces and points, an unrefinement removes
-    // them: the sizes tell whether the geometry belongs to the mesh
-    return
-        nCellsGeom_ == mesh_.nCells()
-     && nFacesGeom_ == mesh_.nFaces()
-     && nPointsGeom_ == mesh_.nPoints();
-}
-
-
 void Foam::cutCellGeometry::updateMesh()
 {
     forAll(bodies_, bodyi)

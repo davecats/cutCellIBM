@@ -129,6 +129,11 @@ not used.
   them only on processors that hold cut cells, so the collectives got out of step after
   an unrefinement (MPI_ERR_TRUNCATE, FPE). `ibmRefineFvMesh::updateMesh` now evaluates
   them on all processors right after every change.
+- **Detecting a change.** A refinement and a coarsening in the same adaptation can leave
+  the number of cells unchanged (1137 → 1146 → 1137 in the moving scalar test). A test on
+  sizes then takes old data for new data: the swept-volume budget of a scalar jumped by
+  5 % of the content. Changes are therefore flagged explicitly (`outOfDate()`), and
+  per-cell data that must survive a change is kept in registered fields, which are mapped.
 - **Moving bodies.** The adaptation runs before the bodies are moved to the new time, on
   the geometry of the old time, and `cutCellGeometry::update()` then moves them as
   before. The refined band must contain the body's motion over `refineInterval` steps
@@ -138,9 +143,9 @@ not used.
 
 | file | change |
 |---|---|
-| `cutCellGeometry.H/C`, `cutCellGeometryMoving.C` | `updateMesh()`: resize the plain lists, reset the face geometry, `calcGeometry()`, old-time alpha of static bodies; `upToDate()` (mesh sizes of the last geometry) |
+| `cutCellGeometry.H/C`, `cutCellGeometryMoving.C` | `updateMesh()`: resize the plain lists, reset the face geometry, `calcGeometry()`, old-time alpha of static bodies; `upToDate()`/`outOfDate()`, a flag set by the adaptive mesh before every change |
 | `ibmLevelSetPatchDistMethod.H/C` | `movePoints()` returns `upToDate()`: the wall distance waits for the geometry |
-| `ibmScalarTransport.C` | swept-volume diagnostic restarts after a mesh change |
+| `ibmScalarTransport.H/C` | the fluid fractions of the previous step (swept-volume budget of moving bodies) are a registered field, mapped with the others |
 | `ibmSimpleFoam.C`, `ibmPimpleFoam.C`, `createFields.H`, `Make/options` | `createDynamicFvMesh`, `mesh.update()` at the start of every step/iteration, blanking and reference cell after a change, link `libcutCellIBMAMR` |
 | `Allwmake`, `Allwclean` | the new library |
 
@@ -154,6 +159,10 @@ not used.
 - Mapping is first order: refined cells inherit the parent value, merged cells the
   volume average. This is harmless for the geometric band, which is built at the first
   step before anything has developed.
+- `reconstructParMesh` (v2106) crashes on domains periodic in every solved direction, and
+  `redistributePar -reconstruct` stops for lack of a non-coupled patch. Both happen on the
+  unrefined mesh as well and are not caused by the AMR. Post-process such cases
+  decomposed.
 - No load balancing: refinement around a body concentrates cells on the processors that
   hold it. For large 3-D cases, refine once (`refineInterval 0`), stop, reconstruct
   and redecompose (`reconstructParMesh`, `decomposePar`).
@@ -174,6 +183,13 @@ All runs are in `/home/ws/xt8786/runs/amr_study` (scripts `regression.sh`,
 | 3-D steady, body + field | sphere Re 20, background 20×12×12, `maxLevel 3`, wake region \|U\| < 0.9, `refineInterval 100` | 2,880 → 10,552 cells at the first iteration, wake refined to 27,500; C_d = 2.75 (2 % blockage) |
 | parallel 2-D / 3-D | Re 100 cylinder on 4 ranks (cut cells on processor boundaries), sphere on 4 ranks | refinement identical to serial cell for cell; unrefinement in parallel works after the `solutionD` fix |
 | SA, linking | Re 1e4 cylinder, `ibmSpalartAllmaras`, `mergeAlpha 0.5` | wall distance rebuilt after the change, model runs on the refined mesh |
+| STL vs analytic, 2-D | cylinder Re 1 periodic, the tutorial STL (28,800 facets) and the analytic cylinder, `maxLevel 2` | same refinement (441 → 861 cells), force differs by 2e-7 |
+| STL vs analytic, 3-D | sphere Re 20 with \|U\| wake region, icosphere STL (20,480 facets) and analytic sphere | same refinement sequence (2,880 → 27,716 cells), force differs by 1.9e-4 (faceting) |
+| non-convex STL, 3-D, 8 ranks | torus R = 1, r = 0.3 (6,144 facets), background 32×20×12, `maxLevel 3` | 7,680 → 205,000 cells, 15,248 cut cells, all cut cells and their neighbours at level 3 after every adaptation |
+| scalars, static, 2-D | scalar tutorial `staticCylinder_fixedValue` on a 21² background, `maxLevel 3`, plume region T > 0.01, `refineInterval 5`, serial and 4 ranks | plume refined from 441 to 7,485 cells; budget error ≤ 3e-10 (content 26.3); serial and parallel content agree to 4e-9 |
+| three scalars, STL, 2-D | `multiScalar` (fixed value, zero gradient, no wall) around the STL cylinder | budget errors ≤ 2e-10, 4e-12, 4e-12 |
+| scalar, moving body, 2-D | `oscillating_fixedValue`, 21² background, `maxLevel 2`, 71 refinements, 29 unrefinements | budget error 1.3e-10 (content 2.14), swept-volume defect 3e-5 as without AMR |
+| scalar, 3-D, STL, 1 and 4 ranks | STL sphere in a periodic box (12×8×8 background, `maxLevel 3`), upstream source, fixed-value wall, plume region | 9,600 → 46,800 cells; budget error ≤ 5e-11 (serial), 3.6e-10 (4 ranks); contents agree to 1.7e-7 |
 | 2-D unsteady, wake | Re 100 cylinder, background 40×24 (h = D/2), `maxLevel 4` (D/32), vorticity region level 3, `refineInterval 10` | see below |
 
 Re 100 cylinder (`tutorials/amr/cylinderRe100`, blockage D/H = 1/12). The adaptive run is

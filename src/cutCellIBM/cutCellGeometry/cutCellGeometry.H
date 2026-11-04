@@ -189,10 +189,8 @@ class cutCellGeometry
 
         scalar fluidVolume_;
 
-        //- Mesh sizes the geometry was computed for (see upToDate())
-        label nCellsGeom_;
-        label nFacesGeom_;
-        label nPointsGeom_;
+        //- False from a change of the mesh topology until updateMesh()
+        bool upToDate_;
 
         mutable autoPtr<OFstream> forcesFilePtr_;
 
@@ -498,7 +496,11 @@ public:
             //- Whether the geometry belongs to the current mesh: false
             //  between a change of the mesh topology (adaptive refinement)
             //  and updateMesh()
-            bool upToDate() const;
+            bool upToDate() const { return upToDate_; }
+
+            //- Mark the geometry as belonging to a previous mesh (called by
+            //  the adaptive mesh before every change of the topology)
+            void outOfDate() { upToDate_ = false; }
 
             //- Rebuild the geometry after a change of the mesh topology,
             //  with the bodies where they are (level-set bodies only)
