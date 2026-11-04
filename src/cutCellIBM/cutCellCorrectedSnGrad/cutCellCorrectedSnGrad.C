@@ -28,7 +28,7 @@ Foam::fv::cutCellCorrectedSnGrad<Type>::deltaCoeffs
 
 
 template<class Type>
-bool Foam::fv::cutCellCorrectedSnGrad<Type>::corrected() const
+bool Foam::fv::cutCellCorrectedSnGrad<Type>::corrected() const noexcept
 {
     return geometry(this->mesh()).secondOrder();
 }

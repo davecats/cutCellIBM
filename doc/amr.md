@@ -163,6 +163,17 @@ not used.
   `redistributePar -reconstruct` stops for lack of a non-coupled patch. Both happen on the
   unrefined mesh as well and are not caused by the AMR. Post-process such cases
   decomposed.
+- Offline redistribution with `redistributePar` (tested with v2506) does not carry the
+  refinement data of this AMR:
+  - `-reconstruct` writes `cellLevel`, `pointLevel` and `level0Edge` but not the history
+    (`refinementHistoryMultiDim`, a class OpenFOAM does not know). Without the history,
+    no cell can be coarsened below its level at the time of reconstruction.
+  - Parallel to parallel (4 → 3 ranks) deletes the refinement files and writes none. A
+    restart then stops at the hexahedron check of `ibmRefineFvMesh`.
+  - `fvMeshDistribute` (v2106 and v2506) needs a patch that is neither empty nor coupled.
+    A domain periodic in every solved direction needs a dummy patch without faces
+    (`dummy { type patch; faces (); }`). Even with it, `-reconstruct` crashes on the
+    periodic test case.
 - No load balancing: refinement around a body concentrates cells on the processors that
   hold it. For large 3-D cases, refine once (`refineInterval 0`), stop, reconstruct
   and redecompose (`reconstructParMesh`, `decomposePar`).
@@ -170,7 +181,23 @@ not used.
   solution corrects it, and the drag kick at an adaptation step is of the order of an
   ordinary time step (section 3).
 
-## 6. Tests
+## 6. OpenFOAM versions
+
+Developed with v2106. All targets compile without errors with v2212, v2306, v2406, v2412
+and v2506 (each in its own copy of the tree: the build directories do not carry the
+version). Two changes were needed:
+- `cutCellCorrectedSnGrad::corrected()` is `noexcept`, as the base class declares it
+  since v2212.
+- `ibmSpalartAllmaras` calls the model functions of the base class with whole fields
+  from v2112 on (`SpalartAllmarasBase`, `#if OPENFOAM >= 2112`) and with internal fields
+  before. The wall distance is used through a reference to its internal field, which
+  is the type of `y_` in v2106. On v2106 an SA run (wall function, linking) is
+  byte-identical to the base commit.
+
+The solvers and AMR runs have been checked on v2506 (the 2-D AMR cylinder on 4 ranks,
+the periodic scalar case: budget error 9e-12).
+
+## 7. Tests
 
 All runs are in `/home/ws/xt8786/runs/amr_study` (scripts `regression.sh`,
 `amrtests.sh`, `shedding.py`).

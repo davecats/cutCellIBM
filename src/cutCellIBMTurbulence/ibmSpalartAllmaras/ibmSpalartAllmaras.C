@@ -82,6 +82,10 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
         const volScalarField chi(this->chi());
         const volScalarField fv1(this->fv1(chi));
 
+        // The wall distance on the cells (a volScalarField::Internal in
+        // v2106, a volScalarField in later versions)
+        const volScalarField::Internal& yCells = this->y_;
+
         // Vorticity from the velocity gradient over the fluid, with the
         // wall velocity on the immersed wall. With linked small cut cells
         // the gradients are averaged over each merged group; with its
@@ -94,15 +98,39 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
         (
             ::sqrt(scalar(2))*mag(skew(gradU()))
         );
+
+        // The model functions of the base class take whole fields since
+        // SpalartAllmarasBase (v2112)
+        #if (OPENFOAM >= 2112)
+        const volScalarField::Internal fv2(this->fv2(chi, fv1)()());
+        #else
+        const volScalarField::Internal fv2(this->fv2(chi(), fv1()));
+        #endif
+
         const volScalarField::Internal Stilda
         (
             max
             (
-                Omega
-              + this->fv2(chi(), fv1())*nuTilda()/sqr(this->kappa_*this->y_),
+                Omega + fv2*nuTilda()/sqr(this->kappa_*yCells),
                 this->Cs_*Omega
             )
         );
+
+        #if (OPENFOAM >= 2112)
+        tmp<volScalarField> tStilda
+        (
+            volScalarField::New
+            (
+                "Stilda",
+                this->mesh_,
+                dimensionedScalar(Stilda.dimensions(), Zero)
+            )
+        );
+        tStilda.ref().primitiveFieldRef() = Stilda.field();
+        const volScalarField::Internal fw(this->fw(tStilda(), this->y_));
+        #else
+        const volScalarField::Internal fw(this->fw(Stilda));
+        #endif
 
         // nuTilda vanishes on the immersed no-slip walls
         volVectorField gradNuTilda
@@ -123,7 +151,7 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
             this->Cb1_*alpha()*Stilda*nuTilda()
           - fvm::Sp
             (
-                this->Cw1_*alpha()*this->fw(Stilda)*nuTilda()/sqr(this->y_),
+                this->Cw1_*alpha()*fw*nuTilda()/sqr(yCells),
                 nuTilda
             )
           + fvOptions(nuTilda)
