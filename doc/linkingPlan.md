@@ -112,7 +112,7 @@ second-order Richardson limit is about 0.7205).
   same values.
 - Why linked L5/L6 were high, and the 0.13 points (2026-11-04): sliver absorption is the 0.13; the
   excess is the convective face value of slaves taken from the cell centre. `ibmConvection true`
-  (default off): linked +1.13 / +0.47 / +0.61 % (`doc/secondOrderStudy.md`, "Convective face values").
+  (the default since 773df1b): linked +1.13 / +0.47 / +0.61 % (`doc/secondOrderStudy.md`, "Convective face values").
 
 ## Why (results that led here)
 

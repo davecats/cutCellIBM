@@ -628,7 +628,7 @@ data in `validation/data/naca0012/results.txt` (last block).
   is exact on the body-fitted solution, so the error is in the solution.
 - Cause: the convective face value (linearUpwind, U and ν̃) is extrapolated from the cell
   centre, but a slave carries the group value from about 0.5–0.7 h off the wall.
-- `ibmConvection true` (default off) extrapolates from the value point to the wet-face
+- `ibmConvection true` (the default since 773df1b) extrapolates from the value point to the wet-face
   centroid. C_d linked +1.13 / +0.47 / +0.61 %, unlinked +2.16 / +0.73 / +0.63 % at L5/L6/L7
   (default: +5.41 / +1.27 / +0.70 and +2.76 / +0.83 / +0.64 %).
 - The remainder at L6/L7 is pressure drag (+3 %), independent of the level and of the linking.

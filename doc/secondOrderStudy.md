@@ -863,13 +863,14 @@ error class of the continuity flux (`Fix of 2026-11-02`): the value point is far
 faces. It was fixed there only for continuity (`cutCellGeometry::flux`), and the convective
 face value was left at C0 (option C1 in "Options", deferred).
 
-**Fix, behind a switch.** `ibmConvection true` (constant/ibmProperties, default false) adds an
+**Fix.** `ibmConvection true` (constant/ibmProperties; first introduced default false, the default
+with `secondOrder` since 773df1b, next section) adds an
 explicit correction φ_f (v_U + g_U·(x'_f − x_v,U) − v_f^scheme) on every wet face of a cut or
 linked upwind cell. v_U is the upwind value at its value point x_v (group centroid, fluid
 centroid or centre), g_U its least-squares gradient, x'_f the wet-face centroid. It is done
 also over processor faces (`cutCellGeometry::convectionCorrection`). It is applied to U in
 `ibmSimpleFoam` and to ν̃ in `ibmSpalartAllmaras`. With the switch off the code path is not
-entered (results byte-identical).
+entered.
 
 | C_d vs 897 | L5 | L6 | L7 |
 |---|---|---|---|
@@ -887,9 +888,9 @@ entered (results byte-identical).
   linking and independent of the level. It is not a wall-cell effect at this resolution.
 - cylinderRe1 (Stokes): drag 0.346853 → 0.346857.
 
-**Not done yet.** `ibmPimpleFoam` and the scalar transport do not have the correction. The
-tutorials and the order study have not been rerun with it. The correction is explicit, and it
-converged in all six NACA runs.
+The correction is explicit and converged in all six NACA runs (linked L5 ends in a slow
+oscillation, C_d 0.011251–0.011268, mean +1.12 %). It is now the default in all solvers and
+for the scalars (next section).
 
 **Convergence pitfall found on the way.** In these restarts the normalised residuals of
 wall-local changes are about 1e-9, so `residualControl` (p 1e-7, U/ν̃ 1e-8) stops after 1–7
@@ -903,3 +904,63 @@ iterations.
 1.005–1.10 (largest at the nose). That would lower the shear, not raise it. The TMR 897 wall
 lies about 3.6e-6 (0.2 wall units) inside the analytic profile; the a-priori interpolation
 corrects for it.
+
+## ibmConvection by default (2026-11-04)
+
+`ibmConvection` now defaults to `secondOrder` (773df1b). First order has no value points, so it
+is unchanged. The correction is applied to U in `ibmSimpleFoam` and `ibmPimpleFoam`, to ν̃ in
+the SA model, and to the passive scalars. It is also in `ibmOrderTest` and `ibmTruncationTC`.
+All of it goes through `cutCellGeometry::convectionSource` (the correction against the case's
+`div(phi,·)` scheme, integrated over the cells).
+
+Rerun with the same code, on (default) against `ibmConvection false` (off), in fresh case
+directories (`runs/ibmSA_study/convDefault`). The off runs reproduce the previous defaults to all
+digits. Data: `validation/data/secondOrder/ibmConvection_default.txt`.
+
+- **Tutorials** (19). Re = 1 cylinders change by −8e-6 relative (cylinderRe1 0.718148 →
+  0.718142, alpha field 0.715285 → 0.715279), free slip +4e-5 … +8e-5, moving bodies −1e-4,
+  eccentric rotation −6e-4. Iterations and warnings are the same. Scalar budgets close to 1e-10
+  as before. The exception is `scalar_galilean_zeroFlux`, with a single −3.9e-7 jump at one step
+  (t = 11.925, a cell swept through by more than it holds). There the T solve stops at maxIter
+  1000 with residual 2.9e-6, where the off run needed 208 iterations. The budget is flat
+  afterwards, so this is solver convergence on that step, not a conservation defect.
+- **Order test** (second order, N = 20…320). Laplace and pressure-gradient problems are
+  unchanged. Convection–diffusion is better on coarse meshes (CD 3.80e-3 → 2.99e-3, CN 3.96e-3
+  → 3.78e-3 at N = 20) and the same from N = 80 (order 2.0).
+- **Taylor–Couette** (Re 0.5, linked, unlinked, unlinked without absorption, N = 40…320).
+  All classes change by less than 1 %.
+- **Richardson drag** (periodic cylinder). No slip: +3.6e-5 relative at N = 41, below 1e-6 from
+  N = 161. Free slip: +3.5e-4 at N = 41, below 1e-6 from N = 161.
+- **Alpha-field body**: −1.77 / −0.40 / −0.116 / −0.023 % against the level set at N = 41 … 321
+  (before −1.8 / −0.40 / −0.12 / −0.023 %).
+- **Inclined wall-function channel** (the §8 set of `doc/iddesPlan.md`, at second order), u_τ
+  error at tan α = 1/8 … 1, mean over the lattice offsets:
+  - linked: h⁺ ≈ 10 +2.5 / +7.3 / +8.7 / +9.0 % → **+1.8 / +4.3 / +2.9 / +3.8 %**;
+    h⁺ ≈ 31 −0.5 / +1.4 / +2.1 / +2.4 % → **−0.3 / +0.6 / −0.7 / +0.1 %**;
+    h⁺ ≈ 93 0.0 / +1.8 / +2.1 / +1.8 % → +0.5 / +1.9 / +2.5 / −0.1 %;
+  - the velocity-profile rms error falls at every angle and resolution (h⁺ ≈ 10 at tan α = 1/2:
+    0.017 → 0.0097);
+  - unlinked is mixed (h⁺ ≈ 31 better, h⁺ ≈ 10 and 93 worse), but unlinked wall-function runs
+    do not converge on inclined walls with or without the switch (§8);
+  - aligned walls: unchanged.
+- **NACA 0012 wall-resolved** L5–L7: previous section (linked +1.12 / +0.47 / +0.61 %).
+- **NACA 0012 wall functions** (h = 1e-3, 2e-3, and 2e-3 with the leading edge refined, h2n),
+  C_d against 897, on / off:
+  - linked: h1 +7.4 / +6.7 %, h2 +11.1 / +10.0 %, h2n +10.4 / +10.1 %;
+  - unlinked: h1 +8.9 / +4.2 %, h2 +11.9 / +6.1 %, h2n +12.1 / +6.7 %. The difference is pressure
+    drag and comes entirely from faces with a wall cell upwind (skipping the correction there
+    reproduces off to all digits).
+  - It is not a defect of the correction. A priori (897 field at the value points), on gives
+    better face values than off (tangential rms unlinked 8.7 vs 9.5 %, linked 49 vs 70 %). Off
+    exports too much streamwise momentum out of the wall-cell layer, on too little; off's lower
+    unlinked drag is a cancellation (its C_l is +1.3 % against −0.2 %).
+  - The viscous excess (+4 to +9 points of C_d, the same on and off) is the wall law. Beyond
+    y⁺ ≈ 30 the 897 profile lies above the SA law (wake, pressure gradient). From the sample at
+    1.5 h (y⁺ 60–150) the law with the exact velocity gives +12 % (h1) and +19 % (h2) wall
+    shear. The runs apply +5 to +11 %, because their velocity at 1–3 h is 3–5 % low, while the
+    wall cells themselves are too fast (+7 % linked, +16 % unlinked).
+  - `wallSampleDistance` 1.0, 0.75 and 0 are worse (linked NACA +1 to +5 points; channel:
+    linked u_τ error at h⁺ ≈ 10, tan α = 1/8 … 1, +1.8 … +4.3 % at 1.5, +9 … +12 % at 1.0, +17 … +18 % at 0), so 1.5 stays. Body-fitted wall functions at h = 2e-3 give +8.6 %.
+  - Small unlinked cut cells (value point below 0.2 h) carry 1.4–3.3 times the true viscous flux
+    through their top face (face ν_t interpolated between y⁺ ≈ 4 and 50); linked cells 0.96–1.10.
+  - Data: `validation/data/secondOrder/ibmConvection_default.txt` §7–8.

@@ -572,6 +572,12 @@ What it does:
   of every cut face (from the polygon clipping) are stored (`ibmCentroidOffset`);
 * the wall distance `d_wall` is the level set at the fluid centroid instead of
   `αV/(2A_wall)`;
+* the convective face values of cut and linked cells are the upwind cell's value at its value
+  point (fluid or group centroid) extrapolated to the wet-face centroid with the least-squares
+  gradient, an explicit correction to the case's `div(phi,·)` scheme (`ibmConvection`, on with
+  `secondOrder`; U, ν̃ and the passive scalars). Without it a linked slave convects the group
+  value from half a cell off the wall: the linked NACA 0012 at L5 had +5.4 % drag instead of
+  +1.1 % (`doc/secondOrderStudy.md`, "Convective face values of cut and linked cells");
 * the `cutCellCorrected` snGrad scheme makes the diffusive fluxes across the faces of cut
   cells consistent with the centroids: implicit coefficient θA/(n·d) with d the
   centroid-to-centroid vector, explicit remainder `g_f·n − (g_f·d)/(n·d)` with least-squares
