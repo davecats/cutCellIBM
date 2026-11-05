@@ -15,7 +15,8 @@ the wall flux `S = U · Sw + S_rot` as a source (translation plus the flux of th
 through the wall faces), and that source *is* the moving-wall boundary condition.
 
 Development principles (numerical correctness first, no case-specific fixes, validation that
-stresses one component at a time): `doc/developerNotes.md`.
+stresses one component at a time): `doc/developerNotes.md`. Validation suite design (in progress):
+`doc/validationSuite.md`.
 
 ## Branches
 
