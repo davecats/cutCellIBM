@@ -963,4 +963,11 @@ digits. Data: `validation/data/secondOrder/ibmConvection_default.txt`.
     linked u_τ error at h⁺ ≈ 10, tan α = 1/8 … 1, +1.8 … +4.3 % at 1.5, +9 … +12 % at 1.0, +17 … +18 % at 0), so 1.5 stays. Body-fitted wall functions at h = 2e-3 give +8.6 %.
   - Small unlinked cut cells (value point below 0.2 h) carry 1.4–3.3 times the true viscous flux
     through their top face (face ν_t interpolated between y⁺ ≈ 4 and 50); linked cells 0.96–1.10.
-  - Data: `validation/data/secondOrder/ibmConvection_default.txt` §7–8.
+  - `ibmConvectionWallLaw` (default false): in wall-function cells the tangential face value
+    of U follows the SA law from the value point, u_t,v u⁺(y_f⁺)/u⁺(y⁺), blended with the
+    weight of the wall law (a priori the most accurate face value). A posteriori it gives no
+    clear gain: C_d linked h1/h2/h2n +7.2 / +11.5 / +9.4 % (on +7.4 / +11.1 / +10.4), unlinked
+    +6.9 / +10.3 / +9.5 % (on +8.9 / +11.9 / +12.1, off +4.2 / +6.1 / +6.7); L5 wall-resolved
+    linked +1.39 % (+1.12), unlinked +2.19 % (+2.16); inclined channel u_τ shifted by −1 to
+    −6 points (h⁺ ≈ 31 at tan α = 1: +0.1 → −6.1 %).
+  - Data: `validation/data/secondOrder/ibmConvection_default.txt` §7–9.

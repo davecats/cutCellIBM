@@ -152,6 +152,13 @@ class cutCellGeometry
         //  the value point of the upwind cell (ibmConvection, default secondOrder)
         bool ibmConvection_;
 
+        //- With ibmConvection, the tangential velocity on the faces of wall
+        //  cells with a wall function from the SA law of the wall instead of
+        //  the least-squares gradient, with the weight of the wall law
+        //  (ibmConvectionWallLaw, default false: no clear gain, see
+        //  doc/secondOrderStudy.md)
+        bool ibmConvectionWallLaw_;
+
         //- Fluid centroid minus cell centre
         volVectorField centroidOffset_;
 
@@ -422,6 +429,71 @@ class cutCellGeometry
             const scalar y
         ) const;
 
+        //- Wall-law profile of the velocity in the wall cells, for the
+        //  convective face values of U: u_tau and weight of the wall law
+        //  (wallLaw), the wall normal (out of the fluid) and the body
+        //  velocity, with their values across the coupled faces; unset
+        //  without a wall-function cell
+        struct wallProfileData
+        {
+            autoPtr<volScalarField> uTau, w;
+            autoPtr<volVectorField> n, Ub;
+            bool valid() const { return uTau.valid(); }
+        };
+
+        //- wallProfileData of a velocity field; nothing for other fields
+        template<class Type>
+        void wallProfile
+        (
+            const GeometricField<Type, fvPatchField, volMesh>&,
+            const volScalarField&,
+            wallProfileData&
+        ) const
+        {}
+
+        void wallProfile
+        (
+            const volVectorField& U,
+            const volScalarField& nu,
+            wallProfileData& d
+        ) const;
+
+        //- Face value e (extrapolated with the least-squares gradient) of a
+        //  wall cell with value v at the distance y from the wall, r from
+        //  the value point to the wet-face centroid: (1 - w) e + w e_law,
+        //  e_law with the tangential slip v_t u+(y_f+)/u+(y+) of the SA law,
+        //  y_f = y - r.n, and the normal component of e. Velocities only;
+        //  other fields keep e
+        template<class Type>
+        Type wallProfileValue
+        (
+            const Type& e,
+            const Type&,
+            const vector&,
+            const vector&,
+            const vector&,
+            const scalar,
+            const scalar,
+            const scalar,
+            const scalar
+        ) const
+        {
+            return e;
+        }
+
+        vector wallProfileValue
+        (
+            const vector& e,
+            const vector& v,
+            const vector& r,
+            const vector& n,
+            const vector& Ub,
+            const scalar y,
+            const scalar uTau,
+            const scalar w,
+            const scalar nu
+        ) const;
+
         //- Everything that follows from alpha and theta
         void calcDerived();
 
@@ -563,13 +635,18 @@ public:
             //  wet-face centroid with the least-squares gradient,
             //  v_U + g_U.(x'_f - x_v,U); zero elsewhere and without
             //  ibmConvection. Add fvc::surfaceIntegrate of it to the equation.
+            //  With the viscosity nu (velocity of a turbulent flow) and
+            //  ibmConvectionWallLaw, the tangential velocity on the faces of
+            //  wall cells with a wall function follows the SA law of the
+            //  wall with the weight of the wall law (wallProfileValue).
             template<class Type>
             tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
             convectionCorrection
             (
                 const surfaceScalarField& phi,
                 const GeometricField<Type, fvPatchField, volMesh>& vf,
-                const GeometricField<Type, fvsPatchField, surfaceMesh>& vSchemeFace
+                const GeometricField<Type, fvsPatchField, surfaceMesh>& vSchemeFace,
+                const volScalarField* nu = nullptr
             ) const;
 
             //- convectionCorrection against the case's scheme div(phi,vf),
@@ -580,8 +657,23 @@ public:
             convectionSource
             (
                 const surfaceScalarField& phi,
-                const GeometricField<Type, fvPatchField, volMesh>& vf
+                const GeometricField<Type, fvPatchField, volMesh>& vf,
+                const volScalarField* nu = nullptr
             ) const;
+
+            //- convectionSource of the velocity of a turbulent flow, with
+            //  the wall law on the faces of wall cells with a wall function
+            template<class Type>
+            tmp<GeometricField<Type, fvPatchField, volMesh>>
+            convectionSource
+            (
+                const surfaceScalarField& phi,
+                const GeometricField<Type, fvPatchField, volMesh>& vf,
+                const volScalarField& nu
+            ) const
+            {
+                return convectionSource(phi, vf, &nu);
+            }
 
             template<class Type>
             tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>

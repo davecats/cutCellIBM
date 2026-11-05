@@ -28,8 +28,16 @@ fvVectorMatrix& UEqn = tUEqn.ref();
 if (ibm.ibmConvection())
 {
     // Convective face values of cut and linked cells from their value
-    // points (cutCellGeometry::convectionCorrection)
-    UEqn += ibm.convectionSource(phi, U);
+    // points (cutCellGeometry::convectionCorrection); turbulent: the
+    // wall law in the wall cells with a wall function
+    if (ibmTurbulent)
+    {
+        UEqn += ibm.convectionSource(phi, U, turbulence->nu()());
+    }
+    else
+    {
+        UEqn += ibm.convectionSource(phi, U);
+    }
 }
 
 if (ibmTurbulent)

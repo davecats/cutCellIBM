@@ -114,7 +114,8 @@ Foam::tmp<Foam::GeometricField<Type, Foam::fvPatchField, Foam::volMesh>>
 Foam::cutCellGeometry::convectionSource
 (
     const surfaceScalarField& phi,
-    const GeometricField<Type, fvPatchField, volMesh>& vf
+    const GeometricField<Type, fvPatchField, volMesh>& vf,
+    const volScalarField* nu
 ) const
 {
     tmp<fv::convectionScheme<Type>> tcs
@@ -126,7 +127,7 @@ Foam::cutCellGeometry::convectionSource
     );
     return fvc::surfaceIntegrate
     (
-        convectionCorrection(phi, vf, tcs().interpolate(phi, vf)())
+        convectionCorrection(phi, vf, tcs().interpolate(phi, vf)(), nu)
     );
 }
 
@@ -137,7 +138,8 @@ Foam::cutCellGeometry::convectionCorrection
 (
     const surfaceScalarField& phi,
     const GeometricField<Type, fvPatchField, volMesh>& vf,
-    const GeometricField<Type, fvsPatchField, surfaceMesh>& vSchemeFace
+    const GeometricField<Type, fvsPatchField, surfaceMesh>& vSchemeFace,
+    const volScalarField* nu
 ) const
 {
     typedef GeometricField<Type, fvsPatchField, surfaceMesh> SurfaceField;
@@ -177,6 +179,14 @@ Foam::cutCellGeometry::convectionCorrection
     const surfaceVectorField& Cf = mesh_.Cf();
     const vectorField& off = valueOffset_.primitiveField();
 
+    // Wall cells with a wall function: the wall law across the wall (velocity)
+    wallProfileData prof;
+    if (nu && ibmConvectionWallLaw_)
+    {
+        wallProfile(vf, *nu, prof);
+    }
+    const bool law = prof.valid();
+
     // Value of cell c (value point x_c + off_c) extrapolated to the point x
     auto extrapolate = [&]
     (
@@ -204,8 +214,16 @@ Foam::cutCellGeometry::convectionCorrection
             continue;
         }
         const vector r(Cf[facei] + wetFaceOffset_[facei] - C[u] - off[u]);
-        corr[facei] =
-            phi[facei]*(extrapolate(vf[u], u, r) - vSchemeFace[facei]);
+        Type e(extrapolate(vf[u], u, r));
+        if (law && prof.w()[u] > 0)
+        {
+            e = wallProfileValue
+            (
+                e, vf[u], r, prof.n()[u], prof.Ub()[u], dWall_[u],
+                prof.uTau()[u], prof.w()[u], (*nu)[u]
+            );
+        }
+        corr[facei] = phi[facei]*(e - vSchemeFace[facei]);
     }
 
     forAll(mesh_.boundary(), patchi)
@@ -234,6 +252,17 @@ Foam::cutCellGeometry::convectionCorrection
         const fvsPatchVectorField& wop = wetFaceOffset_.boundaryField()[patchi];
         const fvsPatchField<Type>& vsp = vSchemeFace.boundaryField()[patchi];
         fvsPatchField<Type>& cp = corr.boundaryFieldRef()[patchi];
+        scalarField uTauN, wN, yN, nuN;
+        vectorField nN, UbN;
+        if (law)
+        {
+            uTauN = prof.uTau().boundaryField()[patchi].patchNeighbourField();
+            wN = prof.w().boundaryField()[patchi].patchNeighbourField();
+            yN = dWall_.boundaryField()[patchi].patchNeighbourField();
+            nuN = nu->boundaryField()[patchi].patchNeighbourField();
+            nN = prof.n().boundaryField()[patchi].patchNeighbourField();
+            UbN = prof.Ub().boundaryField()[patchi].patchNeighbourField();
+        }
         forAll(fvp, i)
         {
             const label c = fc[i];
@@ -243,7 +272,16 @@ Foam::cutCellGeometry::convectionCorrection
             if (php[i] >= 0)
             {
                 if (tp[i] >= 1 && magSqr(off[c]) == 0) continue;
-                v = extrapolate(vf[c], c, xf - C[c] - off[c]);
+                const vector r(xf - C[c] - off[c]);
+                v = extrapolate(vf[c], c, r);
+                if (law && prof.w()[c] > 0)
+                {
+                    v = wallProfileValue
+                    (
+                        v, vf[c], r, prof.n()[c], prof.Ub()[c], dWall_[c],
+                        prof.uTau()[c], prof.w()[c], (*nu)[c]
+                    );
+                }
             }
             else
             {
@@ -253,6 +291,14 @@ Foam::cutCellGeometry::convectionCorrection
                 for (direction cmpt = 0; cmpt < nCmpt; ++cmpt)
                 {
                     setComponent(v, cmpt) += gN[cmpt][i] & r;
+                }
+                if (law && wN[i] > 0)
+                {
+                    v = wallProfileValue
+                    (
+                        v, vN[i], r, nN[i], UbN[i], yN[i], uTauN[i], wN[i],
+                        nuN[i]
+                    );
                 }
             }
             cp[i] = php[i]*(v - vsp[i]);

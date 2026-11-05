@@ -120,6 +120,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     ),
     secondOrder_(getOrDefault<bool>("secondOrder", true)),
     ibmConvection_(getOrDefault<bool>("ibmConvection", secondOrder_)),
+    ibmConvectionWallLaw_(getOrDefault<bool>("ibmConvectionWallLaw", false)),
     centroidOffset_
     (
         IOobject("ibmCentroidOffset", mesh.time().timeName(), mesh,
@@ -209,6 +210,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
         << ", nBisect " << nBisect_
         << (secondOrder_ ? ", second-order wall treatment" : "")
         << (ibmConvection_ ? ", convective face values from the value points" : "")
+        << (ibmConvection_ && ibmConvectionWallLaw_ ? " (wall law in wall-function cells)" : "")
         << endl;
     if (secondOrder_)
     {

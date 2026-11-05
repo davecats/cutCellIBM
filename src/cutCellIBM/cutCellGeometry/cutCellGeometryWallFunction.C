@@ -510,6 +510,102 @@ void Foam::cutCellGeometry::wallLaw
 }
 
 
+void Foam::cutCellGeometry::wallProfile
+(
+    const volVectorField& U,
+    const volScalarField& nu,
+    wallProfileData& d
+) const
+{
+    scalarField uTau, w;
+    wallLaw(U, nu, uTau, w);
+    if (gMax(w) <= 0)
+    {
+        return;
+    }
+
+    auto field = [&](const word& name, const dimensionSet& dims)
+    {
+        return new volScalarField
+        (
+            IOobject(name, mesh_.time().timeName(), mesh_),
+            mesh_,
+            dimensionedScalar(dims, Zero),
+            "zeroGradient"
+        );
+    };
+    d.uTau.reset(field("ibmProfileUTau", dimVelocity));
+    d.w.reset(field("ibmProfileWeight", dimless));
+    d.uTau->primitiveFieldRef() = uTau;
+    d.w->primitiveFieldRef() = w;
+    d.uTau->correctBoundaryConditions();
+    d.w->correctBoundaryConditions();
+
+    d.n.reset
+    (
+        new volVectorField
+        (
+            IOobject("ibmProfileNormal", mesh_.time().timeName(), mesh_),
+            mesh_,
+            dimensionedVector(dimless, Zero),
+            "zeroGradient"
+        )
+    );
+    for (const label celli : wallCells_)
+    {
+        d.n->primitiveFieldRef()[celli] =
+            Sw_[celli]/max(Awall_[celli], VSMALL);
+    }
+    d.n->correctBoundaryConditions();
+
+    d.Ub.reset
+    (
+        new volVectorField
+        (
+            IOobject("ibmProfileUb", mesh_.time().timeName(), mesh_),
+            mesh_,
+            dimensionedVector(dimVelocity, Zero),
+            "zeroGradient"
+        )
+    );
+    if (moving_)
+    {
+        d.Ub->primitiveFieldRef() = UbPtr_().primitiveField();
+    }
+    d.Ub->correctBoundaryConditions();
+}
+
+
+Foam::vector Foam::cutCellGeometry::wallProfileValue
+(
+    const vector& e,
+    const vector& v,
+    const vector& r,
+    const vector& n,
+    const vector& Ub,
+    const scalar y,
+    const scalar uTau,
+    const scalar w,
+    const scalar nu
+) const
+{
+    // The wall law along the wall normal from the value point to the
+    // wet-face centroid (n out of the fluid: the distance falls along n)
+    const scalar upV = saUPlusOfYPlus(y*uTau/nu);
+    if (upV <= SMALL)
+    {
+        return e;
+    }
+    const scalar yf = max(y - (r & n), scalar(0));
+    const scalar ratio = saUPlusOfYPlus(yf*uTau/nu)/upV;
+
+    const vector slip(v - Ub);
+    const vector vt(slip - (slip & n)*n);
+    const vector eLaw(v + (ratio - 1)*vt + ((e - v) & n)*n);
+    return (1 - w)*e + w*eLaw;
+}
+
+
 Foam::tmp<Foam::volScalarField> Foam::cutCellGeometry::wallViscosity
 (
     const volVectorField& U,
