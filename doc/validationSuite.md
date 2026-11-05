@@ -245,3 +245,21 @@ in the form of figures 4a–d (f/Re, V, β, Ω against ε/eps_*, d = 0.4, both i
 
 Cost (estimate): finest mesh ~0.6 M cells half domain; about 40 converged points × 2–3 outer steps
 plus the convergence and option runs: a few days on hydra, the linear and Re = 128 sets first.
+
+## 9. Candidate cases for the gaps (proposed 2026-11-05, to be selected)
+
+Literature search for independent references, each case chosen to stress one gap. "Exact" and
+"spectral" references allow an order-of-accuracy statement; correlations only plausibility.
+
+| gap | candidate | stresses | reference | remark |
+|---|---|---|---|---|
+| K7 at a flat wall | **Hiemenz stagnation flow** onto a plane IBM wall, tilted tan α = 0, 1/3, 1; 3-D: Homann flow | K7 K3 (no curvature, no separation) | exact NS solution: f''' + f f'' − f'² + 1 = 0, f''(0) = 1.232588 (Homann 1.311938); Dirichlet data from it on the outer boundary | 2-D, minutes: a gate (order of u, p, wall shear) |
+| K7 at a curved wall, laminar | **DFG 2D-1** (Re 20, steady) and **2D-2** (Re 100, periodic), Schäfer & Turek 1996 | K7 K3 K5 K8, separation, small lift | 2D-1: C_D 5.57953523384, C_L 0.010618948146, Δp 0.11752016697 (Nabh 1998, spectral); 2D-2: official reference file of the FeatFlow page (C_D, C_L max, St ≈ 0.3) | replaces the body-fitted reference of V5 |
+| 3-D, single curvature | **DFG 3D-1Z** (Re 20, cylinder in a square channel), 3D-2Z (Re 100) | 3-D K1 K3 K8 | 3D-1Z: c_D 6.18533, c_L 0.009401 (Braack & Richter 2006); 3D-2Z: c_D max 3.2978 (FeatFlow finest level) | channel walls body-fitted, only the cylinder immersed |
+| 3-D, double curvature | **sphere in uniform flow**, Re 20–300, Johnson & Patel 1999 (JFM 378) | 3-D K1 K3 K7 K8 | C_D, wake length, separation angle (steady axisymmetric up to Re ≈ 210), steady oblique wake 210–270, shedding at 300 | the tables need the paper |
+| K4 free slip, finite Re | **spherical bubble** (stress-free sphere) in uniform flow, Re 1–300 | K4 in 3-D, no separation at all | Hadamard–Rybczynski C_D = 16/Re (Re → 0), Moore C_D = 48/Re (1 − 2.21/√Re) (Re ≫ 1), Mei & Klausner 1992 correlation, Blanco & Magnaudet 1995 (numerical) | acceptance case of the zero-shear fix with MIG-S; a spurious wake is the signature of the missing curvature shear |
+| K8 torque, rotation with convection | **rotating cylinder in uniform flow**, Re 200, rotation rate 0–2 (Mittal & Kumar 2003, JFM 476) | K3 with wall velocity, K8 lift and torque, K7 | lift, drag, torque (power), shedding suppressed above α ≈ 1.9 | uses C1, C2 |
+| K9 against an independent reference | **in-line oscillating cylinder** in fluid at rest, KC = 5, Re = 100 (Dütsch et al. 1998, JFM 360) | K9 | phase-averaged velocity profiles (LDA and computation), force; C_d 2.09, C_i 1.45 as quoted by later papers | today V3 is checked against the notebook, i.e. the same method |
+| K12 K13 between channel and NACA | **NASA TMR 2-D flat plate (2DZP)** and **bump-in-channel (2DBC)**, SA | K13 in a developing layer (flat plate), K12 K13 with mild curvature and pressure gradient (bump) | grid-converged SA results of CFL3D and FUN3D on the TMR grid families | the same model as ours: compares wall treatment, not model |
+
+Not needed from the literature: decomposition (G8) and regression (G7) are self-references.
