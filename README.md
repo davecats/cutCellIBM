@@ -14,6 +14,9 @@ A body moving through the fixed mesh changes exactly one equation: continuity ac
 the wall flux `S = U · Sw + S_rot` as a source (translation plus the flux of the rotation
 through the wall faces), and that source *is* the moving-wall boundary condition.
 
+Development principles (numerical correctness first, no case-specific fixes, validation that
+stresses one component at a time): `doc/developerNotes.md`.
+
 ## Branches
 
 Each branch builds on the previous one; each carries its own methods document
