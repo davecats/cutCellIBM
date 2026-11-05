@@ -1,0 +1,21 @@
+# Mittal & Kumar 2003, figure 11: cylinder rotating at alpha = a omega/U, Re = 200,
+# unsteady computation (filled circles; time averages and r.m.s. over the periodic
+# state, for alpha >= 1.91 the flow is steady). Digitised from the bitmap
+# (bitmapFigures_extract.py), ~0.3 % of the axis range. C_L(0) = 0 by symmetry,
+# St(0) = 0.1934 and C_D(0) = 1.316 are in the text. C_P = C_D + C_M alpha (power
+# coefficient), C_D, C_L, C_M normalised with rho U^2 a, rho U^2 a, rho U^2 a^2;
+# St = f 2a/U; nan: not readable
+# alpha  C_L  C_D  C_P  C_L,rms  C_D,rms  St
+ 0.00    0.000   1.318   1.324   0.471   0.030  0.1934
+ 0.50   -0.977   1.262   1.323   0.483   0.074  0.1932
+ 1.00   -2.265   1.084   1.322   0.494   0.131  0.1921
+ 1.50   -3.736   0.787   1.313   0.467   0.165  0.1881
+ 1.90   -4.952   0.340     nan   0.069   0.025     nan
+ 2.00   -5.351   0.290   1.226   0.002   0.000     nan
+ 2.50   -7.580   0.149   1.609   0.000   0.000     nan
+ 3.00  -10.264   0.039   2.133   0.000   0.000     nan
+ 3.25  -11.831  -0.008   2.449   0.000   0.000     nan
+ 3.50      nan     nan     nan     nan     nan     nan
+ 4.00  -17.506  -0.043   3.574   0.001   0.000     nan
+ 4.20  -19.246  -0.050   3.920   0.001   0.000     nan
+ 4.30  -20.168  -0.048   4.105   0.001   0.000     nan

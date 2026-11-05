@@ -1,0 +1,12 @@
+# Johnson & Patel 1999, figures 4 and 5: computed steady axisymmetric flow past a
+# sphere (filled circles), digitised from the bitmap (bitmapFigures_extract.py),
+# ~0.3 % of the axis range. theta_s: separation angle from the front stagnation
+# point (deg); x_s: length of the separation bubble behind the sphere (D);
+# x_c, y_c: vortex centre from the sphere centre (D); C_D = F_x/(rho U^2 pi D^2/8)
+# Re  theta_s  x_s  x_c  y_c  C_D
+  20.0   179.99  -0.002     nan     nan     nan
+  25.0   160.59   0.075   0.531   0.170   2.366
+  50.0   139.39   0.413   0.641   0.215   1.583
+ 100.0   127.03   0.893   0.764   0.295   1.100
+ 150.0   121.44   1.225   0.836   0.337   0.907
+ 200.0   117.74   1.473   0.893   0.367   0.792

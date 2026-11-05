@@ -1,0 +1,11 @@
+# Johnson & Patel 1999, figure 10: lateral force coefficient of the steady
+# non-axisymmetric wake, C_L = F_y/(rho U^2 pi D^2/8), sign arbitrary (only |C_L|
+# is meaningful); text: -3e-5 at Re = 211, -2.4e-2 at 212. Digitised from the
+# bitmap (bitmapFigures_extract.py)
+# Re  C_L
+   211   -0.0003
+   212   -0.0235
+   215   -0.0321
+   220   -0.0413
+   230   -0.0520
+   250   -0.0615

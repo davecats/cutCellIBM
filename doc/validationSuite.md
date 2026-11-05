@@ -76,6 +76,10 @@ decomposition gate beyond `cylinderRe1_parallel`; regressions are checked by han
 | V7 | SA channel: cut fraction f sweep, tilt tan α, wall-resolved and wall-function, linked and unlinked | K12 K13 | V1 V2 V5 | body-fitted SA channel | 1 (wall-resolved), 2 (sweeps) |
 | V8 | NACA 0012, α = 0, 10, wall-resolved and wall-function | integral | everything | body-fitted TMR grid | 2 |
 | V9 | AMR (after the merge): V5 and V3 with refinement against the uniform fine mesh | K15 | V3 V5 | the same solver on the uniform mesh | 2 |
+| V10 | **new:** SPH, rigid sphere in uniform flow, Re 20–300 (§10) | 3-D K1 K3 K7 K8, separation | G1–G3, V2 | Johnson & Patel 1999; Magnaudet et al. 1995 | 2 |
+| V11 | **new:** BUB, stress-free sphere in uniform flow, Re 50–300 (§10) | K4 in 3-D | V10 | Blanco & Magnaudet 1995; Moore; exact surface identity | 2 |
+| V12 | **new:** ROT, cylinder rotating in a uniform stream, Re 200, α 0–4 (§10) | K3 with wall velocity, K8 torque, K7 | V2 V5, C1 (C2 for α ≥ 2 steady) | Mittal & Kumar 2003 | 1 (α = 0, 1, 2), 2 |
+| V13 | **new:** OSC, cylinder oscillating in-line in fluid at rest, Re 100, KC 5 (§10) | K9, K8 (added mass) | V3 | Dütsch et al. 1998 | 1 |
 
 Tier 1: hours in total on hydra, the baseline before the AMR merge. Tier 2: days.
 
@@ -102,11 +106,11 @@ only in G2 and V1 until first order is removed. nSubSamples (8, 32) only in G1.
 
 ## 7. Order of work
 
-1. Driver and gates G1–G8, tier 1 cases (V1–V5, V7 wall-resolved) on the current branch: the
-   baseline.
+1. Driver and gates G1–G8, tier 1 cases (V1–V5, V7 wall-resolved, V12 α = 0, 1, V13) on the
+   current branch: the baseline.
 2. Merge `feature_amr`; accepted when the gates pass and tier 1 agrees with the baseline.
-3. C1, C2 and the free-slip zero-shear fix, each accepted by its gates; then tier 2 (V6 MIG, V7
-   sweeps, V8, V9).
+3. C1, C2 and the free-slip zero-shear fix, each accepted by its gates; then tier 2 (V10 SPH and
+   V11 BUB before V6 MIG, V7 sweeps, V8, V9, V12 complete).
 
 ## 8. Case MIG (V6): inertial migration of a sphere in a pipe (Rivero-Rodriguez & Scheid 2018)
 
@@ -250,6 +254,8 @@ plus the convergence and option runs: a few days on hydra, the linear and Re = 1
 
 Literature search for independent references, each case chosen to stress one gap. "Exact" and
 "spectral" references allow an order-of-accuracy statement; correlations only plausibility.
+The user supplied the papers of the sphere, bubble, rotating and oscillating cylinder on
+2026-11-06: these four are specified in §10 (V10–V13); the others are still candidates.
 
 | gap | candidate | stresses | reference | remark |
 |---|---|---|---|---|
@@ -263,3 +269,116 @@ Literature search for independent references, each case chosen to stress one gap
 | K12 K13 between channel and NACA | **NASA TMR 2-D flat plate (2DZP)** and **bump-in-channel (2DBC)**, SA | K13 in a developing layer (flat plate), K12 K13 with mild curvature and pressure gradient (bump) | grid-converged SA results of CFL3D and FUN3D on the TMR grid families | the same model as ours: compares wall treatment, not model |
 
 Not needed from the literature: decomposition (G8) and regression (G7) are self-references.
+
+## 10. Cases SPH, BUB, ROT, OSC (V10–V13, specified 2026-11-06)
+
+Reference data in the repository: `validation/reference_sphere.py`, `reference_bubble.py`,
+`reference_rotatingCylinder.py`, `reference_oscillatingCylinder.py` (tables of the papers, the
+definitions, `check()`), and the figures that exist only as bitmaps digitised by
+`validation/bitmapFigures_extract.py` into `validation/data/johnsonPatel1999/` and
+`validation/data/mittalKumar2003/` (only the authors' computed markers; ~0.3 % of the axis range;
+checks against the text: C_D(α = 0) 1.318 vs 1.316, St(0) 0.1932 vs 0.1934, |C_L|(Re 212) 0.0235
+vs 0.024). The PDFs are not in the repository.
+
+Cross-checks of independent references: sphere C_D at Re 50 and 100, Johnson & Patel (digitised)
+1.583, 1.100 against Magnaudet et al. 1.581, 1.092 and Masliyah & Epstein 1.59, 1.08; Moore's
+formula reproduces the Moore row of Blanco & Magnaudet table I to three digits and their numerical
+bubble drag is within 1.5 % of it for Re ≥ 100; Mittal & Kumar C_M/α = (C_P − C_D)/α² is smooth
+(0.238, 0.234, 0.234, 0.234, 0.233 for α = 1…3), so the two digitised curves are consistent.
+
+Common setup: Cartesian background mesh with static refinement (refineMesh, hanging nodes) in
+nested boxes around the body, D = 1, U = 1, ν = 1/Re; convergence on three levels of the finest
+box, D/h given per case; outer-boundary distance checked once at the most sensitive point;
+defaults (secondOrder, ibmConvection, linking), ibmConvection off and mergeAlpha 0 once per case.
+
+### SPH (V10): rigid sphere in uniform flow
+
+Reference: Johnson & Patel 1999 (JFM 378, 19–70): body-fitted FV, outer radius 15 D, order ≈ 1.7;
+figures 4, 5, 10 digitised; Re = 300 values from the text. Magnaudet, Rivero & Fabre 1995 and
+Masliyah & Epstein 1970 for C_D at Re = 1–100 (table II of Blanco & Magnaudet).
+
+- Domain x ∈ [−10, 20], half domain z ≥ 0 with a symmetry plane through the centre (for Re ≤ 200
+  a quarter domain with two planes is equivalent; the half domain keeps the planar symmetry of
+  the Re = 250 and 300 wakes, which is the (x, y) plane in the paper), lateral boundaries at 10 D
+  slip (checked at 15 D for Re = 50); inflow U e_x, outflow zero gradient / p = 0.
+- D/h = 24, 32, 48 (Re ≤ 100), 32, 48, 64 (Re 150–300) in a box [−1, 3] × [0, 1.2]², coarsening
+  by 2 per nested box.
+- Steady ibmSimpleFoam for Re = 20, 50, 100, 150, 200, 250 (Re 250 started from Re 200 with a
+  small lateral perturbation); ibmPimpleFoam for Re = 300 (Δt = 0.01 D/U, 30 shedding periods,
+  statistics over the last 15).
+- Quantities: C_D; separation angle θ_s and bubble length x_s from the wall shear and the axis
+  velocity; vortex centre (x_c, y_c); |C_L| at Re = 250; C_D, C_L mean and amplitude, St at 300.
+- Tolerances (finest mesh): C_D within 1.5 % (J&P and Magnaudet et al. differ by 0.8 % at
+  Re = 100); θ_s within 1.5°, x_s within 0.03 D, (x_c, y_c) within 0.02 D; |C_L|(250) within
+  5 %; Re 300 C_D within 2 %, St within 2 %, |C_L| within 10 %. The onset Re of the non-axisymmetric
+  wake (211, Natarajan & Acrivos 210) reported, not judged.
+- Stresses: 3-D cut cells on a doubly curved convex wall, separation, convection at a curved wall,
+  3-D force integration; the first 3-D flow case, and the rigid part of MIG without the pipe and
+  without the small lift. Relies on G1–G3, V2.
+- Cost: ~1–3 M cells half domain at the finest level; a day on hydra for the steady set.
+
+### BUB (V11): stress-free sphere (clean bubble of fixed shape) in uniform flow
+
+Reference: Blanco & Magnaudet 1995 (Phys. Fluids 7, 1265), table I (sphere, Re = 50–1000, drag to
+< 0.5 % by their grid study), Moore's 48/Re (1 − 2.21/√Re); Hadamard–Rybczynski 16/Re for Re → 0
+(in MIG-G2). Exact identity on a stress-free sphere at every Re: surface vorticity ω = 2 u_θ/a
+(zero shear ∂u_θ/∂r = u_θ/r, u_r = 0); free slip ∂u_t/∂n = 0 gives u_θ/a.
+
+- Mesh, domain and solver of SPH, `freeSlip` sphere; Re = 50, 100, 200, 300 (steady and
+  axisymmetric: a clean spherical bubble has no separation at any Re).
+- Quantities: C_D; tangential shear stress on the surface, max |μ(∂u_θ/∂r − u_θ/r)| over the
+  sampled wall points, in units of μU/a; reversed flow on the axis behind the bubble.
+- Tolerances: C_D within 2 % of table I; wall shear → 0 at the observed order; any recirculation
+  is a FAIL. Expected to FAIL until the zero-shear term (`doc/freeSlipPlan.md`, fix 2) is
+  implemented: this is its 3-D acceptance case at finite Re (with MIG-S at Re → 0).
+- Optional after an ellipsoid body (STL or analytic): oblate spheroids χ = 1.5–1.95, table III
+  (curvature-dependent shear, standing eddy for χ ≥ 1.65 in a range of Re).
+- Stresses K4 in 3-D at a doubly curved wall, without separation, so the error is the boundary
+  condition alone. Relies on SPH.
+
+### ROT (V12): cylinder rotating in a uniform stream
+
+Reference: Mittal & Kumar 2003 (JFM 476, 303–334): stabilised FEM, outer boundary 100 D, 160
+points on the circumference, figure 11 digitised (time-averaged C_L, C_D, power coefficient C_P,
+r.m.s. of C_L and C_D, St, for α = a ω/U = 0…4.3); text: St(0) = 0.1934, C_D(0) = 1.316, shedding
+for α < 1.91, unsteady again for 4.34 < α < 4.70. Torque from C_M = (C_P − C_D)/α.
+
+- 2-D, Re = 2aU/ν = 200, cylinder at the origin, square domain of half width L = 100 D (their
+  L; checked with 50 D at α = 2); inflow U, outflow zero stress, slip at the sides, as in the
+  paper. D/h = 40, 80, 160 in the finest box.
+- α = 0, 0.5, 1, 1.5, 1.9 unsteady (ibmPimpleFoam, rotating cylinder as today, Δt such that
+  CFL ≤ 0.5, 40 periods, statistics over the last 20); α = 2, 2.5, 3, 4 steady (ibmSimpleFoam
+  with C2, or ibmPimpleFoam to the steady state until C2 exists).
+- Quantities: time-averaged C_L, C_D, C_M (needs C1), r.m.s. of C_L and C_D, St; the shedding
+  threshold (C_L,rms at α = 1.9 vs 2).
+- Tolerances: C_L and C_D means within 2 % or 0.02 absolute; St within 1 %; r.m.s. within 5 %;
+  C_M within 5 % for α ≥ 1.5 (the digitised C_P − C_D is too uncertain below); shedding at 1.9
+  (C_L,rms 0.069) and steady at 2.
+- Stresses the no-slip traction with a tangential wall velocity up to 4U, the torque, the lift
+  under convection; the steady part is the 2-D acceptance case of C2. Relies on V2, V5.
+- Cost: 2-D, ~10⁵ cells; tier 1 runs α = 0, 1, 2 (hours), the rest in tier 2.
+
+### OSC (V13): cylinder oscillating in-line in fluid at rest
+
+Reference: Dütsch, Durst, Becker & Lienhart 1998 (JFM 360, 249–271): FV in the cylinder frame,
+outer boundary at 60 D, grid and time-step study (table 1) and measured LDA profiles. x(t) =
+−A sin(2πft), Re = U_max D/ν = 100, KC = 2πA/D = 5; Morison fit of the in-line force F(t) =
+−½ρDc_d ẋ|ẋ| − ¼πρD²c_i ẍ gives c_d = 2.09, c_i = 1.45 on the finest set (C); 2.10/1.45 and
+2.15/1.42 on the coarser sets. β = Re/KC = 35, KC = 1–4 (table 2, symmetric attached regimes A*,
+A): c_d 5.39, 3.72, 2.98, 2.28, 1.97; c_i 1.36, 1.35, 1.34, 1.31, 1.30.
+
+- 2-D, moving body in the inertial frame (ibmPimpleFoam, `oscillating` motion of V3), fluid at
+  rest, domain half width 30 D (checked with 60 D), refined box covering the stroke ±A + 1 D;
+  D/h = 40, 80, 160; Δt = T/720 (and T/360 once).
+- Quantities: c_d, c_i from the least-squares Morison fit
+  (`reference_oscillatingCylinder.morison_fit`) over cycles 5–10; force history against figure 10
+  as a plot only. The force here is in the inertial frame and compares with c_i (c_m = c_i + 1
+  belongs to the accelerated frame).
+- Tolerances: c_d and c_i within 2 % (sets B1 and C of the paper differ by 0.5 %); converging with
+  the mesh; KC = 1–4 at β = 35 within 3 %.
+- Optional: the phase-averaged velocity profiles of figure 8 (x = −0.6, 0, 0.6, 1.2 D, phases
+  180°, 210°, 330°) are bitmaps with overlapping markers and not digitised; the paper offers the
+  LDA data on request.
+- Stresses moving geometry (cells changing status, fresh cells, the force on an accelerating
+  body: added mass from the pressure) against a reference computed with a different method.
+  Relies on V3 (Galilean consistency).
