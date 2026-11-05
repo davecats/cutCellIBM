@@ -1,12 +1,114 @@
-# Validation suite: design (in progress)
+# Validation suite: design
 
 Started 2026-11-05. Principles: `doc/developerNotes.md`. Each case states which components it
-**stresses** and which it **relies on**; a gate is a cheap check with a tolerance that must pass
-before the cases that rely on it are run or interpreted. The inventory of the existing cases, the
-component list and the option matrix are still to be written; this file so far holds the cases
-already specified.
+**stresses** and which it **relies on**. A **gate** is a cheap check with a binary tolerance that
+runs on every change; it must pass before the cases that rely on it are run or interpreted. A
+**validation case** compares with an independent reference (exact solution, body-fitted solution
+of the same problem, literature) with a stated tolerance and an error bar from mesh refinement.
+Every check reports one of PASS, FAIL, or REPORT (no tolerance yet, or a known open defect whose
+fix the case will accept).
 
-## Case MIG: inertial migration of a sphere in a pipe (Rivero-Rodriguez & Scheid 2018)
+## 1. Components
+
+| id | component | where |
+|---|---|---|
+| K1 | geometry: cut fractions, wall area and normal, sub-sampling, closure Σ S_k = S_w; 2-D, 3-D; analytic, STL, alpha-field bodies; invert; several bodies | `cutCellGeometry.C`, `ibmBody` |
+| K2 | linking: groups, shared value point, mergeAlpha | `cutCellGeometry.C` |
+| K3 | no-slip wall traction ν(u − u_b)/d, second-order wall gradient | wall coefficients |
+| K4 | free-slip wall (zero shear still missing, `doc/freeSlipPlan.md`) | wall coefficients |
+| K5 | pressure gradient in cut cells (linearly exact form) | `grad()` |
+| K6 | continuity: cut-face fluxes, second-order continuity flux, p–U coupling (SIMPLEC, PIMPLE) | solvers, `cutCellGeometry` |
+| K7 | convection at the wall (`ibmConvection`) | `cutCellGeometryTemplates.C` |
+| K8 | wall force (and torque, C1) integration | `forces()` |
+| K9 | moving bodies: wall-flux source, swept, absorbed and uncovered cells, rotation, minimum image | `cutCellGeometryMoving.C`, `bodyMotion` |
+| K10 | flow-rate forcing | `ibmMeanVelocityForce` |
+| K11 | passive scalars: fixedValue and zeroFlux walls, budget | `ibmScalarTransport` |
+| K12 | turbulence near IBM walls: SA with the IBM wall distance | `ibmSpalartAllmaras`, `ibmWallDist` |
+| K13 | wall law: SA law, sample at wallSampleDistance, blending in h+ | `cutCellGeometryWallFunction.C` |
+| K14 | parallel: decomposition independence, groups and samples across processors | everywhere |
+| K15 | AMR (after the merge of `feature_amr`): refinement, unrefinement, mapping, load balancing | `ibmRefineFvMesh` |
+
+## 2. Inventory of what exists
+
+| existing | stresses | reference today | becomes |
+|---|---|---|---|
+| `tutorials/order/laplaceDisk` (`ibmOrderTest` LD LN CD CN GL GQ, N = 20…320, + 3-D sphere GL) | K1 K3 K5 (K2) | manufactured solutions; `data/secondOrder/orderTest*.txt` | gate G2 |
+| `tutorials/order/hydrostatic` | K5 K6 | rest state; `data/fixes/hydrostatic.txt` | gate G3 |
+| `tutorials/order/taylorCouette` | K3 K5 K6 K2 (K8 torque) | exact; `taylorCouette_*.py` | validation V1 |
+| `cylinderRe1` (+ `_stl`, `_alphaField`, `_parallel`), `richardson_drag.sh` | K1 K3 K5 K8 K14 | notebook (`reference_notebook.py`), Richardson | gate G7 (regression), validation V2 |
+| `cylinderRe1_pimple`, `_pimple_freeSlip`, `twoCylinders` | K4 K6, several bodies | notebook | G7, V2 |
+| `freeStreamTranslating` | K9 | exact (uniform flow preserved) | gate G4 |
+| `rotatingCylinder`, `eccentricRotation` | K9 (source) | Σ S = 0, max \|S\| | gate G5 |
+| `galileanTranslating`, `oscillatingCylinder` | K9 | notebook (`reference_moving.py`), Galilean equivalence with cylinderRe1 | validation V3 |
+| `tutorials/scalar/*` | K11 | budget (`scalar_budget.py`) | gate G6, V4 |
+| `tutorials/turbulence/channelSA` | K12 K13 K10 | body-fitted SA channel (same model) | validation V7 |
+| `tutorials/turbulence/naca0012` | all of K1–K13 together | body-fitted TMR grid (same model); `data/naca0012` | validation V8 (integral, last) |
+| `runs/ibmSA_study/freeslip_bf` (running) | — | body-fitted zero-shear periodic cylinder | reference of V2 free slip |
+
+Gaps: no laminar case at moderate Re (convection at the wall, K7, is tested only inside the
+turbulent NACA, where it cannot be separated from K12/K13); no 3-D flow case; no torque output; no
+decomposition gate beyond `cylinderRe1_parallel`; regressions are checked by hand
+(`data/secondOrder/tutorials_secondOrderDefault.txt`).
+
+## 3. Gates (minutes each, all on every change)
+
+| id | check | tolerance |
+|---|---|---|
+| G1 | geometry: Σ αV against the exact area/volume (cylinder 2-D, sphere 3-D, inverted), closure Σ S_k = S_w, linear pressure exact | volume error converging at ≥ 1.8; closure and linear p ≤ 10⁻¹⁰ |
+| G2 | operator orders, `ibmOrderTest` LD LN CD CN GL GQ, N = 20…160, mergeAlpha 0 and 0.5 | order ≥ 1.8 (LD LN CD CN GL), ≥ 0.9 (GQ); errors within 1 % of the stored baseline |
+| G3 | hydrostatic container | max \|U\| ≤ stored baseline × 1.05 and converging at ≥ 1.8 |
+| G4 | free stream around a translating body | max \|U − u_b\| ≤ 10⁻¹⁰ |
+| G5 | rotation sources (`rotatingCylinder`, `eccentricRotation`) | \|Σ S\| ≤ 10⁻¹² ; max \|S\| ≤ stored × 1.05 |
+| G6 | scalar budgets (`tutorials/scalar`) | closure ≤ 10⁻¹⁰ relative |
+| G7 | regression: forces of every tutorial against the stored baseline | ≤ 10⁻⁶ relative (larger = intended change, baseline updated in the same commit with a reason) |
+| G8 | decomposition: cylinderRe1 and channelSA (linked, wall law) serial vs 4 and 6 ranks, converged | ≤ 10⁻⁸ relative in the forces |
+
+## 4. Validation cases
+
+| id | case | stresses | relies on | reference | tier |
+|---|---|---|---|---|---|
+| V1 | Taylor–Couette, N = 40…320 | K3 K5 K6 K2, torque | G1 G2 | exact | 1 |
+| V2 | periodic cylinder Re_D = 1, no slip and free slip, Richardson | K3 K4 K8 | G1–G3 | body-fitted Richardson (no slip: notebook; free slip: `freeslip_bf`) | 1 |
+| V3 | translating and oscillating cylinder | K9 | G4 G5 | Galilean equivalence with V2, notebook | 1 |
+| V4 | scalars, static and moving | K11 | G6 | body-fitted steady cylinder scalar | 1 |
+| V5 | **new:** laminar cylinder in a channel, Re_D = 40 steady and 100 periodic, three meshes | K7 K3 K5 K8 | V2 | body-fitted OpenFOAM in the same domain (separation length, C_d, C_p, St); literature only as plausibility | 1 |
+| V6 | **new:** MIG, sphere in a pipe (below) | 3-D K1 K3 K4 K7 K8 K10 | MIG-G1, MIG-G2, C1 C2 | Rivero-Rodriguez & Scheid 2018 | 2 |
+| V7 | SA channel: cut fraction f sweep, tilt tan α, wall-resolved and wall-function, linked and unlinked | K12 K13 | V1 V2 V5 | body-fitted SA channel | 1 (wall-resolved), 2 (sweeps) |
+| V8 | NACA 0012, α = 0, 10, wall-resolved and wall-function | integral | everything | body-fitted TMR grid | 2 |
+| V9 | AMR (after the merge): V5 and V3 with refinement against the uniform fine mesh | K15 | V3 V5 | the same solver on the uniform mesh | 2 |
+
+Tier 1: hours in total on hydra, the baseline before the AMR merge. Tier 2: days.
+
+## 5. Options
+
+Every case runs with the defaults (secondOrder, ibmConvection, mergeAlpha 0.5, wall law SA,
+wallSampleDistance 1.5, ibmConvectionWallLaw off). Off-default, one at a time, only where the
+option acts: mergeAlpha 0 (G2, V1, V2, V5, V7), ibmConvection off (V5, V7, V8), wall law none
+(V7, V8), ibmConvectionWallLaw on (V7, V8). Full product only for interacting options:
+ibmConvection × mergeAlpha in V5 and V7 (the NACA study showed they interact). secondOrder false
+only in G2 and V1 until first order is removed. nSubSamples (8, 32) only in G1.
+
+## 6. Driver and report
+
+- `validation/suite/`: one module per gate or case (setup from the tutorial or a generator,
+  commands, extraction to a dict of metrics, reference, tolerance, components stressed and relied
+  on), and `suite.py` (`run <ids> --tier --host hydra`, `report`). Case directories outside the
+  repository (`runs/suite/<commit>/<id>/`); per-case results as small JSON in
+  `validation/suite/results/<commit>/`, the accepted baseline in `validation/suite/baseline/`.
+- Report: text summary (one line per check with value, reference, tolerance, status), a
+  component × case matrix coloured by status, plots per case (convergence plots with the
+  observed order; profiles and curves against the reference), as markdown + PNG in the results
+  directory and one HTML page published as a private artifact.
+
+## 7. Order of work
+
+1. Driver and gates G1–G8, tier 1 cases (V1–V5, V7 wall-resolved) on the current branch: the
+   baseline.
+2. Merge `feature_amr`; accepted when the gates pass and tier 1 agrees with the baseline.
+3. C1, C2 and the free-slip zero-shear fix, each accepted by its gates; then tier 2 (V6 MIG, V7
+   sweeps, V8, V9).
+
+## 8. Case MIG (V6): inertial migration of a sphere in a pipe (Rivero-Rodriguez & Scheid 2018)
 
 Reference: J. Rivero-Rodriguez & B. Scheid, *Bubble dynamics in microchannels: inertial and
 capillary migration forces*, J. Fluid Mech. 842 (2018) 215–247, doi:10.1017/jfm.2018.78 (steady
