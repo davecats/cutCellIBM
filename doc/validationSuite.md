@@ -45,8 +45,10 @@ force per unit sphere volume, f = L_y/V_B (f/Re in units ρ = J = d_h = 1 is L_y
   there); figure 10b at Re = 4 agrees with the neutral positions of the fit to three digits
   (d = 0.2, 0.4, 0.6: 0.272, 0.224, 0.158).
 
-Not reproducible with the code: everything with Ca > 0 (§3.2–3.3, figures 11–19, table 5,
-eq. C2) needs a deformable interface with surface tension.
+Scope (decided 2026-11-05): the zero-capillary part only (§3.1, figures 4–10, tables 3–4).
+Everything with Ca > 0 (§3.2–3.3, figures 11–19, table 5, eq. C2) needs a deformable interface
+with surface tension. The setup below (IBM pipe, Re = 2 for the linear regime, gates, cases,
+tolerances) was accepted the same day.
 
 ### Components
 
