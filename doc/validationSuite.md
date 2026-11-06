@@ -48,7 +48,8 @@ fix the case will accept).
 Gaps: no laminar case at moderate Re (convection at the wall, K7, is tested only inside the
 turbulent NACA, where it cannot be separated from K12/K13); no 3-D flow case; no torque output; no
 decomposition gate beyond `cylinderRe1_parallel`; regressions are checked by hand
-(`data/secondOrder/tutorials_secondOrderDefault.txt`).
+(`data/secondOrder/tutorials_secondOrderDefault.txt`). The cases of §9–§11 (adopted 2026-11-06)
+fill these gaps.
 
 ## 3. Gates (minutes each, all on every change)
 
@@ -62,6 +63,7 @@ decomposition gate beyond `cylinderRe1_parallel`; regressions are checked by han
 | G6 | scalar budgets (`tutorials/scalar`) | closure ≤ 10⁻¹⁰ relative |
 | G7 | regression: forces of every tutorial against the stored baseline | ≤ 10⁻⁶ relative (larger = intended change, baseline updated in the same commit with a reason) |
 | G8 | decomposition: cylinderRe1 and channelSA (linked, wall law) serial vs 4 and 6 ranks, converged | ≤ 10⁻⁸ relative in the forces |
+| G9 | stagnation flow onto a plane wall, exact NS solution (Hiemenz 2-D: tan α = 0 at cut fractions 0.1, 0.5, 0.9 and tan α = 1/3, 1; Homann 3-D: tan α = 0, 1/3), §11 | order ≥ 1.8 (L2 of u and p), ≥ 0.9 (wall shear); errors within 1 % of the stored baseline |
 
 ## 4. Validation cases
 
@@ -71,7 +73,7 @@ decomposition gate beyond `cylinderRe1_parallel`; regressions are checked by han
 | V2 | periodic cylinder Re_D = 1, no slip and free slip, Richardson | K3 K4 K8 | G1–G3 | body-fitted Richardson (no slip: notebook; free slip: `freeslip_bf`) | 1 |
 | V3 | translating and oscillating cylinder | K9 | G4 G5 | Galilean equivalence with V2, notebook | 1 |
 | V4 | scalars, static and moving | K11 | G6 | body-fitted steady cylinder scalar | 1 |
-| V5 | **new:** laminar cylinder in a channel, Re_D = 40 steady and 100 periodic, three meshes | K7 K3 K5 K8 | V2 | body-fitted OpenFOAM in the same domain (separation length, C_d, C_p, St); literature only as plausibility | 1 |
+| V5 | **new:** DFG 2D-1 (Re 20, steady) and 2D-2 (Re 100, periodic), cylinder in a channel, D/h = 20…160 (§11) | K7 K3 K5 K8, separation, small lift | V2, G9 | Nabh 1998 (spectral); FeatFlow 2D-2 reference files; body-fitted OpenFOAM as a diagnostic | 1 (D/h ≤ 80), 2 |
 | V6 | **new:** MIG, sphere in a pipe (below) | 3-D K1 K3 K4 K7 K8 K10 | MIG-G1, MIG-G2, C1 C2 | Rivero-Rodriguez & Scheid 2018 | 2 |
 | V7 | SA channel: cut fraction f sweep, tilt tan α, wall-resolved and wall-function, linked and unlinked | K12 K13 | V1 V2 V5 | body-fitted SA channel | 1 (wall-resolved), 2 (sweeps) |
 | V8 | NACA 0012, α = 0, 10, wall-resolved and wall-function | integral | everything | body-fitted TMR grid | 2 |
@@ -80,6 +82,9 @@ decomposition gate beyond `cylinderRe1_parallel`; regressions are checked by han
 | V11 | **new:** BUB, stress-free sphere in uniform flow, Re 50–300 (§10) | K4 in 3-D | V10 | Blanco & Magnaudet 1995; Moore; exact surface identity | 2 |
 | V12 | **new:** ROT, cylinder rotating in a uniform stream, Re 200, α 0–4 (§10) | K3 with wall velocity, K8 torque, K7 | V2 V5, C1 (C2 for α ≥ 2 steady) | Mittal & Kumar 2003 | 1 (α = 0, 1, 2), 2 |
 | V13 | **new:** OSC, cylinder oscillating in-line in fluid at rest, Re 100, KC 5 (§10) | K9, K8 (added mass) | V3 | Dütsch et al. 1998 | 1 |
+| V14 | **new:** DFG 3D-1Z (Re 20) and 3D-3Z (Re(t) ≤ 100), cylinder across a square channel (§11) | 3-D K1 K3 K8, immersed wall meeting a body-fitted wall | V5 | Braack & Richter 2006; FeatFlow level 4 | 2 |
+| V15 | **new:** TMR flat plate 2DZP, SA, Re 5·10⁶, wall-resolved (cut fraction sweep) and wall function (§11) | K12 K13 in a developing boundary layer | V7 | body-fitted OpenFOAM on the TMR grid; TMR CFL3D/FUN3D | 1 (wall-resolved, f = 0.5), 2 |
+| V16 | **new:** TMR bump-in-channel 2DBC, SA, Re 3·10⁶, wall function (§11) | K13 with curvature and pressure gradient | V15 | body-fitted OpenFOAM, same wall function; TMR CFL3D/FUN3D | 2 |
 
 Tier 1: hours in total on hydra, the baseline before the AMR merge. Tier 2: days.
 
@@ -87,9 +92,10 @@ Tier 1: hours in total on hydra, the baseline before the AMR merge. Tier 2: days
 
 Every case runs with the defaults (secondOrder, ibmConvection, mergeAlpha 0.5, wall law SA,
 wallSampleDistance 1.5, ibmConvectionWallLaw off). Off-default, one at a time, only where the
-option acts: mergeAlpha 0 (G2, V1, V2, V5, V7), ibmConvection off (V5, V7, V8), wall law none
-(V7, V8), ibmConvectionWallLaw on (V7, V8). Full product only for interacting options:
-ibmConvection × mergeAlpha in V5 and V7 (the NACA study showed they interact). secondOrder false
+option acts: mergeAlpha 0 (G2, G9, V1, V2, V5, V7, V15), ibmConvection off (G9, V5, V7, V8,
+V15, V16), wall law none (V7, V8, V15), ibmConvectionWallLaw on (V7, V8, V15, V16). Full product
+only for interacting options: ibmConvection × mergeAlpha in G9, V5 and V7 (the NACA study showed
+they interact). secondOrder false
 only in G2 and V1 until first order is removed. nSubSamples (8, 32) only in G1.
 
 ## 6. Driver and report
@@ -106,11 +112,12 @@ only in G2 and V1 until first order is removed. nSubSamples (8, 32) only in G1.
 
 ## 7. Order of work
 
-1. Driver and gates G1–G8, tier 1 cases (V1–V5, V7 wall-resolved, V12 α = 0, 1, V13) on the
-   current branch: the baseline.
+1. Driver and gates G1–G9, tier 1 cases (V1–V5, V7 wall-resolved, V12 α = 0, 1, V13, V15
+   wall-resolved f = 0.5) on the current branch: the baseline.
 2. Merge `feature_amr`; accepted when the gates pass and tier 1 agrees with the baseline.
 3. C1, C2 and the free-slip zero-shear fix, each accepted by its gates; then tier 2 (V10 SPH and
-   V11 BUB before V6 MIG, V7 sweeps, V8, V9, V12 complete).
+   V11 BUB before V6 MIG, V14 before V10, V7 sweeps, V15 complete and V16 before V8, V9, V12
+   complete).
 
 ## 8. Case MIG (V6): inertial migration of a sphere in a pipe (Rivero-Rodriguez & Scheid 2018)
 
@@ -250,18 +257,20 @@ in the form of figures 4a–d (f/Re, V, β, Ω against ε/eps_*, d = 0.4, both i
 Cost (estimate): finest mesh ~0.6 M cells half domain; about 40 converged points × 2–3 outer steps
 plus the convergence and option runs: a few days on hydra, the linear and Re = 128 sets first.
 
-## 9. Candidate cases for the gaps (proposed 2026-11-05, to be selected)
+## 9. Candidate cases for the gaps (proposed 2026-11-05, all adopted 2026-11-06)
 
 Literature search for independent references, each case chosen to stress one gap. "Exact" and
 "spectral" references allow an order-of-accuracy statement; correlations only plausibility.
 The user supplied the papers of the sphere, bubble, rotating and oscillating cylinder on
-2026-11-06: these four are specified in §10 (V10–V13); the others are still candidates.
+2026-11-06: these four are specified in §10 (V10–V13). The user adopted the others on the same
+day: Hiemenz/Homann as gate G9, DFG 2-D as the new V5, DFG 3-D as V14, TMR 2DZP and 2DBC as V15
+and V16, specified in §11.
 
 | gap | candidate | stresses | reference | remark |
 |---|---|---|---|---|
 | K7 at a flat wall | **Hiemenz stagnation flow** onto a plane IBM wall, tilted tan α = 0, 1/3, 1; 3-D: Homann flow | K7 K3 (no curvature, no separation) | exact NS solution: f''' + f f'' − f'² + 1 = 0, f''(0) = 1.232588 (Homann 1.311938); Dirichlet data from it on the outer boundary | 2-D, minutes: a gate (order of u, p, wall shear) |
 | K7 at a curved wall, laminar | **DFG 2D-1** (Re 20, steady) and **2D-2** (Re 100, periodic), Schäfer & Turek 1996 | K7 K3 K5 K8, separation, small lift | 2D-1: C_D 5.57953523384, C_L 0.010618948146, Δp 0.11752016697 (Nabh 1998, spectral); 2D-2: official reference file of the FeatFlow page (C_D, C_L max, St ≈ 0.3) | replaces the body-fitted reference of V5 |
-| 3-D, single curvature | **DFG 3D-1Z** (Re 20, cylinder in a square channel), 3D-2Z (Re 100) | 3-D K1 K3 K8 | 3D-1Z: c_D 6.18533, c_L 0.009401 (Braack & Richter 2006); 3D-2Z: c_D max 3.2978 (FeatFlow finest level) | channel walls body-fitted, only the cylinder immersed |
+| 3-D, single curvature | **DFG 3D-1Z** (Re 20, cylinder in a square channel), 3D-3Z (Re(t) ≤ 100) | 3-D K1 K3 K8 | 3D-1Z: c_D 6.18533, c_L 0.009401 (Braack & Richter 2006); 3D-3Z: c_D max 3.2978 (FeatFlow level 4; the periodic 3D-2Z has no reference) | channel walls body-fitted, only the cylinder immersed |
 | 3-D, double curvature | **sphere in uniform flow**, Re 20–300, Johnson & Patel 1999 (JFM 378) | 3-D K1 K3 K7 K8 | C_D, wake length, separation angle (steady axisymmetric up to Re ≈ 210), steady oblique wake 210–270, shedding at 300 | the tables need the paper |
 | K4 free slip, finite Re | **spherical bubble** (stress-free sphere) in uniform flow, Re 1–300 | K4 in 3-D, no separation at all | Hadamard–Rybczynski C_D = 16/Re (Re → 0), Moore C_D = 48/Re (1 − 2.21/√Re) (Re ≫ 1), Mei & Klausner 1992 correlation, Blanco & Magnaudet 1995 (numerical) | acceptance case of the zero-shear fix with MIG-S; a spurious wake is the signature of the missing curvature shear |
 | K8 torque, rotation with convection | **rotating cylinder in uniform flow**, Re 200, rotation rate 0–2 (Mittal & Kumar 2003, JFM 476) | K3 with wall velocity, K8 lift and torque, K7 | lift, drag, torque (power), shedding suppressed above α ≈ 1.9 | uses C1, C2 |
@@ -382,3 +391,162 @@ A): c_d 5.39, 3.72, 2.98, 2.28, 1.97; c_i 1.36, 1.35, 1.34, 1.31, 1.30.
 - Stresses moving geometry (cells changing status, fresh cells, the force on an accelerating
   body: added mass from the pressure) against a reference computed with a different method.
   Relies on V3 (Galilean consistency).
+
+## 11. Gate G9 and cases DFG, TMR (V5, V14–V16, specified 2026-11-06)
+
+Reference data in the repository, all from public sources:
+
+- `validation/reference_hiemenz.py`: Hiemenz and Homann solutions by `solve_bvp` (tolerance 10⁻¹⁰),
+  `exact(points, a, nu, origin, normal)` for any wall orientation; `check()` gives f''(0) =
+  1.232588 and 1.311938 and displacement constants 0.6479 and 0.5689, as in the literature, and a
+  finite-difference residual of the momentum equations of 10⁻⁸ on a tilted wall.
+- `validation/reference_dfg.py` with `validation/data/dfg/`: 2D-1 (Nabh 1998), 2D-2 (FeatFlow
+  "new reference results" 2014, levels 4–6, one cycle of level 6), 3D-1Z (Braack & Richter 2006;
+  FeatFlow levels 1–4), 3D-3Z (FeatFlow level 4 time series), `cycle_statistics()` for the 2D-2
+  quantities of our force history.
+- `validation/reference_tmr.py` with `validation/data/tmr/` (TMR files unchanged, README with the
+  sources): convergence of C_f and forces on the five TMR grids, C_f(x), C_p(x), profiles, ν_t.
+
+Cross-checks: 2D-2 levels 5 and 6 agree to 0.03 % in C_D,max and 0.01 % in St; their Δp(t0 + T/2)
+= 2.483 is inside the 1996 interval 2.46–2.50, while C_L,max = 0.987 is just below the 1996 interval
+0.99–1.01, so the new files, not the intervals, are the reference. FeatFlow level 4 of 3D-1Z
+agrees with Braack & Richter to 0.01 % (C_D) and 0.04 % (C_L). The observed orders of the TMR
+flat-plate C_f(0.97) from the files (1.98 CFL3D, 1.34 FUN3D) reproduce the TMR uncertainty table.
+
+### G9: stagnation flow onto a plane wall (Hiemenz 2-D, Homann 3-D)
+
+Exact steady NS solutions with a wall-normal inflow, no curvature and no separation: the
+convection at the wall (K7) and the wall traction (K3) at a flat wall in isolation, where V2 has
+no convection and the NACA case cannot separate K7 from K12/K13.
+
+- a = 1, ν = 0.01 (99 % boundary-layer thickness ≈ 0.24 in 2-D), `plane` body (noSlip) through the
+  origin, rho = 1. 2-D domain [−1, 1] × [−0.5, 1], N = 20, 40, 80, 160 cells per unit length
+  (5–40 cells across the boundary layer); tan α = 0 with the wall at cut fractions f = 0.1, 0.5, 0.9
+  of the first cell, and tan α = 1/3, 1 (normal (−sin α, cos α)).
+- 3-D (Homann): [−0.5, 0.5]² × [−0.4, 0.6], N = 20, 40, 80, tan α = 0 (f = 0.5) and 1/3 (tilted
+  about x).
+- Outer boundary: U fixedValue from `exact()` on every face, p fixedFluxPressure with the exact
+  value at one reference cell; steady ibmSimpleFoam (SIMPLEC), converged to 10⁻¹⁰.
+- Body-fitted control (2-D, tan α = 0, wall as a mesh patch, same solver without bodies): the
+  error of the outer boundary treatment and of the interior scheme alone, against which the IBM
+  error is read.
+- Metrics: L2 (α-weighted) and L∞ errors of u and p in the fluid cells; L2 error of the wall shear
+  in the cut cells against a s √(aν) f''(0); the wall force against the exact integral of
+  p0 − a²s²/2 and of the shear over the wall segment inside the domain.
+- Tolerances: order ≥ 1.8 in L2 of u and p, ≥ 0.9 in the wall shear (as GQ in G2), errors within
+  1 % of the stored baseline; L∞ and the ratio IBM/body-fitted error reported.
+- Options: ibmConvection on/off × mergeAlpha 0/0.5 at every N (the place where K7 is seen alone).
+- Cost: 2-D 77 k cells at N = 160 (minutes); 3-D 0.5 M cells at N = 80 (≈ 15 min on 8 cores).
+
+### V5 DFG 2D-1 and 2D-2: cylinder in a channel
+
+Reference: Schäfer & Turek 1996; 2D-1 C_D = 5.57953523384, C_L = 0.010618948146, Δp =
+0.11752016697 (Nabh 1998, spectral), recirculation length L_a in [0.0842, 0.0852]; 2D-2 (FeatFlow
+level 6): St 0.30184, C_D 3.16426–3.22739, C_L −1.02129–0.98657, Δp(t0 + T/2) 2.48322, and the
+cycle C_D(t), C_L(t), Δp(t). Definitions in `reference_dfg.py` (U_mean = 2/3 U_m, D = 0.1).
+
+- Channel walls and inflow/outflow are mesh patches (body-fitted), the cylinder is a `cylinder`
+  body (noSlip) at (0.2, 0.2): only the cylinder is immersed. Inflow parabolic profile; outflow U
+  zeroGradient, p = 0 (the do-nothing condition of the benchmark agrees for a developed profile;
+  Δp is a difference and does not see the level).
+- Mesh: background h = 0.01 (220 × 41), refinement by 2 in [0.05, 1.2] × [0, 0.41] (the channel
+  walls and the near wake) and in nested boxes around the cylinder; D/h = 20, 40, 80 (tier 1), 160
+  (tier 2) at the cylinder. The cylinder centre is not on a mesh line: the asymmetry that produces
+  C_L is the benchmark's, and errors of the cut geometry show up in the small lift.
+- 2D-1: ibmSimpleFoam to 10⁻¹⁰. 2D-2: ibmPimpleFoam from rest, Courant ≤ 0.5, to t = 30, the last
+  cycle between minima of C_L evaluated by `cycle_statistics()`; Δt halved once at D/h = 80.
+- Quantities: 2D-1 C_D, C_L, Δp, L_a (zero of u on the axis y = 0.2 behind the cylinder, minus
+  0.25); 2D-2 St, C_D and C_L extremes, Δp(t0 + T/2), and the cycle against the FeatFlow cycle
+  (plot).
+- Tolerances at D/h = 80 (tier 1): 2D-1 C_D and Δp within 0.5 %, C_L within 5 %, L_a inside the
+  interval, observed order of C_D ≥ 1.5 from 20, 40, 80; 2D-2 St within 0.5 %, C_D extremes within
+  0.5 %, C_L extremes within 1 %, Δp within 1 %. At D/h = 160 (tier 2): C_D, Δp, St within 0.2 %.
+- Diagnostic, not judged: pimpleFoam/simpleFoam on a body-fitted O-grid of the same resolution
+  (the share of the deviation that belongs to the finite-volume scheme rather than to the IBM).
+- Options: ibmConvection × mergeAlpha full product (§5).
+- Stresses convection, traction and pressure at a curved wall with separation, the force
+  integration, and the cut geometry through the lift. Relies on V2 and G9.
+- Cost: 2-D, ≈ 0.1 M cells at D/h = 80; 2D-2 to t = 30 a few hours on 8 cores.
+
+### V14 DFG 3D-1Z and 3D-3Z: cylinder across a square channel
+
+Reference: 3D-1Z c_D = 6.18533, c_L = 0.009401 (Braack & Richter 2006); FeatFlow levels 1–4
+(OpenFOAM in the same study, body-fitted, level 4: 0.06 % in c_D, 3.5 % in c_L). 3D-3Z: FeatFlow
+level 4 c_D(t), c_L(t), c_D,max 3.2978, c_L,min −0.010999. c = 2F/(U_mean² D H), U_mean =
+4/9 U_m.
+
+- Channel [0, 2.5] × [0, 0.41]², all four walls body-fitted, cylinder axis z through (0.5, 0.2)
+  spanning the full height: the immersed wall meets the body-fitted walls z = 0 and z = H. Cells
+  with both a wall patch face and a cut face exist only here: before the run, G1 is extended by a
+  cylinder crossing the domain boundary (Σ αV, closure Σ S_k = S_w in those cells).
+- Mesh: D/h = 16, 24, 32 (≈ 0.3–3 M cells), finest box [0.4, 0.75] × [0.1, 0.3] × [0, H];
+  D/h = 48 on HoreKa if the order is unclear.
+- 3D-1Z steady ibmSimpleFoam; 3D-3Z ibmPimpleFoam t ∈ [0, 8], inflow 2.25 sin(πt/8), Δt = 0.005
+  (Courant ≤ 0.5 checked), on D/h = 16, 24.
+- Quantities: c_D, c_L; Δp between (0.45, 0.2, 0.205) and (0.55, 0.2, 0.205) reported (no sourced
+  reference); 3D-3Z c_D(t), c_L(t), their extremes and the L2 difference to the FeatFlow series.
+- Tolerances: 3D-1Z c_D within 1 %, c_L within 5 % at D/h = 32; 3D-3Z c_D,max within 1 %, c_L,min
+  within 10 % (FeatFlow level 2: 0.9 %, OpenFOAM level 3: 7.3 %).
+- Stresses 3-D cut cells on a singly curved wall, the junction of an immersed and a body-fitted
+  wall, 3-D forces. Relies on V5; runs before V10 SPH (curvature in one direction before two).
+- Cost: tier 2; 3D-3Z ≈ 1600 steps on up to 3 M cells: HoreKa.
+
+### V15 TMR 2DZP: turbulent flat plate (SA)
+
+Reference: TMR SA verification (compressible M = 0.2: C_f(0.97) = 0.002706, C_D = 0.00286 on the
+finest grid; incompressible FUN3D and SC/Tetra: C_f(0.97) = 0.002729, 0.9 % higher). TMR warns that
+the SA of OpenFOAM (2014) did not match its equations: the primary reference is therefore
+body-fitted OpenFOAM (simpleFoam + SpalartAllmaras, the model of ibmSpalartAllmaras) on the TMR
+grids 137 × 97, 273 × 193, 545 × 385, and the TMR values check that reference.
+
+- U = 1, ν = 2·10⁻⁷ (Re 5·10⁶ per unit length), plate x ∈ [0, 2], domain [−0.33333, 2] × [0, 1];
+  inflow U = 1 and ν̃ = 3ν, top slip (TMR: moving it to 0.48 changes results < 0.2 %), outflow
+  p = 0.
+- IBM geometry on the TMR grid itself (tensor-product x_i, y_j): one copy of the first cell layer
+  added below y = 0 and the grid shifted up by f Δy₁, so that the plate, a `box` body (noSlip) for
+  x ≥ 0 below y = 0, cuts that cell with fluid fraction f = 0.25, 0.5, 0.75. The mesh bottom is a
+  symmetry patch for x < 0, (1 − f)Δy₁ (≤ 2·10⁻⁶) below the plane of the plate. Body-fitted and IBM
+  runs then share every mesh line but the wall row: the comparison isolates the wall treatment.
+  Variant once: a freeSlip `box` for x < 0 at the height of the plate (two touching bodies; needs
+  the G1 check that their common face is not a wall).
+- Wall-resolved (y⁺ of the first fluid cell centre ≤ 1, wall law none and SA law) and wall
+  function (the same grid coarsened in y to y⁺ ≈ 30–100 at the sample, SA law, compared with
+  body-fitted Spalding/SA law at the same first-cell height). Tilted plate (STL body, freestream
+  rotated by α, tan α = 1/10) with the wall function only, tier 2.
+- Quantities: C_f(x), C_f(0.97), C_D (one side, reference length 2), u⁺(y⁺) at x = 0.97008 and
+  1.90334, ν_t/ν at x = 0.97, max ν_t/ν(x).
+- Tolerances, IBM against body-fitted on the same grid: wall-resolved C_f(0.97) and C_D within
+  1 %, C_f(x) within 2 % on x ∈ [0.1, 1.9], max ν_t/ν within 2 %, spread over f within 1 %; wall
+  function C_f within 3 %. Body-fitted against TMR incompressible C_f(0.97): REPORT (a model
+  implementation difference, not an IBM error).
+- Stresses the SA terms with the IBM wall distance and the wall law in a boundary layer whose
+  thickness and sample y⁺ change along the wall (the channel V7 has neither), and the
+  leading-edge singularity in a cut cell (excluded from the tolerance by x ≥ 0.1). Relies on V7.
+- Cost: 545 × 385 = 0.2 M cells, steady SA, ≈ 1 h; tier 1 runs 273 × 193, f = 0.5, wall-resolved,
+  IBM and body-fitted.
+
+### V16 TMR 2DBC: turbulent bump in a channel (SA)
+
+Reference: TMR SA verification on grids up to 1409 × 641: C_L = 0.02490, C_D = 0.003572 (C_Dp
+0.000382, C_Dv 0.003191), C_f(0.6321975, 0.75, 0.8678025) = 0.005185, 0.006149, 0.002678 (CFL3D;
+FUN3D within 0.3 %), C_p(x), C_f(x), u profiles at x = 0.75 and 1.20148, ν_t/ν at 0.75 (all
+compressible M = 0.2).
+
+- U = 1, ν = 1/(3·10⁶), wall x ∈ [0, 1.5] with the bump y = 0.05 sin⁴(πx/0.9 − π/3) on
+  0.3 ≤ x ≤ 1.2 as an STL body (2-D extruded; leading edge as in V15), symmetry on the bottom for
+  x ∈ [−25, 0) and (1.5, 26.5], top symmetry at y = 5, inflow ν̃ = 3ν, outflow p = 0.
+- Wall-resolved IBM would need cells of 10⁻⁶ height following the bump (y⁺ ≤ 1 over a bump 0.05
+  high): not feasible on a Cartesian mesh, so wall function only. Band around the wall
+  x ∈ [−0.1, 1.6], 0 ≤ y − y_bump ≤ 0.08 with Δy = 4·10⁻⁴ (y⁺ ≈ 30–100 at the sample), Δx = 2·10⁻³,
+  and Δy halved and doubled once (three meshes).
+- Body-fitted reference: OpenFOAM with the same wall function on the TMR grid coarsened at the wall
+  to the same first-cell height (as V8); body-fitted wall-resolved on the TMR 705 × 321 grid
+  against the TMR values (REPORT, model implementation).
+- Quantities: C_p(x), C_f(x), C_f at the three stations, C_L, C_Dp, C_Dv, u profiles, ν_t/ν at 0.75.
+- Tolerances, IBM wall function against body-fitted wall function: C_p within 0.005 on
+  x ∈ [0.1, 1.4], C_f at the three stations within 3 %, C_L within 2 %; C_Dp (≈ 10 % of the drag)
+  reported. Against TMR wall-resolved: REPORT (wall-function model error).
+- Stresses the wall law under curvature and favourable/adverse pressure gradient (the sample
+  direction and distance on a curved wall, K13), between the flat plate and the NACA. Relies on
+  V15.
+- Cost: ≈ 0.2 M cells, steady SA, hours; tier 2.
