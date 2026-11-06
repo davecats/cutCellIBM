@@ -50,11 +50,15 @@ def setup(d, k, Um, unsteady):
     if not unsteady:
         (d / "system" / "fvSchemes").write_text((CYL / "system" / "fvSchemes").read_text())
         write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", """
-solvers { p { solver PCG; preconditioner DIC; tolerance 1e-12; relTol 0.01; }
+solvers { p { solver PCG; preconditioner { preconditioner GAMG; agglomerator algebraicPair;
+                smoother DICGaussSeidel; nCellsInCoarsestLevel 10; tolerance 0; relTol 0; }
+              tolerance 1e-12; relTol 0.01; maxIter 1000; }
           U { solver smoothSolver; smoother symGaussSeidel; tolerance 1e-12; relTol 0.1; } }
 SIMPLE { nNonOrthogonalCorrectors 0; consistent yes; residualControl { p 1e-9; U 1e-9; } }
 relaxationFactors { equations { U 0.9; } fields { p 1.0; } }
 """)
+        # GAMG-preconditioned CG: DIC-PCG hits maxIter 1000 short of relTol 0.01 at D/h = 160 (24 s
+        # per iteration, 13 GAMG-PCG iterations instead; plain GAMG stalls, see below)
         import geometry as g
         g.control_dict(d, "ibmSimpleFoam", endTime=40000, deltaT=1)
         return ncells, hmin, None
@@ -89,8 +93,11 @@ def dp_at(d, t, hmin):
 def steady(ctx, k):
     d = ctx.root / ("re20_k%d" % k)
     ncells, hmin, _ = setup(d, k, 0.3, False)
-    common.sh("ibmSetGeometry", d, "log.ibmSetGeometry")
-    common.sh("ibmSimpleFoam", d, "log.ibmSimpleFoam")
+    if k < 2:
+        common.sh("ibmSetGeometry", d, "log.ibmSetGeometry")
+        common.sh("ibmSimpleFoam", d, "log.ibmSimpleFoam")
+    else:   # 505k cells, ~15000 iterations: parallel, decomposed before the geometry is written
+        decomposed(d, "ibmSimpleFoam", "-latestTime")
     log = (d / "log.ibmSimpleFoam").read_text()
     F = common.ibm_force(log, "cylinder")["total"]/(4*hmin)   # per unit depth: thickness h0 = 4 hmin
     U = 0.2
@@ -107,18 +114,22 @@ def steady(ctx, k):
             "dp": dp_at(d, t, hmin), "L_a": float(xr - 0.25), "converged": "SIMPLE solution converged" in log}
 
 
-NP = 8   # ranks of a 2D-2 run
+NP = 8   # ranks of a 2D-2 run and of the finest 2D-1 run
+
+
+def decomposed(d, app, times):
+    write_dict(d / "system" / "decomposeParDict", "dictionary", "decomposeParDict",
+               "numberOfSubdomains %d;\nmethod scotch;\n" % NP)
+    common.sh("decomposePar", d, "log.decomposePar")
+    common.sh(app, d, "log." + app, np_=NP)
+    common.sh("reconstructPar " + times, d, "log.reconstructPar")
+    common.sh("ibmSetGeometry", d, "log.ibmSetGeometry")   # geometry fields at 0 for the sampling
 
 
 def periodic(ctx, k):
     d = ctx.root / ("re100_k%d" % k)
     ncells, hmin, dt = setup(d, k, 1.5, True)
-    write_dict(d / "system" / "decomposeParDict", "dictionary", "decomposeParDict",
-               "numberOfSubdomains %d;\nmethod scotch;\n" % NP)
-    common.sh("decomposePar", d, "log.decomposePar")
-    common.sh("ibmPimpleFoam", d, "log.ibmPimpleFoam", np_=NP)
-    common.sh("reconstructPar -newTimes", d, "log.reconstructPar")
-    common.sh("ibmSetGeometry", d, "log.ibmSetGeometry")   # geometry fields at 0 for the sampling
+    decomposed(d, "ibmPimpleFoam", "-newTimes")
     f = sorted((d / "postProcessing" / "ibmForces").glob("*/forces.dat"))[-1]
     h = np.loadtxt(f)
     t, F = h[:, 0], (h[:, 1:4] + h[:, 4:7])/(4*hmin)

@@ -48,9 +48,11 @@ def channel(ctx, n):
         common.sh("decomposePar", d, "log.decomposePar")
     common.sh(app, d, "log." + app, np_=n)
     t = (d / ("log." + app)).read_text()
-    # the driving gradient (u_tau^2) of the last iteration: the residuals of this 1-D problem stall
-    # near 1e-4 while the solution is stationary to 11 digits
-    return np.array([common.last_match(t, r"pressure gradient = ([-+0-9.eE]+)")])
+    # the driving gradient (u_tau^2); residualControl cannot trigger in this 1-D problem (Uy and p
+    # residuals normalised by ~0), so the iteration must be stationary (with nuTilda relaxed by 0.9
+    # it ended in a two-iteration cycle whose end state depended on the decomposition)
+    g, change = common.driving_gradient(t)
+    return np.array([g[-1], change()])
 
 
 def run(ctx, res):
@@ -64,3 +66,6 @@ def run(ctx, res):
         res.report("cylinder: lift np%d vs serial (zero by symmetry: solver noise)" % n, float(c[1]), float(s[1]))
         g, gs = F[("channel", n)][0], F[("channel", 1)][0]
         res.le("channel: |G_np%d/G_serial - 1| (driving gradient, u_tau^2)" % n, abs(g/gs - 1), RTOL)
+    for n in (1, 4, 6):
+        res.le("channel np%d: driving gradient stationary (largest change over 100 iterations)" % n,
+               F[("channel", n)][1], 1e-10)

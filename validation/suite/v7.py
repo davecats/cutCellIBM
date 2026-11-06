@@ -37,8 +37,11 @@ def one(ctx, kind, f=None, ma=0.5):
     common.sh(app, d, "log." + app)
     log = (d / ("log." + app)).read_text()
     r = load(str(d))
-    out = {"name": name, "kind": kind, "f": f, "ma": ma, "utau": float(r["utau"]),
-           "converged": "SIMPLE solution converged" in log}
+    # residualControl cannot trigger here (Uy and p residuals are normalised by ~0): the
+    # iteration must be stationary instead
+    g, change = common.driving_gradient(log)
+    out = {"name": name, "kind": kind, "f": f, "ma": ma, "utau": float(r["utau"]), "G": float(g[-1]),
+           "change": change(), "converged": change() <= 1e-10}
     for side, m in (("bottom", r["bottom"]), ("top", ~r["bottom"])):
         o = np.argsort(r["yp"][m])
         for q in (5, 30, 100, 300):
@@ -51,7 +54,7 @@ def run(ctx, res):
     rows = common.pmap(lambda j: one(ctx, *j), jobs, ctx.jobs)
     res.data["rows"] = rows
     res.data["metrics"] = {r["name"] + "_utau": r["utau"] for r in rows}
-    res.le("runs not converged (SIMPLE residualControl, 60000 iterations)", sum(not r["converged"] for r in rows), 0)
+    res.le("runs not stationary (driving gradient over the last 100 iterations > 1e-10)", sum(not r["converged"] for r in rows), 0)
     bf = [r for r in rows if r["kind"] == "bf"][0]
     for r in rows:
         if r["kind"] == "bf":

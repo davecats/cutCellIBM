@@ -550,3 +550,82 @@ compressible M = 0.2).
   direction and distance on a curved wall, K13), between the flat plate and the NACA. Relies on
   V15.
 - Cost: ≈ 0.2 M cells, steady SA, hours; tier 2.
+
+## 12. Implementation (step 7.1, started 2026-11-06)
+
+Driver `validation/suite/suite.py` (`list`, `run <ids>|gates|tier1 [--jobs n] [--quick]`,
+`run <id> --reuse <case root>` to re-evaluate finished runs, `accept <ids>`, `report`); one
+module per gate or case (`g1.py` … `v15.py`) with its setup, metrics, reference, tolerances,
+the components stressed and relied on, and a regression tolerance against the accepted baseline
+(`validation/suite/baseline/`). Results are keyed by the commit of the code under test (the last
+commit touching `src`, `applications`, `tutorials`; suite-only commits keep the key), JSON in
+`validation/suite/results/<commit>/`, case directories in `~/runs/suite/<commit>/<id>/` (never
+overwritten: a rerun goes to `<id>.1`, …). Case copies take only the git-tracked files of a
+tutorial (its directory may hold the output of a local run).
+
+Errors against exact or reference fields are evaluated at the **value points** of the cells
+(cell centre + `ibmValueOffset`: the group centroid of a linked cell; `ibmCentroidOffset` when
+unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that is not there
+(Taylor–Couette linked u: order 1.39 at the centroids, 2.05 at the value points).
+
+### Amendments to the tolerances of §3–§4 (after the first runs)
+
+- **G1**: the fluid volume comes from sub-sampling (quadrature), not a discretisation:
+  bounded (≤ 1e-4 of the body volume; observed 8e-5 2-D, 1.3e-5 3-D) instead of an order; the
+  order ≥ 1.8 is required of the wall area (observed 1.9–4.0).
+- **G2**: GL and GQ unlinked only (with linking a group has one gradient, the per-cell test of
+  `ibmOrderTest` is undefined: a linking-aware GL check is missing; the linked pressure gradient
+  is tested in the flow by G3 and V1). GQ (first order with geometric noise, pair orders 0.93,
+  1.01, 0.73) fitted over all four meshes, ≥ 0.8.
+- **G6**: the budget is judged per step; a step whose scalar solve hits maxIter is reported
+  apart (`galilean_zeroFlux`, t = 11.925, the known case of `doc/secondOrderStudy.md`).
+- **G8**: cylinder drag (the lift is zero by symmetry, solver noise) and the channel driving
+  gradient u_τ², each run required stationary (the gradient changes ≤ 1e-10 over the last 100
+  iterations): `residualControl` cannot trigger in this 1-D problem (the Uy and p residuals are
+  normalised by ≈ 0 and stay O(0.1) at the converged state). Same criterion in V7.
+- **G9**: u L2 over all fluid cells and p L2 in the interior (farther than 0.1 from the outer
+  faces) ≥ 1.8; the pressure where the immersed wall meets the outer boundary, max norms and the
+  options are reported. Outer boundary: exact U on every face (outflow faces scaled by 1 + O(h²)
+  so that the θ-weighted boundary flux closes), p zeroGradient (fixedFluxPressure is evaluated
+  before the solver sets it).
+- **V1**: u L2 ≥ 1.8 linked and unlinked; p reported (the cut-cell pressure converges below
+  second order, open: `doc/secondOrderStudy.md`).
+- **V2**: no slip within 0.3 % of the body-fitted M = 256 drag (5.83958); free slip reported
+  against both body-fitted slip (3.04843, the same condition) and zero shear (4.00318).
+- **V3**: the notebook implements the method of 2026-09 (first order, unlinked, no convective
+  correction). With those options the force history now differs from it by 2.5e-3 (2e-5 on
+  2026-09-08; finding 5): reported, as are the defaults and the Galilean equivalence, until the
+  reference is regenerated; the independent moving-body reference is V13.
+- **V5**: mesh family k (background 0.01/2^k, two nested levels: D/h = 40, 80, 160); 2D-2 from
+  rest to t = 16 on 8 ranks, PCG (GAMG stalls on the linked cut-cell pressure: near 1e-6 with
+  the default agglomeration, near 2e-9 with pair agglomeration), statistics over the last 3 s.
+  2D-1: CG preconditioned by pair-agglomeration GAMG (DIC-PCG hits maxIter 1000 short of relTol
+  0.01 at D/h = 160: 24 s per iteration against 3.5 s; 13 iterations per solve); D/h = 160 on 8
+  ranks (5661 SIMPLE iterations at D/h = 80).
+- **V12, V13**: nested static refinement (h0 = 3.2, 7–9 levels), 8 ranks; V13 at Courant ≤ 0.8.
+- **V15**: the IBM plate gives no C_f(x) yet (no wall-shear output): C_D against body-fitted;
+  C_f(0.97) of the body-fitted run against TMR reported. Leading edge half a cell (5e-4)
+  downstream of the mesh line x = 0.
+
+### Findings (open, to be decided)
+
+1. ~~G8: the linked wall-resolved SA channel depends on the decomposition~~ **resolved
+   (5008932): not the method, the iteration.** With ν̃ relaxed by 0.9 SIMPLEC ends in an exact
+   two-iteration cycle of the driving gradient, body-fitted (6.5e-5) and immersed (2e-4 to
+   6.9e-4) alike; where it stops, and in parallel the cycle itself (the Gauss–Seidel smoothers
+   act per processor), set the "result". With ν̃ 0.7 (U 0.9) both converge to round-off (Ux, ν̃
+   residuals 1e-15), serial = 4 = 6 ranks to 12 digits (G = 0.00296311949746), and the
+   immersed walls (f = 0.3) match the body-fitted channel to 1.8e-5 (0.16 % closer than the cycle
+   values). `tutorials/turbulence/channelSA/makeCase.py` now writes ν̃ 0.7; its body-fitted
+   cases had also been given the `cutCellCorrected` schemes since de164be (af25a0b).
+2. **G9: pressure at the junction of an immersed wall with the outer boundary** does not
+   converge (max |p − p_exact| ≈ 0.07 at N = 20…160 where the level wall meets the outflow
+   boundary; body-fitted corner 2e-3 and converging). Relevant to V14 (cylinder spanning the
+   channel walls) and V15 (plate meeting the outflow).
+3. **G9: wall at 45°**: interior p max norm stalls near 6e-3 (L2 second order).
+4. **G1**: the wall area depends on nSubSamples (nSubSamples 8: area error not converging).
+5. **V3: the first-order moving path no longer reproduces the notebook** (force history 2.5e-3,
+   final u 1.4e-3 / 2.9e-3; 2e-5 on 2026-09-08). Not attributed (candidates since then:
+   bc08f21 wall-velocity evaluation point, b01303a rotating-wall mass source, 7f50469
+   fillUncovered); needs a bisect or a regenerated reference. Galilean equivalence (translating
+   vs fixed cylinder, N = 81): +0.55 % at first order, +0.08 % at the defaults.

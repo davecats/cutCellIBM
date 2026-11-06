@@ -182,6 +182,15 @@ def order(h, err, last=3):
     return float(np.polyfit(np.log(h[i]), np.log(err[i]), 1)[0])
 
 
+def driving_gradient(log):
+    """meanVelocityForce: the driving gradient after the pressure correction of each iteration
+    (the last of its two 'pressure gradient' lines), and the largest relative change over the
+    last n iterations (0 when the iteration is stationary, not just its residuals small)"""
+    g = [re.findall(r"pressure gradient = ([-+0-9.eE]+)", it) for it in re.split(r"\nTime = ", log)[1:]]
+    g = np.array([float(x[-1]) for x in g if x])
+    return g, lambda n=100: float(np.ptp(g[-n:])/abs(g[-1]))
+
+
 def richardson(h, q):
     """extrapolated value and observed order from the three finest grids (h any spacing)"""
     h, q = np.asarray(h, float), np.asarray(q, float)
