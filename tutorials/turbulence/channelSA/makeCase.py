@@ -220,7 +220,7 @@ def main():
                     help="ibm: walls inclined at tan(alpha) = P/Q to the grid, uniform cells")
     ap.add_argument("--init", help="with --incline: initial profiles from this body-fitted run")
     a = ap.parse_args()
-    a.secondOrder = not a.firstOrder
+    a.secondOrder = a.kind == "ibm" and not a.firstOrder   # body-fitted: plain OpenFOAM schemes
     d = a.case
     if a.incline and a.kind != "ibm":
         raise SystemExit("--incline needs --kind ibm")
