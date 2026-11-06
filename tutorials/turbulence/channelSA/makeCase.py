@@ -408,7 +408,10 @@ SIMPLE
 }
 relaxationFactors
 {
-    equations { U 0.9; nuTilda 0.9; }
+    // nuTilda 0.9 ends in a two-iteration cycle of the driving gradient (amplitude 6e-5
+    // body-fitted, up to 6e-4 immersed) instead of converging; 0.7 converges to round-off
+    // (Ux and nuTilda residuals 1e-15; Uy and p stay O(0.1): their normalisation is ~0 here)
+    equations { U 0.9; nuTilda 0.7; }
     fields    { p 1.0; }
 }
 """ % ("solver GAMG; smoother symGaussSeidel;" if a.incline else "solver smoothSolver; smoother symGaussSeidel;",
