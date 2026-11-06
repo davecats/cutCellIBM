@@ -16,7 +16,7 @@ normal `normal` (pointing into the fluid), so that tilted walls (tan alpha = 1/3
 function. In 2-D the tangent is the normal rotated by -90 deg in the (x, y) plane.
 """
 import numpy as np
-from scipy.integrate import solve_bvp
+from scipy.integrate import solve_bvp, solve_ivp
 
 ETA_MAX = 12.0
 LITERATURE = {"hiemenz": {"f''(0)": 1.232588, "delta*": 0.6479},
@@ -43,11 +43,17 @@ def solve(kind="hiemenz"):
     fpp0 = float(r.sol(0.0)[2])
     dstar = float(ETA_MAX - r.sol(ETA_MAX)[0])
 
+    # below the wall (eta < 0): the same ODE integrated backwards from the wall values, a smooth
+    # divergence-free continuation for boundary data on faces inside the solid
+    back = solve_ivp(lambda e, y: rhs(e, y[:, None])[:, 0], (0.0, -3.0), [0.0, 0.0, fpp0],
+                     dense_output=True, rtol=1e-12, atol=1e-14)
+
     def f(e):
         e = np.asarray(e, float)
         inner = r.sol(np.clip(e, 0.0, ETA_MAX))
         outer = np.array([e - dstar, np.ones_like(e), np.zeros_like(e)])
-        return np.where(e <= ETA_MAX, inner, outer)
+        below = back.sol(np.clip(e, -3.0, 0.0))
+        return np.where(e < 0.0, below, np.where(e <= ETA_MAX, inner, outer))
 
     _SOL[kind] = (f, fpp0, dstar)
     return _SOL[kind]

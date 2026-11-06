@@ -36,3 +36,6 @@ doc/*.fls
 doc/*.fdb_latexmk
 doc/page-*.png
 doc/montage.png
+
+# validation suite: python caches; results are committed explicitly per baseline
+__pycache__/

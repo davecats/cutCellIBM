@@ -1,0 +1,265 @@
+"""G9 stagnation flow onto a plane wall, exact NS solution (validation/reference_hiemenz.py):
+Hiemenz (2-D, box [-0.6, 1.4] x [-0.5, 1]) at cut fractions f = 0.1, 0.5, 0.9 of a level wall and on walls tilted at
+tan(alpha) = 1/3, 1; Homann (3-D) level and tilted. Convection at the wall (K7) and the wall
+traction (K3) without curvature or separation (doc/validationSuite.md §11).
+
+a = 1, nu = 0.01; U from the exact solution on every outer face, p zeroGradient (fixedFluxPressure is evaluated before the solver sets it) with the
+exact value in a reference cell; steady ibmSimpleFoam. Errors at the fluid centroids
+(alpha-weighted L2, Linf) of u and p; the wall force against the exact integral over the wall
+inside the box (viscous: tangential shear; pressure: p0 - a^2 s^2/2). Body-fitted control:
+level wall as a mesh patch."""
+import math
+import os
+
+import numpy as np
+
+import common
+import geometry
+import reference_hiemenz as hz
+from common import write_dict
+from foamio import latest_time, read_field
+
+ID, KIND, TIER = "G9", "gate", 0
+TITLE = "stagnation flow onto a plane wall (Hiemenz 2-D, Homann 3-D), exact"
+STRESSES, RELIES = ["K7", "K3", "K5", "K6"], ["G1", "G2"]
+REGRESSION = (0.01,)
+
+A, NU = 1.0, 0.01
+CYL = common.TUTORIALS / "cylinderRe1"
+
+
+def config(kind, tan, f, N, bf=False):
+    """box, origin, unit normal of the wall"""
+    al = math.atan(tan)
+    nrm = np.array([-math.sin(al), math.cos(al), 0.0]) if kind == "hiemenz" else \
+        np.array([0.0, -math.sin(al), math.cos(al)])
+    if kind == "hiemenz":
+        # off-centre in x: the net wall shear of the box does not vanish by symmetry
+        lo, hi = np.array([-0.6, -0.5, 0.0]), np.array([1.4, 1.0, 0.0])
+        n = (2*N, int(round(1.5*N)), 1)
+        hi[2] = 1.0/N
+        ax = 1
+    else:
+        lo, hi = np.array([-0.4, -0.45, -0.4]), np.array([0.6, 0.55, 0.6])
+        n = (N, N, N)
+        ax = 2
+    h = 1.0/N
+    origin = np.zeros(3)
+    if tan == 0:
+        origin[ax] = -f*h       # the wall cuts the cell [-h, 0] with fluid fraction f
+    else:
+        origin[:2] = (0.0137, -0.0213)
+    if bf:                      # body-fitted: the wall is the bottom patch
+        lo[ax], origin[ax] = 0.0, 0.0
+        n = tuple(int(round((hi[i] - lo[i])/h)) if i == ax else n[i] for i in range(3))
+    return lo, hi, n, origin, nrm, ax
+
+
+def write_case(d, kind, tan, f, N, bf, ma, conv):
+    lo, hi, n, origin, nrm, ax = config(kind, tan, f, N, bf)
+    sides = ["xmin", "xmax", "ymin", "ymax"] + ([] if kind == "hiemenz" else ["zmin", "zmax"])
+    bottom = ["ymin", "zmin"][ax - 1]
+    patches = {"outer": ("patch", [s for s in sides if not (bf and s == bottom)])}
+    if bf:
+        patches["wall"] = ("wall", [bottom])
+    geometry.box(d, lo, hi, n, patches)
+    bodies = {} if bf else {"wall": {"type": "plane", "point": origin, "normal": nrm, "wallType": "noSlip"}}
+    geometry.ibm_properties(d, bodies, mergeAlpha=ma, ibmConvection=conv, nSubSamples=32 if kind == "hiemenz" else 16)
+    for x in ("transportProperties", "turbulenceProperties"):
+        (d / "constant" / x).write_text((CYL / "constant" / x).read_text())
+    common.set_keys(d / "constant" / "transportProperties", nu=NU)
+    for x in ("fvSchemes",):
+        (d / "system" / x).write_text((CYL / "system" / x).read_text())
+    ref = origin + 0.35*nrm + np.array([0.11, 0.07, 0.0 if kind == "hiemenz" else 0.05])
+    _, pref = hz.exact(ref[None, :], A, NU, origin, nrm, kind)
+    write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", """
+solvers
+{
+    p { solver PCG; preconditioner DIC; tolerance 1e-13; relTol 0.01; }
+    U { solver smoothSolver; smoother symGaussSeidel; tolerance 1e-13; relTol 0.1; }
+}
+SIMPLE
+{
+    nNonOrthogonalCorrectors 0; consistent yes;
+    pRefPoint %s; pRefValue %r;
+    residualControl { p 1e-10; U 1e-10; }
+}
+relaxationFactors { equations { U 0.9; } fields { p 1.0; } }
+""" % (common.foam_value(ref), float(pref[0])))
+    geometry.control_dict(d, "ibmSimpleFoam", endTime=20000, deltaT=1, writeInterval=20000)
+    return origin, nrm
+
+
+def face_areas(xf, lo, hi, n, kind):
+    """outward area vectors of boundary faces of the uniform box from their centres"""
+    lo, hi = np.asarray(lo, float), np.asarray(hi, float)
+    h = (hi - lo)/np.asarray(n, float)
+    S = np.zeros_like(xf)
+    dims = 2 if kind == "hiemenz" else 3
+    for i in range(dims):
+        area = np.prod([h[j] for j in range(3) if j != i])
+        S[np.abs(xf[:, i] - lo[i]) < 1e-9*(hi[i] - lo[i]), i] = -area
+        S[np.abs(xf[:, i] - hi[i]) < 1e-9*(hi[i] - lo[i]), i] = area
+    return S
+
+
+def boundary_values(d, kind, tan, f, N, bf, origin, nrm):
+    """0/U and 0/p with the exact U on the outer faces (face centres from writeCellCentres).
+    The solver's boundary flux is theta U.S (theta: fluid fraction of the face, ibmTheta). Point
+    values at the face centres leave an O(h^2) imbalance; the outflow faces are scaled by
+    1 + O(h^2) so that it closes (all faces are Dirichlet). Faces entirely in the solid: U = 0."""
+    lo, hi, n, _, _, _ = config(kind, tan, f, N, bf)
+    _, pc = read_field(os.path.join(d, "0", "C"))
+    th = read_field(os.path.join(d, "0", "ibmTheta"))[1] if not bf else {}
+    pu, pp = [], []
+    for name, xf in pc.items():
+        if name in ("frontAndBack",) or xf.ndim != 2:
+            continue
+        if name == "wall":
+            pu.append("    wall { type noSlip; }")
+            pp.append("    wall { type zeroGradient; }")
+            continue
+        U, _ = hz.exact(xf, A, NU, origin, nrm, kind)
+        # faces in the solid get the continuation of the exact solution (divergence-free)
+        theta = np.broadcast_to(th.get(name, 1.0), (len(U),)).astype(float)
+        U[theta <= 0] = 0.0
+        phi = theta*np.einsum("ij,ij->i", U, face_areas(xf, lo, hi, n, kind))
+        out = phi > 0
+        U[out] *= 1.0 - phi.sum()/phi[out].sum()
+        pu.append("    %s { type fixedValue; value nonuniform List<vector> %d (%s); }"
+                  % (name, len(U), " ".join("(%r %r %r)" % tuple(map(float, u)) for u in U)))
+        pp.append("    %s { type zeroGradient; }" % name)
+    empty = "    frontAndBack { type empty; }" if kind == "hiemenz" else ""
+    write_dict(d / "0" / "U", "volVectorField", "U", "dimensions [0 1 -1 0 0 0 0];\ninternalField uniform (0 0 0);\n"
+               "boundaryField\n{\n%s\n%s\n}\n" % ("\n".join(pu), empty))
+    write_dict(d / "0" / "p", "volScalarField", "p", "dimensions [0 2 -2 0 0 0 0];\ninternalField uniform 0;\n"
+               "boundaryField\n{\n%s\n%s\n}\n" % ("\n".join(pp), empty))
+
+
+def wall_force_exact(kind, lo, hi, origin, nrm, depth):
+    """exact (pressure, viscous) force of the fluid on the wall inside the box, p0 = 0"""
+    _, fpp0, _ = hz.solve(kind)
+    if kind == "hiemenz":
+        t = np.array([nrm[1], -nrm[0], 0.0])
+        s = np.linspace(-4, 4, 400001)
+        x = origin[None, :] + s[:, None]*t[None, :]
+        inside = np.all((x[:, :2] >= lo[:2] - 1e-12) & (x[:, :2] <= hi[:2] + 1e-12), axis=1)
+        s = s[inside]
+        ds = s[1] - s[0]
+        w = np.full(len(s), ds)
+        w[[0, -1]] *= 0.5
+        P = -np.sum(w*(-0.5*A*A*s*s))*depth*nrm            # -p n (n into the fluid = out of the body)
+        V = np.sum(w*NU*A*s*math.sqrt(A/NU)*fpp0)*depth*t
+        return P, V
+    # Homann: quadrature over the wall plane inside the box
+    e1 = np.array([1.0, 0.0, 0.0])
+    e2 = np.cross(nrm, e1)
+    m = 801
+    u = np.linspace(-1.2, 1.2, m)
+    U1, U2 = np.meshgrid(u, u, indexing="ij")
+    X = origin + U1[..., None]*e1 + U2[..., None]*e2
+    inside = np.all((X >= lo - 1e-12) & (X <= hi + 1e-12), axis=-1)
+    dA = (u[1] - u[0])**2
+    r2 = U1**2 + U2**2
+    P = -np.sum(inside*(-0.5*A*A*r2))*dA*nrm
+    tau = NU*A*math.sqrt(A/NU)*fpp0
+    V = tau*dA*(np.sum(inside*U1)*e1 + np.sum(inside*U2)*e2)
+    return P, V
+
+
+def one(ctx, kind, tan, f, N, bf=False, ma=0.5, conv=True):
+    name = "%s_t%s_f%g_N%d%s_ma%g_c%d" % (kind, {0: "0", 1/3: "1-3", 1: "1"}[tan], f, N, "_bf" if bf else "", ma, conv)
+    d = ctx.root / name
+    origin, nrm = write_case(d, kind, tan, f, N, bf, ma, conv)
+    common.sh("blockMesh", d, "log.blockMesh")
+    (d / "0").mkdir(exist_ok=True)
+    common.sh("postProcess -func writeCellCentres -time 0", d, "log.postProcess")
+    common.sh("ibmSetGeometry -writeFaceCentres", d, "log.ibmSetGeometry")
+    boundary_values(d, kind, tan, f, N, bf, origin, nrm)
+    common.sh("ibmSimpleFoam", d, "log.ibmSimpleFoam")
+    log = (d / "log.ibmSimpleFoam").read_text()
+    t = latest_time(str(d))
+    C, _ = read_field(os.path.join(d, "0", "C"))
+    U, _ = read_field(os.path.join(d, t, "U"))
+    p, _ = read_field(os.path.join(d, t, "p"))
+    if bf:
+        a = np.ones(len(C))
+    else:
+        a, _ = read_field(os.path.join(d, "0", "ibmAlpha"))
+        # the cell value lives at its value point (the group centroid of a linked cell)
+    xc = common.value_points(d, t, C) if not bf else C
+    fl = a > 0
+    Ue, pe = hz.exact(xc, A, NU, origin, nrm, kind)
+    eu = np.linalg.norm(U - Ue, axis=1)
+    ep = p - pe
+    ep -= np.sum(a[fl]*ep[fl])/np.sum(a[fl])
+    lo, hi, _, _, _, ax = config(kind, tan, f, N, bf)
+    # interior: farther than 0.1 from the outer faces other than the bottom (where the wall
+    # meets the Dirichlet boundary the pressure is not converged: reported apart)
+    dist = np.min([xc[:, i] - lo[i] for i in range(ax)] + [hi[i] - xc[:, i] for i in range(ax + 1)]
+                  + ([xc[:, 1] - lo[1]] if kind == "homann" else []), axis=0)
+    inner = fl & (dist > 0.1)
+
+    def norms(m):
+        w = a[m]/a[m].sum()
+        return (float(np.sqrt(np.sum(w*eu[m]**2))), float(eu[m].max()),
+                float(np.sqrt(np.sum(w*ep[m]**2))), float(np.abs(ep[m]).max()))
+    depth = (hi[2] - lo[2]) if kind == "hiemenz" else 1.0
+    row = {"name": name, "kind": kind, "tan": tan, "f": f, "N": N, "bf": bf, "ma": ma, "conv": conv,
+           "converged": "SIMPLE solution converged" in log}
+    row.update(zip(("uL2", "uLinf", "pL2", "pLinf"), norms(fl)))
+    row.update(zip(("uL2i", "uLinfi", "pL2i", "pLinfi"), norms(inner)))
+    if not bf:
+        Fp, Fv = wall_force_exact(kind, lo, hi, origin, nrm, depth)
+        F = common.ibm_force(log, "wall")
+        row["eFp"] = float(np.linalg.norm(F["pressure"] - Fp)/np.linalg.norm(Fp))
+        row["eFv"] = float(np.linalg.norm(F["viscous"] - Fv)/max(np.linalg.norm(Fv), 1e-300))
+        row["Fv"], row["Fv_exact"] = F["viscous"].tolist(), Fv.tolist()
+        row["Fp"], row["Fp_exact"] = F["pressure"].tolist(), Fp.tolist()
+    return row
+
+
+def run(ctx, res):
+    N2 = [20, 40] if ctx.quick else [20, 40, 80, 160]
+    N3 = [10, 20] if ctx.quick else [20, 40, 80]
+    jobs = [("hiemenz", 0, f, N) for f in (0.1, 0.5, 0.9) for N in N2]
+    jobs += [("hiemenz", t, 0.5, N) for t in (1/3, 1) for N in N2]
+    jobs += [("hiemenz", 0, 0.5, N, True) for N in N2]
+    jobs += [("hiemenz", 0, 0.1, N, False, ma, c) for N in N2 for ma, c in ((0, True), (0.5, False), (0, False))]
+    jobs += [("homann", t, 0.5, N) for t in (0, 1/3) for N in N3]
+    rows = common.pmap(lambda j: one(ctx, *j), jobs, ctx.jobs)
+    res.data["rows"] = rows
+    res.data["metrics"] = {r["name"] + "_" + k: r[k] for r in rows for k in ("uL2", "pL2i", "eFv") if k in r}
+    res.le("all runs converged (SIMPLE residualControl)", sum(not r["converged"] for r in rows), 0)
+    groups = sorted({(r["kind"], r["tan"], r["f"], r["bf"], r["ma"], r["conv"]) for r in rows},
+                    key=lambda g: (g[0], g[3], g[1], g[2], -g[4], -g[5]))
+    for g in groups:
+        kind, tan, f, bf, ma, conv = g
+        s = sorted([r for r in rows if (r["kind"], r["tan"], r["f"], r["bf"], r["ma"], r["conv"]) == g],
+                   key=lambda r: r["N"])
+        lab = "%s tan %.3g%s%s" % (kind, tan, " f %g" % f if tan == 0 and not bf else "",
+                                    " body-fitted" if bf else "")
+        opt = "" if (ma, conv) == (0.5, True) else " (mergeAlpha %g, ibmConvection %s)" % (ma, "on" if conv else "off")
+        h = [1/r["N"] for r in s]
+        default = (ma, conv) == (0.5, True)
+        for k, what, tol in (("uL2", "u L2 order (all fluid cells)", 1.8), ("pL2i", "p L2 order (interior)", 1.8),
+                             ("pL2", "p L2 order (all, incl. the wall/boundary junction)", None),
+                             ("uLinfi", "u Linf order (interior)", None), ("pLinfi", "p Linf order (interior)", None)):
+            p = common.order(h, [r[k] for r in s])
+            note = " ".join("%.2e" % r[k] for r in s)
+            if default and tol is not None:
+                res.ge("%s, %s" % (what, lab), p, tol, note)
+            else:
+                res.report("%s, %s%s" % (what, lab, opt), p, note=note)
+        if not bf and default:
+            res.report("p Linf at the junction of the wall with the outer boundary, " + lab, s[-1]["pLinf"],
+                       note=" ".join("%.2e" % r["pLinf"] for r in s))
+        if not bf:
+            pv = common.order(h, [r["eFv"] for r in s])
+            nv = "rel. error " + " ".join("%.2e" % r["eFv"] for r in s)
+            if default:
+                res.ge("wall shear force order, " + lab, pv, 0.9, nv)
+            else:
+                res.report("wall shear force order, " + lab + opt, pv, note=nv)
+            res.report("wall pressure force rel. error (finest), " + lab + opt, s[-1]["eFp"],
+                       note=" ".join("%.2e" % r["eFp"] for r in s))

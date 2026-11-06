@@ -4,10 +4,11 @@
 #   slip = OpenFOAM slip (du_t/dn = 0, the IBM condition), zeroShear = codedFixedValue u_b = u_t,P/(1 + 1/(R delta))
 # IBM zeroShear=true: experimental wall friction nu kappa Awall/V on u_t (worktree runs/ibmSA_study/freeslip_fix, not committed)
 #   runs/ibmSA_study/freeslip_ibm; zeroShear=false N>41 from runs/ibmSA_study/linkC/rich; * = unfinished (M=256 still running)
-body-fitted O-grid (M cells per quarter circle)
-  noSlip     32: 5.85196  64: 5.84752  128: 5.84266  256: 5.82767*
-  slip       32: 3.10842  64: 3.07644  128: 3.05820  256: 2.93270*
-  zeroShear  32: 4.02338  64: 4.01318  128: 4.00675  256: 3.92166*
+body-fitted O-grid (M cells per quarter circle); M = 256 final 2026-11-06 (hydra, 20000 / 42536 / 35958
+  iterations for noSlip / slip / zeroShear; last change of the driving gradient < 1e-8 relative)
+  noSlip     32: 5.85196  64: 5.84752  128: 5.84266  256: 5.83958
+  slip       32: 3.10842  64: 3.07644  128: 3.05820  256: 3.04843
+  zeroShear  32: 4.02338  64: 4.01318  128: 4.00675  256: 4.00318
 IBM free slip (N cells per box side)
   zeroShear=false secondOrder=false mergeAlpha=0.5 N41: 2.75497  N81: 2.87172  N161: 2.97495  N321: 3.00700
   zeroShear=false secondOrder=false mergeAlpha=0   N41: 2.83767
