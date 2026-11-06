@@ -45,8 +45,11 @@ def ibm_properties(case, bodies, **opts):
     top.update(opts)
     s = "".join("%s %s;\n" % (k, foam_value(v)) for k, v in top.items())
     s += "bodies\n{\n"
+    def entries(d):
+        return " ".join("%s { %s }" % (k, entries(v)) if isinstance(v, dict) else "%s %s;" % (k, foam_value(v))
+                        for k, v in d.items())
     for name, d in bodies.items():
-        s += "    %s { %s }\n" % (name, " ".join("%s %s;" % (k, foam_value(v)) for k, v in d.items()))
+        s += "    %s { %s }\n" % (name, entries(d))
     s += "}\n"
     write_dict(Path(case) / "constant" / "ibmProperties", "dictionary", "ibmProperties", s)
 

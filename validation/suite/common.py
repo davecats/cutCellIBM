@@ -31,13 +31,22 @@ FOAM_ENV = os.environ.get("IBM_SUITE_FOAM",
 sys.path.insert(0, str(VALIDATION))
 
 
+CODE = ["src", "applications", "tutorials"]
+
+
 def commit():
-    """short hash of HEAD, with '-dirty' if the sources (src, applications) differ from it"""
-    h = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True,
+    """the code under test: short hash of the last commit that changed src, applications or
+    tutorials, with '-dirty' if they differ from it (suite-only commits keep the key)"""
+    h = subprocess.run(["git", "log", "-1", "--format=%h", "--"] + CODE, cwd=REPO, capture_output=True,
                        text=True, check=True).stdout.strip()
-    d = subprocess.run(["git", "status", "--porcelain", "src", "applications"], cwd=REPO,
+    d = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"] + CODE, cwd=REPO,
                        capture_output=True, text=True, check=True).stdout.strip()
     return h + ("-dirty" if d else "")
+
+
+def head():
+    return subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=REPO, capture_output=True,
+                          text=True, check=True).stdout.strip()
 
 
 def fresh_dir(path):
@@ -52,17 +61,23 @@ def fresh_dir(path):
 
 
 def copy_case(src, dst, extra=()):
-    """copy 0, constant, system (and the names in extra) of a case into dst (created)"""
+    """copy 0, constant, system (and the names in extra) of a case into dst (created): only the
+    files tracked by git (a tutorial directory may hold the output of a local run)"""
     src, dst = Path(src), Path(dst)
     if REUSE and (dst / "system").exists():
         return dst
     dst.mkdir(parents=True, exist_ok=True)
+    tracked = subprocess.run(["git", "ls-files", "--", str(src)], cwd=REPO, capture_output=True, text=True,
+                             check=True).stdout.split()
+    tracked = {(REPO / f).resolve() for f in tracked}
     for name in ("0", "constant", "system") + tuple(extra):
         s = src / name
-        if s.is_dir():
-            shutil.copytree(s, dst / name, ignore=shutil.ignore_patterns("polyMesh"))
-        elif s.exists():
-            shutil.copy2(s, dst / name)
+        files = [s] if s.is_file() else sorted(s.rglob("*")) if s.is_dir() else []
+        for f in files:
+            if f.is_file() and (f.resolve() in tracked or not tracked) and "polyMesh" not in f.parts:
+                o = dst / f.relative_to(src)
+                o.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(f, o)
     return dst
 
 
@@ -228,7 +243,7 @@ class Result:
         return "FAIL" if "FAIL" in s else ("PASS" if "PASS" in s else "REPORT")
 
     def to_dict(self):
-        return {"id": self.id, **self.meta, "commit": self.commit, "status": self.status(),
+        return {"id": self.id, **self.meta, "commit": self.commit, "suite": head(), "status": self.status(),
                 "started": self.started, "seconds": round(self.seconds, 1), "cases": self.cases,
                 "checks": self.checks, "data": _plain(self.data), "figures": self.figures}
 

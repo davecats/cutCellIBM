@@ -67,7 +67,8 @@ solvers { p { solver PCG; preconditioner DIC; tolerance 1e-9; relTol 0.01; }
 PIMPLE { momentumPredictor yes; nOuterCorrectors 1; nCorrectors 2; nNonOrthogonalCorrectors 0;
          consistent yes; ddtCorr yes; }
 """)
-    # GAMG does not converge on the cut-cell pressure equation (stalls near 1e-6): PCG
+    # PCG: GAMG stalls on the linked cut-cell pressure (default agglomeration near 1e-6, pair
+    # agglomeration near 2e-9 against the final tolerance 1e-9)
     dt = 0.8*hmin/(1.5*Um)            # Courant <= 0.8 with |u| <= 1.5 U_m
     dt = 0.33/ (np.ceil(0.33/dt))     # an integer number of steps in 0.33
     end = END

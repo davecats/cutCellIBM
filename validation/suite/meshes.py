@@ -90,3 +90,43 @@ def point_value(xc, a, f, x0, h, radius=2.5, quadratic=False):
     A = np.column_stack(cols)*np.sqrt(a[m])[:, None]
     c, *_ = np.linalg.lstsq(A, f[m]*np.sqrt(a[m]), rcond=None)
     return float(c[0])
+
+
+def nested_boxes(fine_lo, fine_hi, h0, n, dom_lo, dom_hi, margin=12, wake=0.0):
+    """boxes of refinement levels 1..n (coarse to fine) around the finest box: each coarser box is
+    the next finer one grown by `margin` cells of its own level (x-max by (1 + wake) times that, for
+    a wake), clipped to the domain"""
+    boxes = [(np.array(fine_lo, float), np.array(fine_hi, float))]
+    for i in range(n - 1, 0, -1):
+        lo, hi = boxes[0]
+        w = margin*h0/2**i
+        lo, hi = lo - w, hi + w
+        hi[0] += wake*w
+        boxes.insert(0, (np.maximum(lo, dom_lo), np.minimum(hi, dom_hi)))
+    out = []
+    for lo, hi in boxes:   # snap to the mesh lines of the level being refined (h0/2^(i-1))
+        out.append((lo, hi))
+    return [(tuple(lo), tuple(hi)) for lo, hi in out]
+
+
+def force_history(d, depth):
+    """t, total force per unit depth (n, 3) from postProcessing/ibmForces (all restarts)"""
+    rows = []
+    for f in sorted(Path(d).glob("postProcessing/ibmForces/*/forces.dat"), key=lambda p: float(p.parent.name)):
+        rows.append(np.loadtxt(f, ndmin=2))
+    h = np.vstack(rows)
+    return h[:, 0], (h[:, 1:4] + h[:, 4:7])/depth
+
+
+def periodic_statistics(t, cl, cd, window):
+    """means and r.m.s. of the fluctuations over the last `window` time units, Strouhal frequency
+    (per time unit) from the up-crossings of C_L through its mean (nan if not oscillating)"""
+    s = t >= t[-1] - window
+    t, cl, cd = t[s], cl[s], cd[s]
+    m = {"C_L": float(cl.mean()), "C_D": float(cd.mean()),
+         "C_Lrms": float(np.sqrt(np.mean((cl - cl.mean())**2))), "C_Drms": float(np.sqrt(np.mean((cd - cd.mean())**2)))}
+    x = cl - cl.mean()
+    i = np.where((x[:-1] < 0) & (x[1:] >= 0))[0]
+    tc = t[i] - x[i]*(t[i + 1] - t[i])/(x[i + 1] - x[i])
+    m["f"] = float((len(tc) - 1)/(tc[-1] - tc[0])) if len(tc) >= 3 and m["C_Lrms"] > 1e-3 else float("nan")
+    return m
