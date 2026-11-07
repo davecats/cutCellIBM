@@ -87,7 +87,11 @@ PIMPLE { momentumPredictor yes; nOuterCorrectors 1; nCorrectors 2; nNonOrthogona
 def dp_at(d, t, hmin):
     xc, a = meshes.fluid_cells(str(d), t)
     p, _ = read_field(os.path.join(d, t, "p"))
-    return meshes.point_value(xc, a, p, P1, hmin, quadratic=True) - meshes.point_value(xc, a, p, P2, hmin, quadratic=True)
+    # quadratic fit over the fluid cells within 4 h: within 2.5 h a wall point has ~10 cells (half a
+    # disk) for 6 coefficients, and the fit is off by 11 % (2D-1 front point: 0.1171 against 0.1322
+    # with radius 4 or 6 and with the linear fits)
+    return (meshes.point_value(xc, a, p, P1, hmin, 4, quadratic=True)
+            - meshes.point_value(xc, a, p, P2, hmin, 4, quadratic=True))
 
 
 def steady(ctx, k):
