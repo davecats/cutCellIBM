@@ -68,9 +68,11 @@ relaxationFactors { equations { U 0.9; } fields { p 1.0; } }
 solvers { p { solver PCG; preconditioner DIC; tolerance 1e-9; relTol 0.01; }
           pFinal { $p; relTol 0; }
           U { solver PBiCGStab; preconditioner DILU; tolerance 1e-10; relTol 0; } UFinal { $U; } }
-PIMPLE { momentumPredictor yes; nOuterCorrectors 1; nCorrectors 2; nNonOrthogonalCorrectors 0;
+PIMPLE { momentumPredictor yes; nOuterCorrectors 3; nCorrectors 2; nNonOrthogonalCorrectors 0;
          consistent yes; ddtCorr yes; }
 """)
+    # 3 outer correctors: one PISO pass per step (convection with the old flux) is first order in
+    # time: DFG 2D-2, D/h = 40, C_L amplitude +12.8 %, +6.7 % at dt/2, +0.8 % with 3 (doc §12)
     # PCG: GAMG stalls on the linked cut-cell pressure (default agglomeration near 1e-6, pair
     # agglomeration near 2e-9 against the final tolerance 1e-9)
     dt = 0.8*hmin/(1.5*Um)            # Courant <= 0.8 with |u| <= 1.5 U_m

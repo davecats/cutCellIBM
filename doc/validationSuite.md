@@ -601,7 +601,9 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   the default agglomeration, near 2e-9 with pair agglomeration), statistics over the last 3 s.
   2D-1: CG preconditioned by pair-agglomeration GAMG (DIC-PCG hits maxIter 1000 short of relTol
   0.01 at D/h = 160: 24 s per iteration against 3.5 s; 13 iterations per solve); D/h = 160 on 8
-  ranks (5661 SIMPLE iterations at D/h = 80).
+  ranks (5661 SIMPLE iterations at D/h = 80; 20335 at D/h = 160). Pressure difference from a
+  quadratic least-squares fit over the fluid cells within 4 h of each point (within 2.5 h: ~10
+  cells for 6 coefficients, 11 % low). 2D-2 with 3 PIMPLE outer correctors (finding 6).
 - **V12, V13**: nested static refinement (h0 = 3.2, 7–9 levels), 8 ranks; V13 at Courant ≤ 0.8.
 - **V15**: the IBM plate gives no C_f(x) yet (no wall-shear output): C_D against body-fitted;
   C_f(0.97) of the body-fitted run against TMR reported. Leading edge half a cell (5e-4)
@@ -629,3 +631,15 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    bc08f21 wall-velocity evaluation point, b01303a rotating-wall mass source, 7f50469
    fillUncovered); needs a bisect or a regenerated reference. Galilean equivalence (translating
    vs fixed cylinder, N = 81): +0.55 % at first order, +0.08 % at the defaults.
+6. **One PISO pass per step is first order in time** (V5 2D-2, V12). DFG 2D-2 at D/h = 40
+   (nOuterCorrectors 1, Courant 0.8, backward): C_L amplitude +12.8 %, St −1.2 %; at dt/2
+   +6.7 %, −0.7 %; with 3 outer correctors (same dt) +0.8 %, −0.3 % (the remaining spatial
+   error). D/h = 80 with one pass (+5.9 %) carries the error of its time step, not of its mesh.
+   The convecting flux of a single pass is that of the previous step; whether the immersed
+   wall adds to this (lagged wall terms) is not separated yet (needs the same test body-fitted).
+   V5 2D-2 and V12 now use 3 outer correctors (V13: 2); the tutorials still use 1.
+7. **V12 α = 1: mean C_L −2.504 (D/h = 80) against −2.265 (figure 11 digitised)**, moving away
+   on refinement (−2.472 at D/h = 40); α = 2 (steady) converges to its reference (−5.600,
+   −5.469 → −5.351), α = 0 passes. Candidate: finding 6 (α = 1 sheds, α = 2 does not); a run
+   with 3 outer correctors at D/h = 80 decides. The digitised curve is smooth in α, no
+   independent tabulated value at Re = 200 found yet.

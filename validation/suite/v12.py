@@ -45,9 +45,11 @@ def setup(d, alpha, levels):
     write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", """
 solvers { p { solver PCG; preconditioner DIC; tolerance 1e-8; relTol 0.01; } pFinal { $p; relTol 0; }
           U { solver PBiCGStab; preconditioner DILU; tolerance 1e-10; relTol 0; } UFinal { $U; } }
-PIMPLE { momentumPredictor yes; nOuterCorrectors 1; nCorrectors 2; nNonOrthogonalCorrectors 0;
+PIMPLE { momentumPredictor yes; nOuterCorrectors 3; nCorrectors 2; nNonOrthogonalCorrectors 0;
          consistent yes; ddtCorr yes; }
 """)
+    # 3 outer correctors: one PISO pass per step (convection with the old flux) is first order in
+    # time: DFG 2D-2, D/h = 40, C_L amplitude +12.8 %, +6.7 % at dt/2, +0.8 % with 3 (doc §12)
     h = H0/2**levels
     dt = 0.5*h/(1.5 + alpha)                  # Courant 0.5 with |u| <= 1.5 + alpha
     geometry.control_dict(d, "ibmPimpleFoam", endTime=END, deltaT=repr(float(dt)), writeInterval=int(round(END/dt)))
