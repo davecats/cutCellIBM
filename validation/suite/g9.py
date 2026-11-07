@@ -194,10 +194,13 @@ def one(ctx, kind, tan, f, N, bf=False, ma=0.5, conv=True):
     ep = p - pe
     ep -= np.sum(a[fl]*ep[fl])/np.sum(a[fl])
     lo, hi, _, _, _, ax = config(kind, tan, f, N, bf)
-    # interior: farther than 0.1 from the outer faces other than the bottom (where the wall
-    # meets the Dirichlet boundary the pressure is not converged: reported apart)
+    # interior: farther than 0.1 from every outer face but a body-fitted wall (where the wall
+    # meets the Dirichlet boundary the pressure is not converged, finding 2: reported apart).
+    # The bottom counts too: the 45-degree wall meets it at x = -0.465, and its junction was
+    # the "interior" Linf stall of finding 3 (2.8e-2, 6.9e-3, 2.1e-3, 5.1e-4 without it).
     dist = np.min([xc[:, i] - lo[i] for i in range(ax)] + [hi[i] - xc[:, i] for i in range(ax + 1)]
-                  + ([xc[:, 1] - lo[1]] if kind == "homann" else []), axis=0)
+                  + ([xc[:, 1] - lo[1]] if kind == "homann" else [])
+                  + ([xc[:, ax] - lo[ax]] if not bf else []), axis=0)
     inner = fl & (dist > 0.1)
 
     def norms(m):
