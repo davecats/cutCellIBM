@@ -119,14 +119,20 @@ def force_history(d, depth):
 
 
 def periodic_statistics(t, cl, cd, window):
-    """means and r.m.s. of the fluctuations over the last `window` time units, Strouhal frequency
-    (per time unit) from the up-crossings of C_L through its mean (nan if not oscillating)"""
+    """means and r.m.s. of the fluctuations over the whole C_L cycles in the last `window` time units
+    (the whole window if not oscillating), Strouhal frequency (per time unit) from the up-crossings
+    of C_L through its mean (nan if not oscillating). A window that is not a whole number of cycles
+    biases the mean by up to amplitude/(pi * cycles): 0.02 in C_L for V12, alpha = 1."""
     s = t >= t[-1] - window
     t, cl, cd = t[s], cl[s], cd[s]
-    m = {"C_L": float(cl.mean()), "C_D": float(cd.mean()),
-         "C_Lrms": float(np.sqrt(np.mean((cl - cl.mean())**2))), "C_Drms": float(np.sqrt(np.mean((cd - cd.mean())**2)))}
     x = cl - cl.mean()
     i = np.where((x[:-1] < 0) & (x[1:] >= 0))[0]
     tc = t[i] - x[i]*(t[i + 1] - t[i])/(x[i + 1] - x[i])
-    m["f"] = float((len(tc) - 1)/(tc[-1] - tc[0])) if len(tc) >= 3 and m["C_Lrms"] > 1e-3 else float("nan")
+    oscillating = len(tc) >= 3 and np.sqrt(np.mean(x**2)) > 1e-3
+    if oscillating:
+        w = (t >= t[i[0] + 1]) & (t <= t[i[-1]])
+        t, cl, cd = t[w], cl[w], cd[w]
+    m = {"C_L": float(cl.mean()), "C_D": float(cd.mean()),
+         "C_Lrms": float(np.sqrt(np.mean((cl - cl.mean())**2))), "C_Drms": float(np.sqrt(np.mean((cd - cd.mean())**2)))}
+    m["f"] = float((len(tc) - 1)/(tc[-1] - tc[0])) if oscillating else float("nan")
     return m

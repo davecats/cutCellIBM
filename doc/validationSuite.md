@@ -637,9 +637,16 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    error). D/h = 80 with one pass (+5.9 %) carries the error of its time step, not of its mesh.
    The convecting flux of a single pass is that of the previous step; whether the immersed
    wall adds to this (lagged wall terms) is not separated yet (needs the same test body-fitted).
-   V5 2D-2 and V12 now use 3 outer correctors (V13: 2); the tutorials still use 1.
-7. **V12 α = 1: mean C_L −2.504 (D/h = 80) against −2.265 (figure 11 digitised)**, moving away
-   on refinement (−2.472 at D/h = 40); α = 2 (steady) converges to its reference (−5.600,
-   −5.469 → −5.351), α = 0 passes. Candidate: finding 6 (α = 1 sheds, α = 2 does not); a run
-   with 3 outer correctors at D/h = 80 decides. The digitised curve is smooth in α, no
-   independent tabulated value at Re = 200 found yet.
+   V5 2D-2 and V12 now use 3 outer correctors (V13: 2); the tutorials still use 1. With them V5
+   passes at D/h = 80 (St −0.04 %, C_Dmax +0.14 %, C_Lmax −0.07 %, Δp −0.35 %).
+7. **V12 α = 1: mean C_L −2.482 (D/h = 80) against −2.265 (figure 11 digitised)**, moving away
+   on refinement (−2.452 at D/h = 40); α = 2 (steady) converges to its reference (−5.600,
+   −5.469 → −5.351), α = 0 passes. **Not finding 6**: with 3 outer correctors (D/h = 80, to
+   t = 150) the mean over the same 9 whole cycles is −2.464 (one pass −2.482); C_D, C_L r.m.s.
+   and St agree at the same α. Remaining candidates: the reference (read off a bitmap curve; no
+   independent tabulated value at Re = 200 found), the rotating-wall treatment at moderate α,
+   domain and boundary conditions. Proposed: a body-fitted rotating cylinder at α = 1.
+8. ~~V12 statistics over a window that is not a whole number of cycles~~ **resolved**: the last
+   50 time units are 9.6 periods at α = 1; the partial period biased mean C_L by −0.021 (α = 1)
+   and +0.015 (α = 0, reference 0, tolerance 0.02). `meshes.periodic_statistics` now averages
+   over the whole C_L cycles inside the window; V12 re-evaluated, verdicts unchanged.
