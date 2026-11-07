@@ -1,0 +1,30 @@
+FoamFile { version 2.0; format ascii; class dictionary; object controlDict; }
+
+application     ibmPimpleFoam;
+startFrom       latestTime;
+startTime       0;
+stopAt          endTime;
+endTime         150;
+deltaT          0.01;
+writeControl    runTime;
+writeInterval   5;
+purgeWrite      0;
+writeFormat     binary;
+writePrecision  12;
+writeCompression off;
+timeFormat      general;
+timePrecision   6;
+runTimeModifiable true;
+adjustTimeStep  no;
+
+functions
+{
+    // |curl U| for the refinement region "wake" (constant/dynamicMeshDict)
+    vorticity
+    {
+        type            vorticity;
+        libs            (fieldFunctionObjects);
+        executeControl  timeStep;
+        writeControl    writeTime;
+    }
+}

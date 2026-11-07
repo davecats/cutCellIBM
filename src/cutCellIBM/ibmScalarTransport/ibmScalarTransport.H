@@ -101,7 +101,9 @@ class ibmScalarTransport
         scalar injected_;
         scalar wallFlux_;
         scalar sweptDefect_;
-        scalarField alphaPrev_;
+        //- Fluid fractions after the previous step, a registered field so
+        //  that an adaptive mesh maps it with the others
+        volScalarField alphaPrev_;
 
 
     // Private member functions

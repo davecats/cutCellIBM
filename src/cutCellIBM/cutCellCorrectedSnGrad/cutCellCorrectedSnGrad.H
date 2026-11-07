@@ -63,7 +63,7 @@ public:
     ) const;
 
     //- Explicit correction is used when the geometry is second order
-    virtual bool corrected() const;
+    virtual bool corrected() const noexcept;
 
     //- Explicit correction
     virtual tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>

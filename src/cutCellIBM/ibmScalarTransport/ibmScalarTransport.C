@@ -63,7 +63,11 @@ Foam::ibmScalarTransport::ibmScalarTransport
     injected_(0),
     wallFlux_(0),
     sweptDefect_(0),
-    alphaPrev_(ibm.alpha().primitiveField())
+    alphaPrev_
+    (
+        IOobject("ibmScalarAlphaPrev:" + name, mesh_.time().timeName(), mesh_),
+        ibm.alpha()
+    )
 {
     Info<< "Passive scalar " << T_.name() << ": DT = " << DT_.value() << endl;
 
@@ -184,7 +188,11 @@ void Foam::ibmScalarTransport::solve()
     {
         const scalarField& alphaSwept = ibm_.alpha().oldTime().primitiveField();
         sweptDefect_ +=
-            gSum((alphaPrev_ - alphaSwept)*V*T_.primitiveField());
+            gSum
+            (
+                (alphaPrev_.primitiveField() - alphaSwept)*V
+               *T_.primitiveField()
+            );
     }
 
     // Sources and sinks of constant/fvOptions listing this field, kept
@@ -264,5 +272,5 @@ void Foam::ibmScalarTransport::solve()
             << ", max |T - Twall| in the solid " << maxSolid << endl;
     }
 
-    alphaPrev_ = alpha;
+    alphaPrev_.primitiveFieldRef() = alpha;
 }

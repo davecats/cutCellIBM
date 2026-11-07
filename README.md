@@ -35,6 +35,7 @@ main ── movingBody ── scalar ── scalar_secondOrder ── fouling
 | `scalar` | passive scalars (any number), fixed-value or zero-flux walls per body and per scalar, disk sources, `fvOptions`, running budget | budgets close to 1e-11 (static) and 1e-10 (moving); moving bodies leave a swept-volume defect below 1e-4 of the content |
 | `scalar_secondOrder` | optional second-order wall treatment (`secondOrder true`, `cutCellCorrected` scheme, linearly exact pressure gradient), `ibmOrderTest` | manufactured Laplace / convection–diffusion problems: order 1 → 2 for Dirichlet walls; pressure gradient of a linear p exact to 4e-13; Taylor–Couette velocity order 1.9; forces and cut-cell pressure remain first order |
 | `fouling` | plan only (`doc/foulingPlan.md`): reacting scalars, conjugate temperature, deposit growth with conservative sliver handover | — |
+| `feature_amr` | adaptive mesh refinement (`dynamicFvMesh ibmRefineFvMesh`, 2-D and 3-D): cut cells and `nCutCellLayers` layers around them at `maxLevel`, optional distance and solution-field regions, steady and transient, static and moving bodies, serial and parallel, optional dynamic load balancing (`enableBalancing`) (`doc/amr.md`) | byte-identical without `dynamicMeshDict`; moving cylinder within 1 % of the uniform mesh; Re 100 cylinder with 7× fewer cells than a fixed refined mesh: St equal, C_d −0.5 % (`doc/amr.md`) |
 
 **`main`** — static bodies
 - Geometry from a level set: face fractions θ from edge crossings found by bisection, cell
@@ -89,6 +90,12 @@ Known limitations common to all branches: first order in time; cut-cell pressure
 first order (small-cell problem of the pressure; cell merging is the next step); laminar only;
 one fluid region. The mass source of a body rotating in place is zero except in the cells next
 to an absorbed sliver, whose closed face moves with the body.
+
+License: cutCellIBM is free software, distributed under the GNU General Public License,
+version 3 or (at your option) any later version; see `COPYING`. It is built on and links
+OpenFOAM, which is under the same license. The refinement engine in
+`src/cutCellIBMAMR/hexRef` comes from OpenFOAM and multiDimAMR under the same license and
+keeps its original copyright notices (`src/cutCellIBMAMR/hexRef/README.md`).
 
 Contents
 

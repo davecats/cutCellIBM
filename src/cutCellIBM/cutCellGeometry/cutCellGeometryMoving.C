@@ -61,6 +61,56 @@ void Foam::cutCellGeometry::update()
 }
 
 
+void Foam::cutCellGeometry::updateMesh()
+{
+    forAll(bodies_, bodyi)
+    {
+        if (!bodies_[bodyi].hasLevelSet())
+        {
+            FatalErrorInFunction
+                << "Body " << bodies_[bodyi].name() << " has no level set: "
+                << "the fluid fraction of an alpha-field body cannot follow "
+                << "a change of the mesh topology. Use a level-set body "
+                << "with adaptive refinement." << exit(FatalError);
+        }
+    }
+
+    Info<< "Cut-cell immersed boundary: rebuilding the geometry on the "
+        << "changed mesh" << endl;
+
+    // The registered fields have been mapped to the new mesh (and are about
+    // to be overwritten); the plain lists are resized here
+    const label nCells = mesh_.nCells();
+    cellBody_.setSize(nCells);
+    nearestBody_.setSize(nCells);
+    solidCells_.resize(nCells);
+    cutCells_.resize(nCells);
+    wallCells_.resize(nCells);
+
+    // Mapped face values are meaningless on the faces the change created
+    dCentroid_ = mesh_.delta();
+    cutDeltaCoeffs_ = mesh_.nonOrthDeltaCoeffs();
+    faceValueOffset_ = dimensionedVector(dimLength, Zero);
+
+    calcGeometry();
+    report();
+
+    // Static bodies: the old time levels of alpha are the current one (a
+    // refined cut cell inherited the fraction of its parent). Moving
+    // bodies get theirs from the next update().
+    if (!moving_)
+    {
+        volScalarField* a0 = &alpha_;
+        while (a0->nOldTimes())
+        {
+            a0 = &a0->oldTime();
+            a0->primitiveFieldRef() = alpha_.primitiveField();
+            a0->correctBoundaryConditions();
+        }
+    }
+}
+
+
 void Foam::cutCellGeometry::calcMovingTerms()
 {
     const scalar dt = mesh_.time().deltaTValue();

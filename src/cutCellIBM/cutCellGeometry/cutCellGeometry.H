@@ -209,6 +209,9 @@ class cutCellGeometry
 
         scalar fluidVolume_;
 
+        //- False from a change of the mesh topology until updateMesh()
+        bool upToDate_;
+
         mutable autoPtr<OFstream> forcesFilePtr_;
 
 
@@ -498,8 +501,8 @@ class cutCellGeometry
         void calcDerived();
 
         //- The whole geometry: fractions of all bodies, slivers, sync,
-        //  derived quantities. Called at construction and at every update
-        //  of a moving body.
+        //  derived quantities. Called at construction, at every update
+        //  of a moving body and after a change of the mesh topology.
         void calcGeometry();
 
         //- Mass source, swept old volume and body velocity (moving only)
@@ -691,6 +694,19 @@ public:
             //- Move the bodies to the current time and rebuild the
             //  geometry and the moving-wall terms. No-op for static bodies.
             void update();
+
+            //- Whether the geometry belongs to the current mesh: false
+            //  between a change of the mesh topology (adaptive refinement)
+            //  and updateMesh()
+            bool upToDate() const { return upToDate_; }
+
+            //- Mark the geometry as belonging to a previous mesh (called by
+            //  the adaptive mesh before every change of the topology)
+            void outOfDate() { upToDate_ = false; }
+
+            //- Rebuild the geometry after a change of the mesh topology,
+            //  with the bodies where they are (level-set bodies only)
+            void updateMesh();
 
             //- Body velocity at the cell centres
             const volVectorField& Ub() const;

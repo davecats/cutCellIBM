@@ -26,6 +26,14 @@ Foam::patchDistMethods::ibmLevelSet::ibmLevelSet
 {}
 
 
+bool Foam::patchDistMethods::ibmLevelSet::movePoints()
+{
+    const cutCellGeometry* ibmPtr =
+        mesh_.cfindObject<cutCellGeometry>("ibmProperties");
+    return !ibmPtr || ibmPtr->upToDate();
+}
+
+
 bool Foam::patchDistMethods::ibmLevelSet::correct(volScalarField& y)
 {
     const cutCellGeometry* ibmPtr =

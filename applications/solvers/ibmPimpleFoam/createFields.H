@@ -62,7 +62,8 @@ mesh.setFluxRequired(p.name());
 
 // With moving bodies the reference cell may be swallowed by a body; the
 // user's choice is kept while it is fluid, else the farthest fluid cell
-const label pRefCellUser = pRefCell;
+// (found again after an adaptive refinement)
+label pRefCellUser = pRefCell;
 (void)pRefCellUser;
 
 
