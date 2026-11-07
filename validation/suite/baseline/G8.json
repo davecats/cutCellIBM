@@ -1,0 +1,124 @@
+{
+ "id": "G8",
+ "TITLE": "decomposition: serial vs 4 and 6 ranks",
+ "STRESSES": [
+  "K14"
+ ],
+ "RELIES": [
+  "G7"
+ ],
+ "KIND": "gate",
+ "TIER": 0,
+ "commit": "5008932",
+ "suite": "7ebe434",
+ "status": "PASS",
+ "started": "2026-11-06 13:45:04",
+ "seconds": 222.4,
+ "cases": "/home/ws/xt8786/runs/suite/5008932/G8",
+ "checks": [
+  {
+   "name": "cylinder: |drag_np4/drag_serial - 1|",
+   "status": "PASS",
+   "value": 1.3924417174848713e-12,
+   "ref": null,
+   "tol": "<= 1e-08",
+   "note": ""
+  },
+  {
+   "name": "cylinder: lift np4 vs serial (zero by symmetry: solver noise)",
+   "status": "REPORT",
+   "value": 3.65974089998e-08,
+   "ref": 3.66169881623e-08,
+   "tol": null,
+   "note": ""
+  },
+  {
+   "name": "channel: |G_np4/G_serial - 1| (driving gradient, u_tau^2)",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 1e-08",
+   "note": ""
+  },
+  {
+   "name": "cylinder: |drag_np6/drag_serial - 1|",
+   "status": "PASS",
+   "value": 9.747425089301487e-12,
+   "ref": null,
+   "tol": "<= 1e-08",
+   "note": ""
+  },
+  {
+   "name": "cylinder: lift np6 vs serial (zero by symmetry: solver noise)",
+   "status": "REPORT",
+   "value": -3.65185190674e-08,
+   "ref": 3.66169881623e-08,
+   "tol": null,
+   "note": ""
+  },
+  {
+   "name": "channel: |G_np6/G_serial - 1| (driving gradient, u_tau^2)",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 1e-08",
+   "note": ""
+  },
+  {
+   "name": "channel np1: driving gradient stationary (largest change over 100 iterations)",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 1e-10",
+   "note": ""
+  },
+  {
+   "name": "channel np4: driving gradient stationary (largest change over 100 iterations)",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 1e-10",
+   "note": ""
+  },
+  {
+   "name": "channel np6: driving gradient stationary (largest change over 100 iterations)",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 1e-10",
+   "note": ""
+  }
+ ],
+ "data": {
+  "forces": {
+   "cylinder_np1": [
+    0.71814196101,
+    3.66169881623e-08,
+    2.14984979243e-32
+   ],
+   "cylinder_np4": [
+    0.718141961011,
+    3.65974089998e-08,
+    1.21867334302e-32
+   ],
+   "cylinder_np6": [
+    0.718141961003,
+    -3.65185190674e-08,
+    3.76027175729e-32
+   ],
+   "channel_np1": [
+    0.00296311949746,
+    0.0
+   ],
+   "channel_np4": [
+    0.00296311949746,
+    0.0
+   ],
+   "channel_np6": [
+    0.00296311949746,
+    0.0
+   ]
+  }
+ },
+ "figures": []
+}

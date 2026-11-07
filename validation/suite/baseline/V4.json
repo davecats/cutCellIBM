@@ -1,0 +1,93 @@
+{
+ "id": "V4",
+ "TITLE": "passive scalar at a static wall vs body-fitted",
+ "STRESSES": [
+  "K11"
+ ],
+ "RELIES": [
+  "G6",
+  "V2"
+ ],
+ "KIND": "case",
+ "TIER": 1,
+ "commit": "d05799c",
+ "suite": "e9a7524",
+ "status": "PASS",
+ "started": "2026-11-06 11:19:18",
+ "seconds": 7780.7,
+ "cases": "/home/ws/xt8786/runs/suite/d05799c/V4",
+ "checks": [
+  {
+   "name": "body-fitted M = 64 vs 128 (content/rate)",
+   "status": "REPORT",
+   "value": 161.9484920661475,
+   "ref": 162.15780806411942,
+   "tol": null,
+   "note": "deviation -0.129 %"
+  },
+  {
+   "name": "scalar content per unit source rate, N = 161 vs body-fitted M = 128",
+   "status": "PASS",
+   "value": 162.37206305022207,
+   "ref": 162.15780806411942,
+   "tol": "1 %",
+   "note": "162.95 162.41 162.37; deviation +0.132 %"
+  },
+  {
+   "name": "baseline",
+   "status": "REPORT",
+   "value": 5,
+   "ref": null,
+   "tol": null,
+   "note": "no stored baseline: this run can be accepted as one"
+  }
+ ],
+ "data": {
+  "rows": [
+   {
+    "kind": "ibm",
+    "N": 41,
+    "content": 33.1011885717,
+    "rate": 0.203131121139,
+    "ratio": 162.95478696762217
+   },
+   {
+    "kind": "ibm",
+    "N": 81,
+    "content": 15.8918458954,
+    "rate": 0.0978471740041,
+    "ratio": 162.4149706636811
+   },
+   {
+    "kind": "ibm",
+    "N": 161,
+    "content": 7.93713647901,
+    "rate": 0.0488824021196,
+    "ratio": 162.37206305022207
+   },
+   {
+    "kind": "bf",
+    "M": 64,
+    "content": 12.772851425644442,
+    "rate": 0.078869838568348,
+    "ratio": 161.9484920661475
+   },
+   {
+    "kind": "bf",
+    "M": 128,
+    "content": 12.57208217993649,
+    "rate": 0.07752992180903998,
+    "ratio": 162.15780806411942
+   }
+  ],
+  "metrics": {
+   "ibm_41_ratio": 162.95478696762217,
+   "ibm_81_ratio": 162.4149706636811,
+   "ibm_161_ratio": 162.37206305022207,
+   "bf_64_ratio": 161.9484920661475,
+   "bf_128_ratio": 162.15780806411942
+  }
+ },
+ "figures": [],
+ "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+}

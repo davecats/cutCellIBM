@@ -1,0 +1,174 @@
+{
+ "id": "V7",
+ "TITLE": "SA channel, immersed vs body-fitted walls (wall-resolved)",
+ "STRESSES": [
+  "K12",
+  "K13",
+  "K10"
+ ],
+ "RELIES": [
+  "V1",
+  "V2",
+  "V5"
+ ],
+ "KIND": "case",
+ "TIER": 1,
+ "commit": "5008932",
+ "suite": "7ebe434",
+ "status": "PASS",
+ "started": "2026-11-06 13:48:47",
+ "seconds": 151.8,
+ "cases": "/home/ws/xt8786/runs/suite/5008932/V7",
+ "checks": [
+  {
+   "name": "runs not stationary (driving gradient over the last 100 iterations > 1e-10)",
+   "status": "PASS",
+   "value": 0,
+   "ref": null,
+   "tol": "<= 0",
+   "note": ""
+  },
+  {
+   "name": "u_tau, f 0.05, mergeAlpha 0.5, vs body-fitted",
+   "status": "PASS",
+   "value": 0.05443411738184059,
+   "ref": 0.05443411890551734,
+   "tol": "0.5 %",
+   "note": "max |du+| at y+ = 5, 30, 100, 300: 0.001; deviation -2.8e-06 %"
+  },
+  {
+   "name": "u_tau, f 0.3, mergeAlpha 0.5, vs body-fitted",
+   "status": "PASS",
+   "value": 0.05443460758965752,
+   "ref": 0.05443411890551734,
+   "tol": "0.5 %",
+   "note": "max |du+| at y+ = 5, 30, 100, 300: 0.005; deviation +0.000898 %"
+  },
+  {
+   "name": "u_tau, f 0.5, mergeAlpha 0.5, vs body-fitted",
+   "status": "PASS",
+   "value": 0.05443454323735986,
+   "ref": 0.05443411890551734,
+   "tol": "0.5 %",
+   "note": "max |du+| at y+ = 5, 30, 100, 300: 0.006; deviation +0.00078 %"
+  },
+  {
+   "name": "u_tau, f 0.3, mergeAlpha 0, vs body-fitted",
+   "status": "PASS",
+   "value": 0.05443414772052558,
+   "ref": 0.05443411890551734,
+   "tol": "0.5 %",
+   "note": "max |du+| at y+ = 5, 30, 100, 300: 0.004; deviation +5.29e-05 %"
+  },
+  {
+   "name": "baseline",
+   "status": "REPORT",
+   "value": 5,
+   "ref": null,
+   "tol": null,
+   "note": "no stored baseline: this run can be accepted as one"
+  }
+ ],
+ "data": {
+  "rows": [
+   {
+    "name": "bf_wr",
+    "kind": "bf",
+    "f": null,
+    "ma": 0.5,
+    "utau": 0.05443411890551734,
+    "G": 0.00296307330102,
+    "change": 3.3749577355021366e-12,
+    "converged": true,
+    "bottom_u+(5)": 4.927410329130224,
+    "bottom_u+(30)": 13.415373721513946,
+    "bottom_u+(100)": 16.57923448464891,
+    "bottom_u+(300)": 19.617647255827368,
+    "top_u+(5)": 4.927410328865109,
+    "top_u+(30)": 13.415373721532474,
+    "top_u+(100)": 16.579234484643134,
+    "top_u+(300)": 19.61764725580674
+   },
+   {
+    "name": "ibm_wr_f0.05_ma0.5",
+    "kind": "ibm",
+    "f": 0.05,
+    "ma": 0.5,
+    "utau": 0.05443411738184059,
+    "G": 0.00296307313514,
+    "change": 0.0,
+    "converged": true,
+    "bottom_u+(5)": 4.926526519773662,
+    "bottom_u+(30)": 13.415397513056803,
+    "bottom_u+(100)": 16.579326368427036,
+    "bottom_u+(300)": 19.617681964971297,
+    "top_u+(5)": 4.92834518039716,
+    "top_u+(30)": 13.415366068935683,
+    "top_u+(100)": 16.57914754564034,
+    "top_u+(300)": 19.617613647803385
+   },
+   {
+    "name": "ibm_wr_f0.3_ma0.5",
+    "kind": "ibm",
+    "f": 0.3,
+    "ma": 0.5,
+    "utau": 0.05443460758965752,
+    "G": 0.00296312650344,
+    "change": 0.0,
+    "converged": true,
+    "bottom_u+(5)": 4.922772530998826,
+    "bottom_u+(30)": 13.415542291509654,
+    "bottom_u+(100)": 16.579644716966822,
+    "bottom_u+(300)": 19.617655901291933,
+    "top_u+(5)": 4.923890151543748,
+    "top_u+(30)": 13.415358541096467,
+    "top_u+(100)": 16.578570196357827,
+    "top_u+(300)": 19.617244871456677
+   },
+   {
+    "name": "ibm_wr_f0.5_ma0.5",
+    "kind": "ibm",
+    "f": 0.5,
+    "ma": 0.5,
+    "utau": 0.05443454323735986,
+    "G": 0.00296311949746,
+    "change": 0.0,
+    "converged": true,
+    "bottom_u+(5)": 4.921269624732738,
+    "bottom_u+(30)": 13.416247599523125,
+    "bottom_u+(100)": 16.580272077132356,
+    "bottom_u+(300)": 19.617889349948125,
+    "top_u+(5)": 4.921661891191878,
+    "top_u+(30)": 13.41566145118562,
+    "top_u+(100)": 16.578230774098426,
+    "top_u+(300)": 19.617043456154263
+   },
+   {
+    "name": "ibm_wr_f0.3_ma0",
+    "kind": "ibm",
+    "f": 0.3,
+    "ma": 0,
+    "utau": 0.05443414772052558,
+    "G": 0.00296307643806,
+    "change": 0.0,
+    "converged": true,
+    "bottom_u+(5)": 4.923009070989032,
+    "bottom_u+(30)": 13.415809162811808,
+    "bottom_u+(100)": 16.579898237809036,
+    "bottom_u+(300)": 19.617882171213864,
+    "top_u+(5)": 4.923946120701991,
+    "top_u+(30)": 13.415453635561787,
+    "top_u+(100)": 16.57868107636513,
+    "top_u+(300)": 19.617379733283734
+   }
+  ],
+  "metrics": {
+   "bf_wr_utau": 0.05443411890551734,
+   "ibm_wr_f0.05_ma0.5_utau": 0.05443411738184059,
+   "ibm_wr_f0.3_ma0.5_utau": 0.05443460758965752,
+   "ibm_wr_f0.5_ma0.5_utau": 0.05443454323735986,
+   "ibm_wr_f0.3_ma0_utau": 0.05443414772052558
+  }
+ },
+ "figures": []
+}

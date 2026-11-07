@@ -1,0 +1,200 @@
+{
+ "id": "G6",
+ "TITLE": "passive scalar budgets, static and moving",
+ "STRESSES": [
+  "K11"
+ ],
+ "RELIES": [
+  "G1",
+  "G4"
+ ],
+ "KIND": "gate",
+ "TIER": 0,
+ "commit": "d05799c",
+ "status": "PASS",
+ "started": "2026-11-06 10:44:10",
+ "seconds": 99.6,
+ "cases": "/home/ws/xt8786/runs/suite/77df7f0/G6.1",
+ "checks": [
+  {
+   "name": "staticCylinder_zeroFlux: transient budget error (relative, per step)",
+   "status": "PASS",
+   "value": 1.7538812158296216e-12,
+   "ref": null,
+   "tol": "<= 1e-09",
+   "note": "202 steps; max |T - Twall| in the solid 0.0e+00"
+  },
+  {
+   "name": "staticCylinder_fixedValue: transient budget error (relative, per step)",
+   "status": "PASS",
+   "value": 9.351419147010907e-12,
+   "ref": null,
+   "tol": "<= 1e-09",
+   "note": "202 steps; max |T - Twall| in the solid 0.0e+00"
+  },
+  {
+   "name": "steadyCylinder_fixedValue: steady budget error (relative)",
+   "status": "PASS",
+   "value": 9.139265888328355e-11,
+   "ref": null,
+   "tol": "<= 1e-08",
+   "note": "1556 steps; max |T - Twall| in the solid 0.0e+00"
+  },
+  {
+   "name": "oscillating_zeroFlux: transient budget error (relative, per step)",
+   "status": "PASS",
+   "value": 1.0928519136391577e-10,
+   "ref": null,
+   "tol": "<= 1e-09",
+   "note": "400 steps; max |T - Twall| in the solid 1.5e-60"
+  },
+  {
+   "name": "oscillating_fixedValue: transient budget error (relative, per step)",
+   "status": "PASS",
+   "value": 6.427777302997366e-11,
+   "ref": null,
+   "tol": "<= 1e-09",
+   "note": "400 steps; max |T - Twall| in the solid 3.5e-64"
+  },
+  {
+   "name": "galilean_zeroFlux: transient budget error (relative, per step)",
+   "status": "PASS",
+   "value": 6.4785030430613215e-12,
+   "ref": null,
+   "tol": "<= 1e-09",
+   "note": "1200 steps; max |T - Twall| in the solid 1.6e-19"
+  },
+  {
+   "name": "galilean_zeroFlux: steps whose scalar solve hit maxIter 1000",
+   "status": "REPORT",
+   "value": 1,
+   "ref": null,
+   "tol": null,
+   "note": "budget change there up to 3.32e-07 relative (open: doc/secondOrderStudy.md, ibmConvection by default)"
+  },
+  {
+   "name": "multiScalar: transient budget error (relative, per step)",
+   "status": "PASS",
+   "value": 9.351419147010907e-12,
+   "ref": null,
+   "tol": "<= 1e-09",
+   "note": "202 steps; max |T - Twall| in the solid 0.0e+00"
+  },
+  {
+   "name": "multiScalar/c: transient budget error (relative, per step)",
+   "status": "PASS",
+   "value": 1.7538812158296216e-12,
+   "ref": null,
+   "tol": "<= 1e-09",
+   "note": "202 steps; max |T - Twall| in the solid 0.0e+00"
+  },
+  {
+   "name": "multiScalar/d: transient budget error (relative, per step)",
+   "status": "PASS",
+   "value": 1.3150095151120092e-12,
+   "ref": null,
+   "tol": "<= 1e-09",
+   "note": "202 steps; max |T - Twall| in the solid 0.0e+00"
+  },
+  {
+   "name": "baseline",
+   "status": "REPORT",
+   "value": 9,
+   "ref": null,
+   "tol": null,
+   "note": "no stored baseline: this run can be accepted as one"
+  }
+ ],
+ "data": {
+  "rows": [
+   [
+    "staticCylinder_zeroFlux",
+    "transient",
+    1.7538812158296216e-12,
+    0.0,
+    202,
+    []
+   ],
+   [
+    "staticCylinder_fixedValue",
+    "transient",
+    9.351419147010907e-12,
+    0.0,
+    202,
+    []
+   ],
+   [
+    "steadyCylinder_fixedValue",
+    "steady",
+    9.139265888328355e-11,
+    0.0,
+    1556,
+    []
+   ],
+   [
+    "oscillating_zeroFlux",
+    "transient",
+    1.0928519136391577e-10,
+    1.49400674091e-60,
+    400,
+    []
+   ],
+   [
+    "oscillating_fixedValue",
+    "transient",
+    6.427777302997366e-11,
+    3.54564532192e-64,
+    400,
+    []
+   ],
+   [
+    "galilean_zeroFlux",
+    "transient",
+    6.4785030430613215e-12,
+    1.5527299394e-19,
+    1200,
+    [
+     3.3152188133205813e-07
+    ]
+   ],
+   [
+    "multiScalar",
+    "transient",
+    9.351419147010907e-12,
+    0.0,
+    202,
+    []
+   ],
+   [
+    "multiScalar/c",
+    "transient",
+    1.7538812158296216e-12,
+    0.0,
+    202,
+    []
+   ],
+   [
+    "multiScalar/d",
+    "transient",
+    1.3150095151120092e-12,
+    0.0,
+    202,
+    []
+   ]
+  ],
+  "metrics": {
+   "staticCylinder_zeroFlux_budget": 1.7538812158296216e-12,
+   "staticCylinder_fixedValue_budget": 9.351419147010907e-12,
+   "steadyCylinder_fixedValue_budget": 9.139265888328355e-11,
+   "oscillating_zeroFlux_budget": 1.0928519136391577e-10,
+   "oscillating_fixedValue_budget": 6.427777302997366e-11,
+   "galilean_zeroFlux_budget": 6.4785030430613215e-12,
+   "multiScalar_budget": 9.351419147010907e-12,
+   "multiScalar/c_budget": 1.7538812158296216e-12,
+   "multiScalar/d_budget": 1.3150095151120092e-12
+  }
+ },
+ "figures": [],
+ "suite": "77df7f0",
+ "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+}

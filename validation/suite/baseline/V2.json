@@ -1,0 +1,192 @@
+{
+ "id": "V2",
+ "TITLE": "periodic cylinder Re_D = 1, drag, no slip and free slip",
+ "STRESSES": [
+  "K3",
+  "K4",
+  "K8"
+ ],
+ "RELIES": [
+  "G1",
+  "G2",
+  "G3"
+ ],
+ "KIND": "case",
+ "TIER": 1,
+ "commit": "d05799c",
+ "status": "PASS",
+ "started": "2026-11-06 10:30:48",
+ "seconds": 6607.8,
+ "cases": "/home/ws/xt8786/runs/suite/77df7f0/V2",
+ "checks": [
+  {
+   "name": "runs not converged within 40000 iterations",
+   "status": "PASS",
+   "value": 0,
+   "ref": null,
+   "tol": "<= 0",
+   "note": ""
+  },
+  {
+   "name": "drag N = 321, noSlip, mergeAlpha 0.5, vs body-fitted M = 256",
+   "status": "PASS",
+   "value": 5.8350213519705,
+   "ref": 5.83958,
+   "tol": "0.3 %",
+   "note": "5.77266 5.81695 5.83182 5.83502; deviation -0.0781 %"
+  },
+  {
+   "name": "drag Richardson extrapolation, noSlip, mergeAlpha 0.5",
+   "status": "REPORT",
+   "value": null,
+   "ref": 5.83958,
+   "tol": null,
+   "note": "observed order nan"
+  },
+  {
+   "name": "drag N = 321, noSlip, mergeAlpha 0, vs body-fitted M = 256",
+   "status": "PASS",
+   "value": 5.8349808019665,
+   "ref": 5.83958,
+   "tol": "0.3 %",
+   "note": "5.78414 5.82066 5.83188 5.83498; deviation -0.0788 %"
+  },
+  {
+   "name": "drag Richardson extrapolation, noSlip, mergeAlpha 0",
+   "status": "REPORT",
+   "value": null,
+   "ref": 5.83958,
+   "tol": null,
+   "note": "observed order nan"
+  },
+  {
+   "name": "drag N = 321, freeSlip, mergeAlpha 0.5, vs body-fitted zero shear (the stress-free wall)",
+   "status": "REPORT",
+   "value": 3.01120599927318,
+   "ref": 4.00318,
+   "tol": null,
+   "note": "2.84033 2.91545 2.98766 3.01121; deviation -24.8 % (open: doc/freeSlipPlan.md)"
+  },
+  {
+   "name": "drag N = 321, freeSlip, mergeAlpha 0.5, vs body-fitted slip (the same du_t/dn = 0 condition)",
+   "status": "REPORT",
+   "value": 3.01120599927318,
+   "ref": 3.04843,
+   "tol": null,
+   "note": "deviation -1.22 %; Richardson nan (order nan)"
+  },
+  {
+   "name": "baseline",
+   "status": "REPORT",
+   "value": 12,
+   "ref": null,
+   "tol": null,
+   "note": "no stored baseline: this run can be accepted as one"
+  }
+ ],
+ "data": {
+  "rows": [
+   {
+    "wall": "noSlip",
+    "N": 41,
+    "ma": 0.5,
+    "F": 5.77265805308,
+    "converged": true
+   },
+   {
+    "wall": "noSlip",
+    "N": 81,
+    "ma": 0.5,
+    "F": 5.816949884181001,
+    "converged": true
+   },
+   {
+    "wall": "noSlip",
+    "N": 161,
+    "ma": 0.5,
+    "F": 5.8318239267336995,
+    "converged": true
+   },
+   {
+    "wall": "noSlip",
+    "N": 321,
+    "ma": 0.5,
+    "F": 5.8350213519705,
+    "converged": true
+   },
+   {
+    "wall": "freeSlip",
+    "N": 41,
+    "ma": 0.5,
+    "F": 2.8403349539679,
+    "converged": true
+   },
+   {
+    "wall": "freeSlip",
+    "N": 81,
+    "ma": 0.5,
+    "F": 2.915454540168,
+    "converged": true
+   },
+   {
+    "wall": "freeSlip",
+    "N": 161,
+    "ma": 0.5,
+    "F": 2.9876587482994,
+    "converged": true
+   },
+   {
+    "wall": "freeSlip",
+    "N": 321,
+    "ma": 0.5,
+    "F": 3.01120599927318,
+    "converged": true
+   },
+   {
+    "wall": "noSlip",
+    "N": 41,
+    "ma": 0,
+    "F": 5.784138625973,
+    "converged": true
+   },
+   {
+    "wall": "noSlip",
+    "N": 81,
+    "ma": 0,
+    "F": 5.820662727828901,
+    "converged": true
+   },
+   {
+    "wall": "noSlip",
+    "N": 161,
+    "ma": 0,
+    "F": 5.8318827907165,
+    "converged": true
+   },
+   {
+    "wall": "noSlip",
+    "N": 321,
+    "ma": 0,
+    "F": 5.8349808019665,
+    "converged": true
+   }
+  ],
+  "metrics": {
+   "noSlip_N41_ma0.5": 5.77265805308,
+   "noSlip_N81_ma0.5": 5.816949884181001,
+   "noSlip_N161_ma0.5": 5.8318239267336995,
+   "noSlip_N321_ma0.5": 5.8350213519705,
+   "freeSlip_N41_ma0.5": 2.8403349539679,
+   "freeSlip_N81_ma0.5": 2.915454540168,
+   "freeSlip_N161_ma0.5": 2.9876587482994,
+   "freeSlip_N321_ma0.5": 3.01120599927318,
+   "noSlip_N41_ma0": 5.784138625973,
+   "noSlip_N81_ma0": 5.820662727828901,
+   "noSlip_N161_ma0": 5.8318827907165,
+   "noSlip_N321_ma0": 5.8349808019665
+  }
+ },
+ "figures": [],
+ "suite": "77df7f0",
+ "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+}

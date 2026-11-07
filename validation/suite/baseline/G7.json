@@ -1,0 +1,146 @@
+{
+ "id": "G7",
+ "TITLE": "regression: forces of every tutorial",
+ "STRESSES": [
+  "K1",
+  "K3",
+  "K4",
+  "K5",
+  "K6",
+  "K8",
+  "K9"
+ ],
+ "RELIES": [],
+ "KIND": "gate",
+ "TIER": 0,
+ "commit": "d05799c",
+ "status": "REPORT",
+ "started": "2026-11-06 10:08:09",
+ "seconds": 84.3,
+ "cases": "/home/ws/xt8786/runs/suite/77df7f0/G7",
+ "checks": [
+  {
+   "name": "baseline",
+   "status": "REPORT",
+   "value": 9,
+   "ref": null,
+   "tol": null,
+   "note": "no stored baseline: this run can be accepted as one"
+  }
+ ],
+ "data": {
+  "forces": {
+   "cylinderRe1": {
+    "cylinder": [
+     0.71814196101,
+     3.66169881623e-08,
+     2.14984979243e-32
+    ]
+   },
+   "cylinderRe1_stl": {
+    "cylinder": [
+     0.718141726899,
+     3.66168912514e-08,
+     2.51744446829e-32
+    ]
+   },
+   "cylinderRe1_alphaField": {
+    "cylinder": [
+     0.715278757513,
+     3.64946411096e-08,
+     1.0927021408e-18
+    ]
+   },
+   "cylinderRe1_pimple": {
+    "cylinder": [
+     0.718114968284,
+     1.18789038935e-13,
+     2.02330943831e-32
+    ]
+   },
+   "cylinderRe1_pimple_freeSlip": {
+    "cylinder": [
+     0.359336714603,
+     -1.72619937008e-12,
+     2.36914510331e-31
+    ]
+   },
+   "twoCylinders": {
+    "bigNoSlip": [
+     0.642537465636,
+     -0.00350240343501,
+     -1.6065991299e-32
+    ],
+    "smallFreeSlip": [
+     0.19722597641,
+     0.00350244006808,
+     7.1339437645e-32
+    ]
+   },
+   "oscillatingCylinder": {
+    "cylinder": [
+     0.479526400936,
+     -8.28333983436e-14,
+     1.7316027397e-32
+    ]
+   },
+   "galileanTranslating": {
+    "cylinder": [
+     -0.719243889707,
+     5.91392169339e-11,
+     5.1075768929e-32
+    ]
+   },
+   "order/taylorCouette": {
+    "inner": [
+     -2.0563824426e-08,
+     -3.7538994288e-08,
+     1.10177167119e-33
+    ],
+    "outer": [
+     2.05639358209e-08,
+     3.75383299477e-08,
+     -3.7193413816e-35
+    ]
+   }
+  },
+  "metrics": {
+   "cylinderRe1/cylinder_Fx": 0.71814196101,
+   "cylinderRe1/cylinder_Fy": 3.66169881623e-08,
+   "cylinderRe1/cylinder_Fz": 2.14984979243e-32,
+   "cylinderRe1_stl/cylinder_Fx": 0.718141726899,
+   "cylinderRe1_stl/cylinder_Fy": 3.66168912514e-08,
+   "cylinderRe1_stl/cylinder_Fz": 2.51744446829e-32,
+   "cylinderRe1_alphaField/cylinder_Fx": 0.715278757513,
+   "cylinderRe1_alphaField/cylinder_Fy": 3.64946411096e-08,
+   "cylinderRe1_alphaField/cylinder_Fz": 1.0927021408e-18,
+   "cylinderRe1_pimple/cylinder_Fx": 0.718114968284,
+   "cylinderRe1_pimple/cylinder_Fy": 1.18789038935e-13,
+   "cylinderRe1_pimple/cylinder_Fz": 2.02330943831e-32,
+   "cylinderRe1_pimple_freeSlip/cylinder_Fx": 0.359336714603,
+   "cylinderRe1_pimple_freeSlip/cylinder_Fy": -1.72619937008e-12,
+   "cylinderRe1_pimple_freeSlip/cylinder_Fz": 2.36914510331e-31,
+   "twoCylinders/bigNoSlip_Fx": 0.642537465636,
+   "twoCylinders/bigNoSlip_Fy": -0.00350240343501,
+   "twoCylinders/bigNoSlip_Fz": -1.6065991299e-32,
+   "twoCylinders/smallFreeSlip_Fx": 0.19722597641,
+   "twoCylinders/smallFreeSlip_Fy": 0.00350244006808,
+   "twoCylinders/smallFreeSlip_Fz": 7.1339437645e-32,
+   "oscillatingCylinder/cylinder_Fx": 0.479526400936,
+   "oscillatingCylinder/cylinder_Fy": -8.28333983436e-14,
+   "oscillatingCylinder/cylinder_Fz": 1.7316027397e-32,
+   "galileanTranslating/cylinder_Fx": -0.719243889707,
+   "galileanTranslating/cylinder_Fy": 5.91392169339e-11,
+   "galileanTranslating/cylinder_Fz": 5.1075768929e-32,
+   "order/taylorCouette/inner_Fx": -2.0563824426e-08,
+   "order/taylorCouette/inner_Fy": -3.7538994288e-08,
+   "order/taylorCouette/inner_Fz": 1.10177167119e-33,
+   "order/taylorCouette/outer_Fx": 2.05639358209e-08,
+   "order/taylorCouette/outer_Fy": 3.75383299477e-08,
+   "order/taylorCouette/outer_Fz": -3.7193413816e-35
+  }
+ },
+ "figures": [],
+ "suite": "77df7f0",
+ "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+}

@@ -1,0 +1,131 @@
+{
+ "id": "G3",
+ "TITLE": "hydrostatic container: spurious velocity",
+ "STRESSES": [
+  "K5",
+  "K6",
+  "K2"
+ ],
+ "RELIES": [
+  "G1",
+  "G2"
+ ],
+ "KIND": "gate",
+ "TIER": 0,
+ "commit": "d05799c",
+ "status": "PASS",
+ "started": "2026-11-06 10:01:05",
+ "seconds": 301.3,
+ "cases": "/home/ws/xt8786/runs/suite/77df7f0/G3",
+ "checks": [
+  {
+   "name": "max|U| order, mergeAlpha 0.5",
+   "status": "PASS",
+   "value": 1.9739833097972581,
+   "ref": null,
+   "tol": ">= 1.8",
+   "note": "max|U| 2.492e-04 5.657e-05 1.614e-05"
+  },
+  {
+   "name": "pressure error order (max), mergeAlpha 0.5",
+   "status": "REPORT",
+   "value": 0.982199610511574,
+   "ref": null,
+   "tol": null,
+   "note": "max|p + y| 4.526e-02 2.261e-02 1.160e-02"
+  },
+  {
+   "name": "max|U| order, mergeAlpha 0",
+   "status": "PASS",
+   "value": 1.9329544174298936,
+   "ref": null,
+   "tol": ">= 1.8",
+   "note": "max|U| 2.423e-04 6.138e-05 1.662e-05"
+  },
+  {
+   "name": "pressure error order (max), mergeAlpha 0",
+   "status": "REPORT",
+   "value": 1.0399486459210199,
+   "ref": null,
+   "tol": null,
+   "note": "max|p + y| 1.626e-02 7.489e-03 3.846e-03"
+  },
+  {
+   "name": "baseline",
+   "status": "REPORT",
+   "value": 12,
+   "ref": null,
+   "tol": null,
+   "note": "no stored baseline: this run can be accepted as one"
+  }
+ ],
+ "data": {
+  "rows": [
+   {
+    "N": 40,
+    "ma": 0.5,
+    "t": "10",
+    "maxU": 0.0002491610769825862,
+    "rmsU": 9.442287097478458e-05,
+    "maxEp": 0.04525921870149263
+   },
+   {
+    "N": 40,
+    "ma": 0,
+    "t": "10",
+    "maxU": 0.00024225526574641793,
+    "rmsU": 4.9685878962172986e-05,
+    "maxEp": 0.016260903114749814
+   },
+   {
+    "N": 80,
+    "ma": 0.5,
+    "t": "10",
+    "maxU": 5.657485804608306e-05,
+    "rmsU": 1.4834804915513594e-05,
+    "maxEp": 0.02260878413396017
+   },
+   {
+    "N": 80,
+    "ma": 0,
+    "t": "10",
+    "maxU": 6.137899705151937e-05,
+    "rmsU": 8.710310064147205e-06,
+    "maxEp": 0.007489304481551828
+   },
+   {
+    "N": 160,
+    "ma": 0.5,
+    "t": "10",
+    "maxU": 1.6144471216373653e-05,
+    "rmsU": 2.753189042474524e-06,
+    "maxEp": 0.011597488848033022
+   },
+   {
+    "N": 160,
+    "ma": 0,
+    "t": "10",
+    "maxU": 1.6615702436744875e-05,
+    "rmsU": 1.639851601930195e-06,
+    "maxEp": 0.003846211742853489
+   }
+  ],
+  "metrics": {
+   "N40_ma0.5_maxU": 0.0002491610769825862,
+   "N40_ma0.5_rmsU": 9.442287097478458e-05,
+   "N40_ma0_maxU": 0.00024225526574641793,
+   "N40_ma0_rmsU": 4.9685878962172986e-05,
+   "N80_ma0.5_maxU": 5.657485804608306e-05,
+   "N80_ma0.5_rmsU": 1.4834804915513594e-05,
+   "N80_ma0_maxU": 6.137899705151937e-05,
+   "N80_ma0_rmsU": 8.710310064147205e-06,
+   "N160_ma0.5_maxU": 1.6144471216373653e-05,
+   "N160_ma0.5_rmsU": 2.753189042474524e-06,
+   "N160_ma0_maxU": 1.6615702436744875e-05,
+   "N160_ma0_rmsU": 1.639851601930195e-06
+  }
+ },
+ "figures": [],
+ "suite": "77df7f0",
+ "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+}

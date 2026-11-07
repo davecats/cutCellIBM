@@ -1,0 +1,90 @@
+{
+ "id": "V15",
+ "TITLE": "TMR flat plate 2DZP, SA, immersed vs body-fitted (wall-resolved)",
+ "STRESSES": [
+  "K12",
+  "K13"
+ ],
+ "RELIES": [
+  "V7"
+ ],
+ "KIND": "case",
+ "TIER": 1,
+ "commit": "d05799c",
+ "suite": "e9a7524",
+ "status": "PASS",
+ "started": "2026-11-06 13:29:26",
+ "seconds": 0.5,
+ "cases": "/home/ws/xt8786/runs/suite/debug/v15.3",
+ "checks": [
+  {
+   "name": "runs not converged (residualControl, 40000 iterations)",
+   "status": "PASS",
+   "value": 0,
+   "ref": null,
+   "tol": "<= 0",
+   "note": ""
+  },
+  {
+   "name": "plate C_D, IBM f 0.5 vs body-fitted, grid 273 x 193",
+   "status": "PASS",
+   "value": 0.00287951478584,
+   "ref": 0.002890334118719441,
+   "tol": "1 %",
+   "note": "deviation -0.374 %"
+  },
+  {
+   "name": "body-fitted C_f(0.97) vs TMR incompressible FUN3D (finest grid)",
+   "status": "REPORT",
+   "value": 0.0027350228097467524,
+   "ref": 0.002729090163,
+   "tol": null,
+   "note": "deviation +0.22 %"
+  },
+  {
+   "name": "body-fitted C_D vs TMR CFL3D (compressible M 0.2, finest)",
+   "status": "REPORT",
+   "value": 0.002890334118719441,
+   "ref": 0.00285985288,
+   "tol": null,
+   "note": "deviation +1.07 %"
+  },
+  {
+   "name": "baseline",
+   "status": "REPORT",
+   "value": 2,
+   "ref": null,
+   "tol": null,
+   "note": "no stored baseline: this run can be accepted as one"
+  }
+ ],
+ "data": {
+  "rows": [
+   {
+    "name": "bf_273",
+    "n": 273,
+    "ibm": false,
+    "f": 0.5,
+    "ma": 0.5,
+    "C_D": 0.002890334118719441,
+    "converged": true,
+    "cf097": 0.0027350228097467524
+   },
+   {
+    "name": "ibm_273_f0.5_ma0.5",
+    "n": 273,
+    "ibm": true,
+    "f": 0.5,
+    "ma": 0.5,
+    "C_D": 0.00287951478584,
+    "converged": true
+   }
+  ],
+  "metrics": {
+   "bf_273_C_D": 0.002890334118719441,
+   "ibm_273_f0.5_ma0.5_C_D": 0.00287951478584
+  }
+ },
+ "figures": [],
+ "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+}

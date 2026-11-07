@@ -609,7 +609,7 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   C_f(0.97) of the body-fitted run against TMR reported. Leading edge half a cell (5e-4)
   downstream of the mesh line x = 0.
 
-### Findings (open, to be decided)
+### Findings
 
 1. ~~G8: the linked wall-resolved SA channel depends on the decomposition~~ **resolved
    (5008932): not the method, the iteration.** With ν̃ relaxed by 0.9 SIMPLEC ends in an exact
@@ -650,3 +650,21 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    50 time units are 9.6 periods at α = 1; the partial period biased mean C_L by −0.021 (α = 1)
    and +0.015 (α = 0, reference 0, tolerance 0.02). `meshes.periodic_statistics` now averages
    over the whole C_L cycles inside the window; V12 re-evaluated, verdicts unchanged.
+
+### Decisions (2026-11-07)
+
+- **D1** Tier-1 baseline accepted from 5008932 (`validation/suite/baseline/`), V12 with its FAIL;
+  V12 is re-accepted after D3/D4.
+- **D2** (finding 6) Body-fitted DFG 2D-2 with one pass at D/h = 40 first, to separate generic
+  PISO from lagged wall terms; then 2–3 outer correctors in the transient tutorials and docs.
+- **D3** (finding 7) Body-fitted rotating cylinder at α = 1 (O-grid, same domain, BCs and
+  rotating-wall velocity) as independent reference; the check stays FAIL until then.
+- **D4** V12 α = 2: add D/h = 160 (steady, locally).
+- **D5** (finding 2) Junction pressure stays REPORT in G9; fixed before V14–V16 (tier 2).
+- **D6** (finding 3) 45° wall: locate the cells of the max error and isolate the cut topology now.
+- **D7** (finding 4) Minimum nSubSamples (16 in 2-D) in tutorials and docs with a warning below
+  it now; wall area independent of the sub-sampling later.
+- **D8** (finding 5) Bisect V3 over bc08f21, b01303a, 7f50469; regenerate the notebook reference
+  if the change is intended.
+- **D9** Merge feature_amr right after D1; rerun tier 1 on the merge against the baseline; the
+  D2–D8 work continues on the merged branch.

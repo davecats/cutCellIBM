@@ -1,0 +1,70 @@
+{
+ "id": "G5",
+ "TITLE": "rotation sources: closure and magnitude",
+ "STRESSES": [
+  "K9"
+ ],
+ "RELIES": [
+  "G1"
+ ],
+ "KIND": "gate",
+ "TIER": 0,
+ "commit": "d05799c",
+ "status": "PASS",
+ "started": "2026-11-06 10:06:38",
+ "seconds": 4.0,
+ "cases": "/home/ws/xt8786/runs/suite/77df7f0/G5",
+ "checks": [
+  {
+   "name": "rotatingCylinder: max over steps |sum S|",
+   "status": "PASS",
+   "value": 1.51788304148e-18,
+   "ref": null,
+   "tol": "<= 1e-12",
+   "note": "41 steps"
+  },
+  {
+   "name": "rotatingCylinder: max |S|",
+   "status": "REPORT",
+   "value": 9.10946665322e-15,
+   "ref": null,
+   "tol": null,
+   "note": ""
+  },
+  {
+   "name": "eccentricRotation: max over steps |sum S|",
+   "status": "PASS",
+   "value": 5.29090660173e-17,
+   "ref": null,
+   "tol": "<= 1e-12",
+   "note": "41 steps"
+  },
+  {
+   "name": "eccentricRotation: max |S|",
+   "status": "REPORT",
+   "value": 0.00728432086054,
+   "ref": null,
+   "tol": null,
+   "note": ""
+  },
+  {
+   "name": "baseline",
+   "status": "REPORT",
+   "value": 4,
+   "ref": null,
+   "tol": null,
+   "note": "no stored baseline: this run can be accepted as one"
+  }
+ ],
+ "data": {
+  "metrics": {
+   "rotatingCylinder_sumS": 1.51788304148e-18,
+   "rotatingCylinder_maxS": 9.10946665322e-15,
+   "eccentricRotation_sumS": 5.29090660173e-17,
+   "eccentricRotation_maxS": 0.00728432086054
+  }
+ },
+ "figures": [],
+ "suite": "77df7f0",
+ "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+}

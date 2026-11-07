@@ -1,0 +1,382 @@
+{
+ "id": "G1",
+ "TITLE": "geometry: volume, wall area, closure (cylinder 2-D, sphere 3-D, inverted)",
+ "STRESSES": [
+  "K1"
+ ],
+ "RELIES": [],
+ "KIND": "gate",
+ "TIER": 0,
+ "commit": "d05799c",
+ "status": "PASS",
+ "started": "2026-11-06 09:58:28",
+ "seconds": 5.9,
+ "cases": "/home/ws/xt8786/runs/suite/77df7f0/G1.2",
+ "checks": [
+  {
+   "name": "closure: max |net wall area|/area (closed bodies)",
+   "status": "PASS",
+   "value": 7.869667144228035e-16,
+   "ref": null,
+   "tol": "<= 1e-10",
+   "note": ""
+  },
+  {
+   "name": "closure: max |cut-cell gradient of a uniform field|",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 1e-10",
+   "note": ""
+  },
+  {
+   "name": "volume error (max rel. to the body), cylinder outside, nSubSamples 32",
+   "status": "PASS",
+   "value": 8.132529315897484e-05,
+   "ref": null,
+   "tol": "<= 0.0001",
+   "note": "rel. volume error 8.13e-05 2.60e-06 3.52e-06 1.00e-06; absorbed slivers 0 0 0 0"
+  },
+  {
+   "name": "wall area order, cylinder outside, nSubSamples 32",
+   "status": "PASS",
+   "value": 3.985051258428949,
+   "ref": null,
+   "tol": ">= 1.8",
+   "note": "rel. area error 8.53e-04 1.74e-04 3.27e-05 6.93e-07"
+  },
+  {
+   "name": "volume error (max rel. to the body), cylinder inside, nSubSamples 32",
+   "status": "PASS",
+   "value": 8.132529315932823e-05,
+   "ref": null,
+   "tol": "<= 0.0001",
+   "note": "rel. volume error 8.13e-05 2.60e-06 3.52e-06 1.00e-06; absorbed slivers 0 0 0 0"
+  },
+  {
+   "name": "wall area order, cylinder inside, nSubSamples 32",
+   "status": "PASS",
+   "value": 1.8992009914453223,
+   "ref": null,
+   "tol": ">= 1.8",
+   "note": "rel. area error 8.93e-04 2.20e-04 6.73e-05 1.58e-05"
+  },
+  {
+   "name": "volume error (max rel. to the body), sphere outside, nSubSamples 16",
+   "status": "PASS",
+   "value": 1.2536886266024872e-05,
+   "ref": null,
+   "tol": "<= 0.0001",
+   "note": "rel. volume error 1.25e-05 9.22e-06 1.09e-06; absorbed slivers 0 0 0"
+  },
+  {
+   "name": "wall area order, sphere outside, nSubSamples 16",
+   "status": "PASS",
+   "value": 2.015454241452179,
+   "ref": null,
+   "tol": ">= 1.8",
+   "note": "rel. area error 8.47e-03 2.13e-03 5.18e-04"
+  },
+  {
+   "name": "volume error (max rel. to the body), sphere inside, nSubSamples 16",
+   "status": "PASS",
+   "value": 1.2536874329615188e-05,
+   "ref": null,
+   "tol": "<= 0.0001",
+   "note": "rel. volume error 1.25e-05 9.22e-06 1.09e-06; absorbed slivers 0 0 0"
+  },
+  {
+   "name": "wall area order, sphere inside, nSubSamples 16",
+   "status": "PASS",
+   "value": 1.9915153473778597,
+   "ref": null,
+   "tol": ">= 1.8",
+   "note": "rel. area error 8.56e-03 2.16e-03 5.41e-04"
+  },
+  {
+   "name": "volume error (max rel.), cylinder outside, nSubSamples 8",
+   "status": "REPORT",
+   "value": 0.0009975541885180286,
+   "ref": null,
+   "tol": null,
+   "note": "rel. volume error 9.98e-04 2.33e-04 8.13e-05 2.60e-06; absorbed slivers 0 0 0 0"
+  },
+  {
+   "name": "wall area order, cylinder outside, nSubSamples 8",
+   "status": "REPORT",
+   "value": -0.5170911965825076,
+   "ref": null,
+   "tol": null,
+   "note": "rel. area error 3.22e-05 1.05e-04 3.59e-04 2.16e-04"
+  },
+  {
+   "name": "baseline",
+   "status": "REPORT",
+   "value": 36,
+   "ref": null,
+   "tol": null,
+   "note": "no stored baseline: this run can be accepted as one"
+  }
+ ],
+ "data": {
+  "rows": [
+   {
+    "dim": 2,
+    "N": 20,
+    "invert": false,
+    "ns": 32,
+    "h": 0.15,
+    "eV": 8.132529315897484e-05,
+    "eA": 0.0008531654329522742,
+    "net": 1.1843021405585005e-16,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 2,
+    "N": 40,
+    "invert": false,
+    "ns": 32,
+    "h": 0.075,
+    "eV": 2.6040729537328777e-06,
+    "eA": 0.00017388742484985228,
+    "net": 7.547767435215269e-17,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 2,
+    "N": 80,
+    "invert": false,
+    "ns": 32,
+    "h": 0.0375,
+    "eV": 3.5157741387569936e-06,
+    "eA": 3.272671787740653e-05,
+    "net": 1.3744682881709523e-16,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 2,
+    "N": 160,
+    "invert": false,
+    "ns": 32,
+    "h": 0.01875,
+    "eV": 1.0022634652475882e-06,
+    "eA": 6.934709132104024e-07,
+    "net": 1.6521900704850804e-16,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 2,
+    "N": 20,
+    "invert": true,
+    "ns": 32,
+    "h": 0.15,
+    "eV": 8.132529315932823e-05,
+    "eA": 0.0008926033848644788,
+    "net": 3.316037699668079e-17,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 2,
+    "N": 40,
+    "invert": true,
+    "ns": 32,
+    "h": 0.075,
+    "eV": 2.604072953379483e-06,
+    "eA": 0.00022009219294218512,
+    "net": 1.320920469883589e-16,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 2,
+    "N": 80,
+    "invert": true,
+    "ns": 32,
+    "h": 0.0375,
+    "eV": 3.5157741389925903e-06,
+    "eA": 6.732702372623319e-05,
+    "net": 1.357568214415709e-16,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 2,
+    "N": 160,
+    "invert": true,
+    "ns": 32,
+    "h": 0.01875,
+    "eV": 1.0022668607842066e-06,
+    "eA": 1.581873334309589e-05,
+    "net": 3.1382705531304284e-16,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 2,
+    "N": 20,
+    "invert": false,
+    "ns": 8,
+    "h": 0.15,
+    "eV": 0.0009975541885180286,
+    "eA": 3.222424887726856e-05,
+    "net": 1.0719463642742186e-16,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 2,
+    "N": 40,
+    "invert": false,
+    "ns": 8,
+    "h": 0.075,
+    "eV": 0.00023340982445845497,
+    "eA": 0.00010536548603634917,
+    "net": 7.545659921247527e-17,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 2,
+    "N": 80,
+    "invert": false,
+    "ns": 8,
+    "h": 0.0375,
+    "eV": 8.132529315897484e-05,
+    "eA": 0.0003588737012903446,
+    "net": 7.965573682649953e-17,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 2,
+    "N": 160,
+    "invert": false,
+    "ns": 8,
+    "h": 0.01875,
+    "eV": 2.6040771977708063e-06,
+    "eA": 0.0002157835313559348,
+    "net": 7.726416384743104e-17,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 3,
+    "N": 16,
+    "invert": false,
+    "ns": 16,
+    "h": 0.1875,
+    "eV": 1.2536886266024872e-05,
+    "eA": 0.00846757122836931,
+    "net": 4.224518902080181e-17,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 3,
+    "N": 32,
+    "invert": false,
+    "ns": 16,
+    "h": 0.09375,
+    "eV": 9.223160984841282e-06,
+    "eA": 0.002125057837197576,
+    "net": 4.4030999251607925e-16,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 3,
+    "N": 64,
+    "invert": false,
+    "ns": 16,
+    "h": 0.046875,
+    "eV": 1.094966843569673e-06,
+    "eA": 0.0005180056484832245,
+    "net": 1.0024625233033337e-16,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 3,
+    "N": 16,
+    "invert": true,
+    "ns": 16,
+    "h": 0.1875,
+    "eV": 1.2536874329615188e-05,
+    "eA": 0.00855647642098892,
+    "net": 9.705613310856644e-17,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 3,
+    "N": 32,
+    "invert": true,
+    "ns": 16,
+    "h": 0.09375,
+    "eV": 9.22316575948997e-06,
+    "eA": 0.0021625642194668068,
+    "net": 6.254319809753515e-16,
+    "grad": 0.0,
+    "absorbed": 0
+   },
+   {
+    "dim": 3,
+    "N": 64,
+    "invert": true,
+    "ns": 16,
+    "h": 0.046875,
+    "eV": 1.0949740059667788e-06,
+    "eA": 0.0005411071157970902,
+    "net": 7.869667144228035e-16,
+    "grad": 0.0,
+    "absorbed": 0
+   }
+  ],
+  "metrics": {
+   "2d_N20_inv0_ns32_eV": 8.132529315897484e-05,
+   "2d_N20_inv0_ns32_eA": 0.0008531654329522742,
+   "2d_N40_inv0_ns32_eV": 2.6040729537328777e-06,
+   "2d_N40_inv0_ns32_eA": 0.00017388742484985228,
+   "2d_N80_inv0_ns32_eV": 3.5157741387569936e-06,
+   "2d_N80_inv0_ns32_eA": 3.272671787740653e-05,
+   "2d_N160_inv0_ns32_eV": 1.0022634652475882e-06,
+   "2d_N160_inv0_ns32_eA": 6.934709132104024e-07,
+   "2d_N20_inv1_ns32_eV": 8.132529315932823e-05,
+   "2d_N20_inv1_ns32_eA": 0.0008926033848644788,
+   "2d_N40_inv1_ns32_eV": 2.604072953379483e-06,
+   "2d_N40_inv1_ns32_eA": 0.00022009219294218512,
+   "2d_N80_inv1_ns32_eV": 3.5157741389925903e-06,
+   "2d_N80_inv1_ns32_eA": 6.732702372623319e-05,
+   "2d_N160_inv1_ns32_eV": 1.0022668607842066e-06,
+   "2d_N160_inv1_ns32_eA": 1.581873334309589e-05,
+   "2d_N20_inv0_ns8_eV": 0.0009975541885180286,
+   "2d_N20_inv0_ns8_eA": 3.222424887726856e-05,
+   "2d_N40_inv0_ns8_eV": 0.00023340982445845497,
+   "2d_N40_inv0_ns8_eA": 0.00010536548603634917,
+   "2d_N80_inv0_ns8_eV": 8.132529315897484e-05,
+   "2d_N80_inv0_ns8_eA": 0.0003588737012903446,
+   "2d_N160_inv0_ns8_eV": 2.6040771977708063e-06,
+   "2d_N160_inv0_ns8_eA": 0.0002157835313559348,
+   "3d_N16_inv0_ns16_eV": 1.2536886266024872e-05,
+   "3d_N16_inv0_ns16_eA": 0.00846757122836931,
+   "3d_N32_inv0_ns16_eV": 9.223160984841282e-06,
+   "3d_N32_inv0_ns16_eA": 0.002125057837197576,
+   "3d_N64_inv0_ns16_eV": 1.094966843569673e-06,
+   "3d_N64_inv0_ns16_eA": 0.0005180056484832245,
+   "3d_N16_inv1_ns16_eV": 1.2536874329615188e-05,
+   "3d_N16_inv1_ns16_eA": 0.00855647642098892,
+   "3d_N32_inv1_ns16_eV": 9.22316575948997e-06,
+   "3d_N32_inv1_ns16_eA": 0.0021625642194668068,
+   "3d_N64_inv1_ns16_eV": 1.0949740059667788e-06,
+   "3d_N64_inv1_ns16_eA": 0.0005411071157970902
+  }
+ },
+ "figures": [],
+ "suite": "77df7f0",
+ "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+}
