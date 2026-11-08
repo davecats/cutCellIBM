@@ -647,8 +647,9 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    nSubSamples 8: the default 32 left 2-11 such cells per G1 mesh, 64 still 2-3. A candidate cell
    with a wet face now keeps half a sample's fraction (centroid: wet-area-weighted wet face
    centres). 2-D area independent of nSubSamples 8...64, second order (8.93e-4, 2.20e-4, 5.45e-5,
-   1.41e-5). Static tutorials bit-identical; moving bodies change (G7: 1.3e-4 oscillating, 1.2e-3
-   translating; G6 translating budget 6.5e-12 -> 3.8e-10 per step). No nSubSamples minimum needed
+   1.41e-5). Static tutorials bit-identical; moving bodies change (c8c771f, G7: 2.0e-5
+   oscillating, 5.8e-4 translating; G6 translating budget 6.5e-12 -> 3.7e-10 per step, within
+   its 1e-9; not traced, presumably the cells with half a sample's fraction). No nSubSamples minimum needed
    for the area; the volume error still scales with h/nSubSamples. The inverted (concave)
    cylinder still varied by ~1e-5 of the area: f562ca6 looped over the wrong faces (a `point c`
    shadowed the cell; c8c771f), so for it no missed cell was caught. Since c8c771f the 2-D wall
