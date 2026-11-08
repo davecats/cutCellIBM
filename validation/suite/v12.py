@@ -47,16 +47,12 @@ def setup(d, alpha, levels):
               {"inlet": "type zeroGradient;", "outlet": "type fixedValue; value uniform 0;", "sides": "type slip;"})})
     t = (CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default backward;")
     (d / "system" / "fvSchemes").write_text(t)
-    # D/h = 160: DIC-PCG hits maxIter 1000 (as in V5 2D-1): CG preconditioned by pair-agglomeration
-    # GAMG, which also handles the linked cut-cell pressure
-    pre = ("DIC" if levels < 9 else "{ preconditioner GAMG; agglomerator algebraicPair; smoother DICGaussSeidel; "
-           "nCellsInCoarsestLevel 10; tolerance 0; relTol 0; }")
     write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", """
-solvers { p { solver PCG; preconditioner %s; tolerance 1e-8; relTol 0.01; maxIter 1000; } pFinal { $p; relTol 0; }
+solvers { p { solver PCG; preconditioner DIC; tolerance 1e-8; relTol 0.01; } pFinal { $p; relTol 0; }
           U { solver PBiCGStab; preconditioner DILU; tolerance 1e-10; relTol 0; } UFinal { $U; } }
 PIMPLE { momentumPredictor yes; nOuterCorrectors 3; nCorrectors 2; nNonOrthogonalCorrectors 0;
          consistent yes; ddtCorr yes; }
-""" % pre)
+""")
     # 3 outer correctors: one PISO pass per step (convection with the old flux) is first order in
     # time: DFG 2D-2, D/h = 40, C_L amplitude +12.8 %, +6.7 % at dt/2, +0.8 % with 3 (doc §12)
     h = H0/2**levels
