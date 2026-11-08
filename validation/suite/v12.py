@@ -4,7 +4,7 @@ domain of half width 102.4 (their L = 100 D), inflow U, outflow p = 0, slip side
 h0 = 3.2 with 7 (D/h = 40) or 8 (D/h = 80) nested levels. The rotation is a tangential wall
 velocity of an invariant geometry (motion none, angularVelocity 2 alpha), ibmPimpleFoam; statistics
 over the whole cycles in the last 50 time units of 150. Tier 1: alpha = 0, 1, 2; alpha = 2 also at
-D/h = 160 (9 levels, 4 NP ranks; decision D4: -2.2 % at D/h = 80, converging); torque (C_M) needs C1."""
+D/h = 160 (9 levels, 6 NP ranks; decision D4: -2.2 % at D/h = 80, converging); torque (C_M) needs C1."""
 import numpy as np
 
 import common
@@ -26,7 +26,7 @@ CYL = common.TUTORIALS / "cylinderRe1"
 
 
 def ranks(levels):
-    return NP if levels < 9 else 4*NP
+    return NP if levels < 9 else 6*NP
 
 
 def setup(d, alpha, levels):
@@ -47,12 +47,16 @@ def setup(d, alpha, levels):
               {"inlet": "type zeroGradient;", "outlet": "type fixedValue; value uniform 0;", "sides": "type slip;"})})
     t = (CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default backward;")
     (d / "system" / "fvSchemes").write_text(t)
+    # D/h = 160: DIC-PCG hits maxIter 1000 (as in V5 2D-1): CG preconditioned by pair-agglomeration
+    # GAMG, which also handles the linked cut-cell pressure
+    pre = ("DIC" if levels < 9 else "{ preconditioner GAMG; agglomerator algebraicPair; smoother DICGaussSeidel; "
+           "nCellsInCoarsestLevel 10; tolerance 0; relTol 0; }")
     write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", """
-solvers { p { solver PCG; preconditioner DIC; tolerance 1e-8; relTol 0.01; } pFinal { $p; relTol 0; }
+solvers { p { solver PCG; preconditioner %s; tolerance 1e-8; relTol 0.01; maxIter 1000; } pFinal { $p; relTol 0; }
           U { solver PBiCGStab; preconditioner DILU; tolerance 1e-10; relTol 0; } UFinal { $U; } }
 PIMPLE { momentumPredictor yes; nOuterCorrectors 3; nCorrectors 2; nNonOrthogonalCorrectors 0;
          consistent yes; ddtCorr yes; }
-""")
+""" % pre)
     # 3 outer correctors: one PISO pass per step (convection with the old flux) is first order in
     # time: DFG 2D-2, D/h = 40, C_L amplitude +12.8 %, +6.7 % at dt/2, +0.8 % with 3 (doc §12)
     h = H0/2**levels

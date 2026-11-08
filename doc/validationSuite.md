@@ -624,13 +624,32 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    converge (max |p − p_exact| ≈ 0.07 at N = 20…160 where the level wall meets the outflow
    boundary; body-fitted corner 2e-3 and converging). Relevant to V14 (cylinder spanning the
    channel walls) and V15 (plate meeting the outflow).
-3. **G9: wall at 45°**: interior p max norm stalls near 6e-3 (L2 second order).
-4. **G1**: the wall area depends on nSubSamples (nSubSamples 8: area error not converging).
-5. **V3: the first-order moving path no longer reproduces the notebook** (force history 2.5e-3,
-   final u 1.4e-3 / 2.9e-3; 2e-5 on 2026-09-08). Not attributed (candidates since then:
-   bc08f21 wall-velocity evaluation point, b01303a rotating-wall mass source, 7f50469
-   fillUncovered); needs a bisect or a regenerated reference. Galilean equivalence (translating
-   vs fixed cylinder, N = 81): +0.55 % at first order, +0.08 % at the defaults.
+3. ~~G9: wall at 45°: interior p max norm stalls near 6e-3~~ **resolved (e2a9780): it is finding
+   2.** The 45° wall meets the bottom of the Hiemenz box at x = -0.465, 0.135 from the left face;
+   the "interior" excluded the faces other than the bottom, so the junction counted. The max
+   error at N = 80, 160 sits within 0.007 of the bottom. Interior = 0.1 from every outer face but
+   a body-fitted wall: p Linf 2.8e-2, 6.9e-3, 2.1e-3, 5.1e-4 (order 1.88, was 0.06).
+4. ~~G1: the wall area depends on nSubSamples~~ **resolved (f562ca6): cut cells closed by the
+   sampling.** The wall area comes from the exact face fractions (closure), not from the samples;
+   but a cut cell whose fluid is smaller than one sample got alpha = 0 and was closed like a solid
+   cell, which moved its wall segment onto the neighbours' faces and dropped its volume. Not only
+   nSubSamples 8: the default 32 left 2-11 such cells per G1 mesh, 64 still 2-3. A candidate cell
+   with a wet face now keeps half a sample's fraction (centroid: wet-area-weighted wet face
+   centres). 2-D area independent of nSubSamples 8...64, second order (8.93e-4, 2.20e-4, 5.45e-5,
+   1.41e-5). Static tutorials bit-identical; moving bodies change (G7: 1.3e-4 oscillating, 1.2e-3
+   translating; G6 translating budget 6.5e-12 -> 3.8e-10 per step). No nSubSamples minimum needed
+   for the area; the volume error still scales with h/nSubSamples. Open: the inverted (concave)
+   2-D cylinder still varies by ~1e-5 of the area with nSubSamples, not from this mechanism
+   (a guard for cells whose solid is smaller than a sample did not change it); suspected linking.
+5. ~~V3: the first-order moving path no longer reproduces the notebook~~ **resolved (41e9947).**
+   Bisect over 11 builds with fixed case files and every option pinned: the force difference
+   (2.5e-3) is the same back to 38e21af, the commit that matched: V3 took the maximum over sampled
+   steps including the impulsive first two (the first step differs by 0.19 % since 2026-09-08,
+   README). The final fields changed at 7f50469: fillUncovered (intended; p of uncovered cells
+   from the fluid neighbours). reference_moving.py --fillUncovered ports it (without it the stored
+   references are reproduced bit for bit): force 1.8e-5 / 3.4e-5 after the first 10 steps, u
+   2.5e-7 / 5.7e-7 (oscillating / translating); V3 checks 1e-4 and 1e-5. Galilean equivalence
+   (translating vs fixed cylinder, N = 81): +0.55 % at first order, +0.08 % at the defaults.
 6. **One PISO pass per step is first order in time** (V5 2D-2, V12). DFG 2D-2 at D/h = 40
    (nOuterCorrectors 1, Courant 0.8, backward): C_L amplitude +12.8 %, St −1.2 %; at dt/2
    +6.7 %, −0.7 %; with 3 outer correctors (same dt) +0.8 %, −0.3 % (the remaining spatial
