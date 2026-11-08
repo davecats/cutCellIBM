@@ -23,7 +23,7 @@ solvers
 PIMPLE
 {
     momentumPredictor   yes;
-    nOuterCorrectors    1;
+    nOuterCorrectors    3;      // one PISO pass is first order in time (C_L amplitude +13 % in DFG 2D-2)
     nCorrectors         2;
     nNonOrthogonalCorrectors 0;
     consistent          no;

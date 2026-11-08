@@ -650,13 +650,16 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    references are reproduced bit for bit): force 1.8e-5 / 3.4e-5 after the first 10 steps, u
    2.5e-7 / 5.7e-7 (oscillating / translating); V3 checks 1e-4 and 1e-5. Galilean equivalence
    (translating vs fixed cylinder, N = 81): +0.55 % at first order, +0.08 % at the defaults.
-6. **One PISO pass per step is first order in time** (V5 2D-2, V12). DFG 2D-2 at D/h = 40
+6. **One PISO pass per step is first order in time** (V5 2D-2, V12) **resolved**. DFG 2D-2 at D/h = 40
    (nOuterCorrectors 1, Courant 0.8, backward): C_L amplitude +12.8 %, St −1.2 %; at dt/2
    +6.7 %, −0.7 %; with 3 outer correctors (same dt) +0.8 %, −0.3 % (the remaining spatial
    error). D/h = 80 with one pass (+5.9 %) carries the error of its time step, not of its mesh.
-   The convecting flux of a single pass is that of the previous step; whether the immersed
-   wall adds to this (lagged wall terms) is not separated yet (needs the same test body-fitted).
-   V5 2D-2 and V12 now use 3 outer correctors (V13: 2); the tutorials still use 1. With them V5
+   The convecting flux of a single pass is that of the previous step. **Generic PISO, not the
+   immersed wall** (D2, `bodyfitted.py dfg`, O-grid M = 64, 44k cells, same Δt): one pass
+   C_Lmax +12.9 %, St −1.28 %; dt/2 +7.0 %, −0.82 %; 3 outer correctors +1.1 %, −0.34 % (C_Dmax
+   +1.04 / +0.53 / +0.02 %). The one-pass error halves with Δt and matches the immersed one.
+   V5 2D-2 and V12 use 3 outer correctors (V13: 2), so does the one time-resolved tutorial
+   (`amr/cylinderRe100`); the others are Re = 1 marched to a steady state with Δt ≈ 1. With them V5
    passes at D/h = 80 (St −0.04 %, C_Dmax +0.14 %, C_Lmax −0.07 %, Δp −0.35 %).
 7. **V12 α = 1: mean C_L −2.482 (D/h = 80) against −2.265 (figure 11 digitised)**, moving away
    on refinement (−2.452 at D/h = 40); α = 2 (steady) converges to its reference (−5.600,
@@ -676,6 +679,7 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   V12 is re-accepted after D3/D4.
 - **D2** (finding 6) Body-fitted DFG 2D-2 with one pass at D/h = 40 first, to separate generic
   PISO from lagged wall terms; then 2–3 outer correctors in the transient tutorials and docs.
+  Done: generic PISO (finding 6); `amr/cylinderRe100` to 3 outer correctors, README.
 - **D3** (finding 7) Body-fitted rotating cylinder at α = 1 (O-grid, same domain, BCs and
   rotating-wall velocity) as independent reference; the check stays FAIL until then.
 - **D4** V12 α = 2: add D/h = 160 (steady, locally).

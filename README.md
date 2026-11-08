@@ -362,8 +362,12 @@ momentumSource
   interpolation `linear`.
 * `PIMPLE { consistent yes; nOuterCorrectors 3; nCorrectors 1; ddtCorr yes; }` for moving
   bodies: with a single outer iteration the convective flux would be assembled from a
-  geometry one displacement out of date. `ddtCorr yes` (the OpenFOAM default) keeps the
-  Rhie-Chow coupling independent of Δt; switch it off only to compare with the notebooks.
+  geometry one displacement out of date. For any time-resolved flow, static bodies too, use
+  2–3 outer correctors: one PISO pass convects with the flux of the previous step and is
+  first order in time whatever the ddt scheme (DFG 2D-2 at the same Δt: C_L amplitude
+  +12.8 % with one pass, +12.9 % body-fitted; +0.8 % with three). Runs marched to a steady
+  state with Δt ≈ 1 (the `cylinderRe1_pimple` and scalar tutorials) do not need it.
+  `ddtCorr yes` (the OpenFOAM default) keeps the Rhie-Chow coupling independent of Δt; switch it off only to compare with the notebooks.
   No under-relaxation of `U` in PIMPLE; `relaxationFactors { equations { U 0.9; } fields
   { p 1; } }` for SIMPLE.
 * The pressure reference cell (`pRefCell`/`pRefPoint`) must be a fluid cell; with moving
