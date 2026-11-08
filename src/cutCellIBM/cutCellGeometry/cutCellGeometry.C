@@ -1471,8 +1471,8 @@ void Foam::cutCellGeometry::calcFromLevelSet
 
         if (nPos > 0 && nNeg > 0)
         {
-            point c;
-            alpha[celli] = sampleCellFraction(celli, c);
+            point xc;
+            alpha[celli] = sampleCellFraction(celli, xc);
             ++nCandidates;
 
             // A cell with a wet face holds fluid (the face fractions are
@@ -1498,11 +1498,11 @@ void Foam::cutCellGeometry::calcFromLevelSet
                 if (wSum > 0)
                 {
                     alpha[celli] = 0.5/nSamples;
-                    c = sum/wSum;
+                    xc = sum/wSum;
                     ++nMissed;
                 }
             }
-            centroidOffset[celli] = c - mesh_.cellCentres()[celli];
+            centroidOffset[celli] = xc - mesh_.cellCentres()[celli];
         }
         else
         {
