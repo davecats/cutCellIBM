@@ -3,7 +3,7 @@ Hiemenz (2-D, box [-0.6, 1.4] x [-0.5, 1]) at cut fractions f = 0.1, 0.5, 0.9 of
 tan(alpha) = 1/3, 1; Homann (3-D) level and tilted. Convection at the wall (K7) and the wall
 traction (K3) without curvature or separation (doc/validationSuite.md §11).
 
-a = 1, nu = 0.01; U from the exact solution on every outer face, p zeroGradient (fixedFluxPressure is evaluated before the solver sets it) with the
+a = 1, nu = 0.01; U from the exact solution on every outer face (cut faces: at the centroid of their wet part), p zeroGradient (fixedFluxPressure is evaluated before the solver sets it) with the
 exact value in a reference cell; steady ibmSimpleFoam. Errors at the fluid centroids
 (alpha-weighted L2, Linf) of u and p; the wall force against the exact integral over the wall
 inside the box (viscous: tangential shear; pressure: p0 - a^2 s^2/2). Body-fitted control:
@@ -103,6 +103,46 @@ def face_areas(xf, lo, hi, n, kind):
     return S
 
 
+def wet_centres(xf, lo, hi, n, origin, nrm):
+    """centroid and fraction of the part of each boundary face on the fluid side of the plane
+    wall: the face rectangle (axis-aligned box face) clipped by (x - origin).nrm >= 0"""
+    lo, hi = np.asarray(lo, float), np.asarray(hi, float)
+    h = (hi - lo)/np.asarray(n, float)
+    xw, th = xf.copy(), np.ones(len(xf))
+    for m, c in enumerate(xf):
+        i = int(np.argmin([min(abs(c[a] - lo[a]), abs(c[a] - hi[a]))/h[a] for a in range(3)]))
+        j, k = [a for a in range(3) if a != i]
+        poly = []
+        for sj, sk in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+            q = c.copy()
+            q[j] += 0.5*sj*h[j]
+            q[k] += 0.5*sk*h[k]
+            poly.append(q)
+        dist = [float(np.dot(q - origin, nrm)) for q in poly]
+        if min(dist) >= 0:
+            continue
+        clip = []
+        for a in range(4):
+            q0, q1, d0, d1 = poly[a], poly[(a + 1) % 4], dist[a], dist[(a + 1) % 4]
+            if d0 >= 0:
+                clip.append(q0)
+            if (d0 >= 0) != (d1 >= 0):
+                clip.append(q0 + d0/(d0 - d1)*(q1 - q0))
+        if len(clip) < 3:
+            th[m] = 0.0
+            continue
+        # area-weighted centroid of the fan triangles
+        A, X = 0.0, np.zeros(3)
+        for a in range(1, len(clip) - 1):
+            t = 0.5*np.linalg.norm(np.cross(clip[a] - clip[0], clip[a + 1] - clip[0]))
+            A += t
+            X += t*(clip[0] + clip[a] + clip[a + 1])/3
+        th[m] = A/(h[j]*h[k])
+        if A > 0:
+            xw[m] = X/A
+    return xw, th
+
+
 def boundary_values(d, kind, tan, f, N, bf, origin, nrm):
     """0/U and 0/p with the exact U on the outer faces (face centres from writeCellCentres).
     The solver's boundary flux is theta U.S (theta: fluid fraction of the face, ibmTheta). Point
@@ -119,7 +159,10 @@ def boundary_values(d, kind, tan, f, N, bf, origin, nrm):
             pu.append("    wall { type noSlip; }")
             pp.append("    wall { type zeroGradient; }")
             continue
-        U, _ = hz.exact(xf, A, NU, origin, nrm, kind)
+        # a cut face carries theta U_b.S: U_b at the centroid of its wet part (at the geometric
+        # centre, on or behind the wall, the face would carry no flux or the wrong one)
+        xw, _ = wet_centres(xf, lo, hi, n, origin, nrm) if not bf else (xf, None)
+        U, _ = hz.exact(xw, A, NU, origin, nrm, kind)
         # faces in the solid get the continuation of the exact solution (divergence-free)
         theta = np.broadcast_to(th.get(name, 1.0), (len(U),)).astype(float)
         U[theta <= 0] = 0.0

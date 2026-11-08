@@ -624,6 +624,13 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    converge (max |p − p_exact| ≈ 0.07 at N = 20…160 where the level wall meets the outflow
    boundary; body-fitted corner 2e-3 and converging). Relevant to V14 (cylinder spanning the
    channel walls) and V15 (plate meeting the outflow).
+   **Level wall: the gate's boundary data.** A cut outer face carries theta U_b.S; G9 took U_b
+   at the geometric face centre, which at f = 0.5 lies on the wall (U_b = 0: the wet half of the
+   face carried no flux) and at f = 0.1 behind it: an O(1) mass defect of the corner cell at
+   every N. With U_b at the centroid of the wet part the junction max converges (f = 0.5: 2.1e-2,
+   8.0e-3, 4.0e-3, 2.3e-3; f = 0.1: 3.8e-2 ... 3.8e-3; was 0.07). A fixedValue on a cut face is
+   the value over its wet part (README). **Open: the 45° wall** where it meets the top (inflow)
+   boundary in an acute fluid wedge: -2.3e-2, -2.7e-2 at N = 80, 160 in the linked boundary pair.
 3. ~~G9: wall at 45°: interior p max norm stalls near 6e-3~~ **resolved (e2a9780): it is finding
    2.** The 45° wall meets the bottom of the Hiemenz box at x = -0.465, 0.135 from the left face;
    the "interior" excluded the faces other than the bottom, so the junction counted. The max
@@ -638,9 +645,10 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    centres). 2-D area independent of nSubSamples 8...64, second order (8.93e-4, 2.20e-4, 5.45e-5,
    1.41e-5). Static tutorials bit-identical; moving bodies change (G7: 1.3e-4 oscillating, 1.2e-3
    translating; G6 translating budget 6.5e-12 -> 3.8e-10 per step). No nSubSamples minimum needed
-   for the area; the volume error still scales with h/nSubSamples. Open: the inverted (concave)
-   2-D cylinder still varies by ~1e-5 of the area with nSubSamples, not from this mechanism
-   (a guard for cells whose solid is smaller than a sample did not change it); suspected linking.
+   for the area; the volume error still scales with h/nSubSamples. The inverted (concave)
+   cylinder still varied by ~1e-5 of the area: f562ca6 looped over the wrong faces (a `point c`
+   shadowed the cell; c8c771f), so for it no missed cell was caught. Since c8c771f the 2-D wall
+   area is identical to 12 digits for nSubSamples 8...64, outside and inside, N = 20...160.
 5. ~~V3: the first-order moving path no longer reproduces the notebook~~ **resolved (41e9947).**
    Bisect over 11 builds with fixed case files and every option pinned: the force difference
    (2.5e-3) is the same back to 38e21af, the commit that matched: V3 took the maximum over sampled
