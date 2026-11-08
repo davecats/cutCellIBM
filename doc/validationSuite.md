@@ -630,7 +630,11 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    every N. With U_b at the centroid of the wet part the junction max converges (f = 0.5: 2.1e-2,
    8.0e-3, 4.0e-3, 2.3e-3; f = 0.1: 3.8e-2 ... 3.8e-3; was 0.07). A fixedValue on a cut face is
    the value over its wet part (README). **Open: the 45° wall** where it meets the top (inflow)
-   boundary in an acute fluid wedge: -2.3e-2, -2.7e-2 at N = 80, 160 in the linked boundary pair.
+   boundary in an acute (45°) fluid wedge: one small cut cell (alpha 0.19 at N = 160) at
+   -1.5e-2, -1.8e-2, -2.6e-2 (N = 40, 80, 160), the same without linking and without
+   ibmConvection; with the exact p prescribed on the outer faces too (instead of zeroGradient)
+   -1.1e-2 at every N. Its neighbours and the obtuse (135°) junction at the bottom converge
+   (1.6e-3); the L2 norms and force orders are unaffected. Not V14/V15 (right-angle junctions).
 3. ~~G9: wall at 45°: interior p max norm stalls near 6e-3~~ **resolved (e2a9780): it is finding
    2.** The 45° wall meets the bottom of the Hiemenz box at x = -0.465, 0.135 from the left face;
    the "interior" excluded the faces other than the bottom, so the junction counted. The max
