@@ -674,13 +674,23 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    V5 2D-2 and V12 use 3 outer correctors (V13: 2), so does the one time-resolved tutorial
    (`amr/cylinderRe100`); the others are Re = 1 marched to a steady state with Δt ≈ 1. With them V5
    passes at D/h = 80 (St −0.04 %, C_Dmax +0.14 %, C_Lmax −0.07 %, Δp −0.35 %).
-7. **V12 α = 1: mean C_L −2.482 (D/h = 80) against −2.265 (figure 11 digitised)**, moving away
+7. ~~V12 α = 1: mean C_L −2.482 (D/h = 80) against −2.265 (figure 11 digitised)~~ **resolved
+   (668471e): the reference.**, moving away
    on refinement (−2.452 at D/h = 40); α = 2 (steady) converges to its reference (−5.600,
    −5.469 → −5.351), α = 0 passes. **Not finding 6**: with 3 outer correctors (D/h = 80, to
    t = 150) the mean over the same 9 whole cycles is −2.464 (one pass −2.482); C_D, C_L r.m.s.
    and St agree at the same α. Remaining candidates: the reference (read off a bitmap curve; no
    independent tabulated value at Re = 200 found), the rotating-wall treatment at moderate α,
    domain and boundary conditions. Proposed: a body-fitted rotating cylinder at α = 1.
+   Body-fitted pimpleFoam on O-grids, same domain and boundary conditions (`bodyfitted.py rot`,
+   M = 64 / 128 cells per quarter circle, 61k / 243k cells): α = 1 mean C_L −2.4984 / −2.4994,
+   C_D 1.083, C_Lrms 0.4946, St 0.1931; the IBM (3 outer correctors) converges to it: −2.375,
+   −2.465 at D/h = 40, 80 (1.4 % short). Figure 11 is 10 % off both. α = 0: body-fitted C_D
+   1.3206, St 0.1949, C_Lrms 0.4732 (IBM D/h = 80: 1.3229, 0.1949, 0.4734); α = 2: C_L −5.375,
+   C_D 0.2887 (IBM D/h = 40, 80, 160: −5.073, −5.303, −5.358; C_D 0.354, 0.294, 0.292). V12
+   checks α = 1 mean C_L against the body-fitted M 128 (`data/rotatingCylinder_bodyFitted`)
+   and reports figure 11 and the body-fitted comparison for every α. Not checked: whether the
+   shared domain/boundary setup or the digitisation separates both from Mittal & Kumar.
 8. ~~V12 statistics over a window that is not a whole number of cycles~~ **resolved**: the last
    50 time units are 9.6 periods at α = 1; the partial period biased mean C_L by −0.021 (α = 1)
    and +0.015 (α = 0, reference 0, tolerance 0.02). `meshes.periodic_statistics` now averages
@@ -695,7 +705,9 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   Done: generic PISO (finding 6); `amr/cylinderRe100` to 3 outer correctors, README.
 - **D3** (finding 7) Body-fitted rotating cylinder at α = 1 (O-grid, same domain, BCs and
   rotating-wall velocity) as independent reference; the check stays FAIL until then.
+  Done (668471e): the IBM agrees with it, figure 11 does not (finding 7).
 - **D4** V12 α = 2: add D/h = 160 (steady, locally).
+  Done: −5.073, −5.303, −5.358 at D/h = 40, 80, 160 (body-fitted −5.375): converging.
 - **D5** (finding 2) Junction pressure stays REPORT in G9; fixed before V14–V16 (tier 2).
 - **D6** (finding 3) 45° wall: locate the cells of the max error and isolate the cut topology now.
 - **D7** (finding 4) Minimum nSubSamples (16 in 2-D) in tutorials and docs with a warning below
