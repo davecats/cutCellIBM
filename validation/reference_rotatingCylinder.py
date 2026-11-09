@@ -11,7 +11,9 @@ Figure 11 digitised (validation/data/mittalKumar2003, bitmapFigures_extract.py, 
 axis range): time averages and r.m.s. of the periodic state, alpha = 0...4.3. C_M from the
 difference of two digitised curves is uncertain by ~0.03/alpha (use alpha >= 1.5).
 """
+import json
 import os
+
 import numpy as np
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "mittalKumar2003")
@@ -30,6 +32,15 @@ def figure11():
     with np.errstate(invalid="ignore", divide="ignore"):
         d["C_M"] = np.where(d["alpha"] > 0, (d["C_P"] - d["C_D"])/d["alpha"], np.nan)
     return d
+
+
+def bodyFitted(M=128):
+    """the V12 problem body-fitted (suite/bodyfitted.py rot, decision D3): {alpha: row} with C_L,
+    C_D, C_Lrms, C_Drms, St of the O-grid with M cells per quarter circle (64: 61k cells, 128: 243k;
+    mean C_L at alpha = 1: -2.4984, -2.4994)"""
+    with open(os.path.join(os.path.dirname(DATA), "rotatingCylinder_bodyFitted", "rot.json")) as f:
+        rows = json.load(f)["rows"]
+    return {r["alpha"]: r for r in rows if r["M"] == M}
 
 
 def check():
