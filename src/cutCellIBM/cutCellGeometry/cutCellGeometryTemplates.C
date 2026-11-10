@@ -57,10 +57,15 @@ Foam::cutCellGeometry::snGradCorrection
     const labelUList& nei = mesh_.neighbour();
     const surfaceVectorField& Sf = mesh_.Sf();
     const surfaceScalarField& magSf = mesh_.magSf();
+    const volVectorField& C = mesh_.C();
+    const surfaceVectorField& Cf = mesh_.Cf();
+    const vectorField& off = valueOffset_.primitiveField();
 
     for (direction cmpt = 0; cmpt < pTraits<Type>::nComponents; ++cmpt)
     {
-        const tmp<volVectorField> tg(lsqGrad(vf.component(cmpt)));
+        const tmp<volScalarField> tvc(vf.component(cmpt));
+        const volScalarField& vc = tvc();
+        const tmp<volVectorField> tg(lsqGrad(vc));
         const volVectorField& g = tg();
 
         surfaceScalarField c
@@ -84,7 +89,39 @@ Foam::cutCellGeometry::snGradCorrection
         forAll(mesh_.boundary(), patchi)
         {
             const fvPatch& fvp = mesh_.boundary()[patchi];
-            if (!fvp.coupled()) continue;
+            if (!fvp.coupled())
+            {
+                // A fixed value on a cut face is the value at its wet-face
+                // centroid x'_f, the cell value is at its value point x_v:
+                // the boundary condition differences them over the mesh
+                // delta (cell centre to face centre), n.d_mesh. With
+                // d = x'_f - x_v the gradient is
+                //   (v_b - v_P - g_P.(d - (n.d) n))/(n.d)
+                if (!vf.boundaryField()[patchi].fixesValue()) continue;
+                const labelUList& fc = fvp.faceCells();
+                const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
+                const fvsPatchVectorField& Sfp = Sf.boundaryField()[patchi];
+                const fvsPatchScalarField& magSfp = magSf.boundaryField()[patchi];
+                const fvsPatchVectorField& Cfp = Cf.boundaryField()[patchi];
+                const fvsPatchVectorField& wop =
+                    wetFaceOffset_.boundaryField()[patchi];
+                const scalarField& dcMesh = fvp.deltaCoeffs();
+                const scalarField& vb = vc.boundaryField()[patchi];
+                fvsPatchScalarField& cp = c.boundaryFieldRef()[patchi];
+                forAll(fvp, i)
+                {
+                    const label o = fc[i];
+                    if (tp[i] <= 0 || solidCells_.test(o)) continue;
+                    if (tp[i] >= 1 && magSqr(off[o]) == 0) continue;
+                    const vector n(Sfp[i]/magSfp[i]);
+                    const vector d(Cfp[i] + wop[i] - C[o] - off[o]);
+                    const scalar nd = max(n & d, 0.1/dcMesh[i]);
+                    cp[i] =
+                        (vb[i] - vc[o])*(1.0/nd - dcMesh[i])
+                      - (g[o] & (d - (n & d)*n))/nd;
+                }
+                continue;
+            }
             const labelUList& fc = fvp.faceCells();
             const vectorField gN(g.boundaryField()[patchi].patchNeighbourField());
             const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
