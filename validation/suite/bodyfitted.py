@@ -223,7 +223,8 @@ def run(d):
 
 
 def history(d):
-    """time, C_D, C_L from the forces function object (U = 1 and D = 1, or mean U = 1 and D = 0.1)"""
+    """time, C_D, C_L from the forces function object (U = 1 and D = 1, or mean U = 1 and D = 0.1),
+    and C_M = -M_z/(U^2 a^2) about CofR (a = D/2; Mittal & Kumar's sign: positive against the rotation)"""
     d = Path(d)
     meta = json.loads((d / "case.json").read_text())
     D = 1.0 if meta["kind"] == "rot" else 0.1
@@ -235,18 +236,25 @@ def history(d):
     _, k = np.unique(h[:, 0], return_index=True)
     h = h[k]
     F = h[:, 1:4]
-    return h[:, 0], 2*F[:, 0]/(D*DZ), 2*F[:, 1]/(D*DZ)
+    rows = []
+    for f in sorted(d.glob("postProcessing/forces/*/moment.dat"), key=lambda p: float(p.parent.name)):
+        rows.append(np.loadtxt((l.replace("(", " ").replace(")", " ") for l in f.open()), ndmin=2, comments="#"))
+    m = np.vstack(rows)
+    _, k = np.unique(m[:, 0], return_index=True)
+    m = m[k]
+    assert np.array_equal(m[:, 0], h[:, 0]), "force.dat and moment.dat times differ"
+    return h[:, 0], 2*F[:, 0]/(D*DZ), 2*F[:, 1]/(D*DZ), -m[:, 3]/((D/2)**2*DZ)
 
 
 def evaluate(d):
     d = Path(d)
     meta = json.loads((d / "case.json").read_text())
-    t, cd, cl = history(d)
+    t, cd, cl, cm = history(d)
     out = dict(meta, t_end=float(t[-1]), cells=None)
     m = __import__("re").search(r"cells:\s+(\d+)", (d / "log.checkMesh").read_text()) if (d / "log.checkMesh").exists() else None
     out["cells"] = int(m.group(1)) if m else None
     if meta["kind"] == "rot":
-        st = meshes.periodic_statistics(t, cl, cd, 50.0)
+        st = meshes.periodic_statistics(t, cl, cd, 50.0, cm)
         out.update(St=st.pop("f"), **st)
     else:
         import reference_dfg as dfg_ref

@@ -208,7 +208,10 @@ Not involved: turbulence, wall functions, moving geometry, scalars.
 ### Prerequisite code changes (general, not case-specific)
 
 - **C1 torque output:** torque of pressure and viscous wall forces about the centre of rotation
-  of each body, in `forces.dat` and the log.
+  of each body, in `forces.dat` and the log. **Done (2026-11-10):** in `moments.dat` next to
+  `forces.dat` (same columns; the readers of `forces.dat` assume six columns per body) and the
+  log. It needed the transpose stress of a rotating wall (finding 10). V1 checks the exact
+  Taylor-Couette torque on both cylinders, V12 the mean C_M against the body-fitted solution.
 - **C2 tangential wall velocity on a static geometry:** a body whose motion leaves it invariant
   (sphere rotating about a diameter, body of revolution about its axis, cylinder sliding along its
   axis) keeps its geometry fixed, has no wall flux, and only supplies a wall velocity to the
@@ -719,6 +722,18 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    1.93; threshold raised from 0.9 to 1.5, 2026-11-10) and reports the normal part. (c) The pressure force depends on the pressure constant
    (fixed in one reference cell): now with the mean error removed as in the norms (finest
    errors 1e-5 … 2e-3; Homann was 4 %).
+10. **The wall traction is ν ∂u/∂n, not the stress** (C1, 2026-11-10). The no-slip traction
+   `ν (u_P − u_b)/d` is the wall flux of the Laplacian form of the momentum equation, which is
+   right for the momentum (div (∇u)ᵀ = 0) and for the force on a closed rigid body, but the moment
+   needs the stress `ν (∇u + (∇u)ᵀ)·n`. On the no-slip wall of a rigid body `(∇u)ᵀ·n = n × ω`;
+   its moment on a rotating circular cylinder is `−2πνωR²` per unit length. Taylor-Couette
+   (V1, inner cylinder rotating): torque −1.963 against the exact −3.534 (−45 %, at every N)
+   without it, outer cylinder (at rest) second order already; with it both second order:
+   inner 7.4e-3, 1.8e-3, 4.7e-4, 1.1e-4, outer 5.4e-3, 1.4e-3, 3.7e-4, 7.9e-5 (N = 40…320,
+   linked); secondOrder false 1.8e-2, 7.7e-3 (inner) at N = 80, 160. `forces()` adds
+   `ν ω × S_k` (zero sum on a closed body) and its moment `ω tr T − ω·T` exactly from the wall
+   pieces. V12 body-fitted C_M (OpenFOAM forces, full stress): 0.2296 / 0.2295 (α = 1),
+   0.4635 / 0.4633 (α = 2) at M = 64 / 128; figure 11 ((C_P − C_D)/α) 0.238 and 0.468.
 
 ### Decisions (2026-11-07)
 

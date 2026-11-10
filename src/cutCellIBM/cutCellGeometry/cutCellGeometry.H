@@ -31,7 +31,8 @@ Description
     nSubSamples   32;     // per direction, for the cell fluid fraction
     nBisect       40;     // bisection steps locating the wall on cut edges
     writeFields   true;   // write ibmAlpha, ibmTheta, ... at start-up
-    writeForces   true;   // postProcessing/ibmForces/<time>/forces.dat
+    writeForces   true;   // postProcessing/ibmForces/<time>/forces.dat and
+                          // moments.dat (torque about each body's centre)
 
     bodies
     {
@@ -195,6 +196,10 @@ class cutCellGeometry
         tensorField wallMoment_;
         vectorField wallPieceSum_;
 
+        //- sum_k (x_k - x_c) ((x_k - x_c) ^ S_k): moment of the linear part
+        //  of the wall pressure about the value point (torque)
+        tensorField wallTorqueMoment_;
+
         //- Work arrays filled by faceFractions/calcFromLevelSet
         mutable vectorField wetOffsetAll_;
 
@@ -213,6 +218,7 @@ class cutCellGeometry
         bool upToDate_;
 
         mutable autoPtr<OFstream> forcesFilePtr_;
+        mutable autoPtr<OFstream> momentsFilePtr_;
 
 
     // Moving bodies only
@@ -908,22 +914,58 @@ public:
             //  (master and slaves), 0 elsewhere
             const scalarField& linkWallDist() const { return linkWallDist_; }
 
-            //- Force on every body (per unit density): pressure and viscous
+            //- Force on every body (per unit density): pressure and viscous.
+            //  nu: viscosity of the wall traction (with a wall law the wall
+            //  viscosity); nuMolecularPtr: molecular viscosity of the
+            //  transpose part of the stress on rotating bodies (default nu)
             void forces
             (
                 const volScalarField& p,
                 const volVectorField& U,
                 const volScalarField& nu,
                 List<vector>& Fp,
-                List<vector>& Fv
+                List<vector>& Fv,
+                const volScalarField* nuMolecularPtr = nullptr
             ) const;
 
-            //- Print the forces and append them to the forces file
+            //- Force and moment on every body (per unit density), pressure
+            //  and viscous; moments about the current centre of each body
+            //  (ibmBody::currentCentre: the centre of rotation if the motion
+            //  gives one, otherwise the body centre), minimum image in the
+            //  periodic directions
+            void forces
+            (
+                const volScalarField& p,
+                const volVectorField& U,
+                const volScalarField& nu,
+                List<vector>& Fp,
+                List<vector>& Fv,
+                List<vector>& Mp,
+                List<vector>& Mv,
+                const volScalarField* nuMolecularPtr = nullptr
+            ) const;
+
+            //- Print the forces and moments and append them to the forces
+            //  and moments files
             void reportForces
             (
                 const volScalarField& p,
                 const volVectorField& U,
-                const volScalarField& nu
+                const volScalarField& nu,
+                const volScalarField* nuMolecularPtr = nullptr
+            ) const;
+
+            //- Append one line of per-body pressure and viscous vectors to a
+            //  file in postProcessing/ibmForces/<start time> (opened on the
+            //  first call, with a header)
+            void writeForceFile
+            (
+                autoPtr<OFstream>& filePtr,
+                const word& fileBaseName,
+                const string& title,
+                const word& symbol,
+                const List<vector>& Xp,
+                const List<vector>& Xv
             ) const;
 
 

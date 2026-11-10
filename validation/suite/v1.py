@@ -1,6 +1,9 @@
 """V1 Taylor-Couette flow between two immersed cylinders (tutorials/order/taylorCouette): exact
 u_theta = A r + B/r and pressure; L2 errors over all fluid cells and over the cut cells,
-N = 40...320, linked (default) and unlinked; secondOrder false reported."""
+N = 40...320, linked (default) and unlinked; secondOrder false reported. Torque on each cylinder
+(postProcessing/ibmForces/<t>/moments.dat, C1) against the exact 4 pi nu B per unit depth (the inner
+one rotates: it includes the transpose stress nu (n ^ omega) of the rotating wall)."""
+import glob
 import os
 
 import numpy as np
@@ -15,6 +18,17 @@ REGRESSION = (0.01,)
 
 SRC = common.TUTORIALS / "order" / "taylorCouette"
 RI, RO, OM, CX, CY = 0.5, 1.5, 1.0, 1.6, 1.6
+NU, L = 1.0, 3.2   # constant/transportProperties, system/blockMeshDict (square of side L, depth L/N)
+
+
+def torques(d, N):
+    """relative errors of the final torque on the inner and the outer cylinder (bodies 0 and 1)"""
+    f = sorted(glob.glob(os.path.join(d, "postProcessing", "ibmForces", "*", "moments.dat")),
+               key=lambda q: float(os.path.basename(os.path.dirname(q))))[-1]
+    m = np.loadtxt(f, ndmin=2)[-1]
+    dz = L/N
+    exact = 4*np.pi*NU*OM*RI**2*RO**2/(RO**2 - RI**2)
+    return {"Min": float((-(m[3] + m[6])/dz - exact)/exact), "Mout": float(((m[9] + m[12])/dz - exact)/exact)}
 
 
 def errors(d):
@@ -50,7 +64,7 @@ def one(ctx, N, ma, so):
     # pseudo-time to the steady state: the viscous time R^2/nu = 1 over 6 units at dt 0.02
     for cmd in ("blockMesh", "postProcess -func writeCellCentres -time 0", "ibmSetGeometry", "ibmPimpleFoam"):
         common.sh(cmd, d, "log." + cmd.split()[0])
-    return {"N": N, "ma": ma, "so": so, **errors(d)}
+    return {"N": N, "ma": ma, "so": so, **errors(d), **torques(d, N)}
 
 
 def run(ctx, res):
@@ -59,7 +73,7 @@ def run(ctx, res):
     rows = common.pmap(lambda j: one(ctx, *j), jobs, ctx.jobs)
     res.data["rows"] = rows
     res.data["metrics"] = {"N%d_ma%g_so%d_%s" % (r["N"], r["ma"], r["so"], k): r[k]
-                           for r in rows for k in ("uL2", "pL2", "uL2cut")}
+                           for r in rows for k in ("uL2", "pL2", "uL2cut", "Min", "Mout")}
     for ma, so in ((0.5, 1), (0, 1), (0, 0)):
         s = sorted([r for r in rows if (r["ma"], r["so"]) == (ma, so)], key=lambda r: r["N"])
         h = [1/r["N"] for r in s]
@@ -75,3 +89,14 @@ def run(ctx, res):
                 res.ge("%s, %s" % (name, lab), p, tol, note)
             else:
                 res.report("%s, %s" % (name, lab), p, note=note)
+        for k, name in (("Min", "inner (rotating)"), ("Mout", "outer (at rest)")):
+            e = [abs(r[k]) for r in s]
+            p = common.order(h, e)
+            note = "rel. error " + " ".join("%+.2e" % r[k] for r in s)
+            if so and ma > 0:
+                res.ge("torque order, %s cylinder, %s" % (name, lab), p, 1.8, note)
+            else:
+                res.report("torque order, %s cylinder, %s" % (name, lab), p, note=note)
+        if so and ma > 0 and s[-1]["N"] >= 320:
+            res.le("torque rel. error, both cylinders, N = %d, %s" % (s[-1]["N"], lab),
+                   max(abs(s[-1]["Min"]), abs(s[-1]["Mout"])), 1e-3)

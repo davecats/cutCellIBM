@@ -162,6 +162,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     edgeCrossGeo_(),
     wallMoment_(),
     wallPieceSum_(),
+    wallTorqueMoment_(),
     wetOffsetAll_(),
     cellBody_(mesh.nCells(), -1),
     nearestBody_(mesh.nCells(), -1),
@@ -171,6 +172,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     fluidVolume_(0),
     upToDate_(false),
     forcesFilePtr_(nullptr),
+    momentsFilePtr_(nullptr),
     moving_(false),
     periodicLengths_(getOrDefault<vector>("periodicLengths", Zero)),
     cellLevelSet_(),
@@ -2017,6 +2019,8 @@ void Foam::cutCellGeometry::calcWallPieces()
     wallMoment_ = Zero;
     wallPieceSum_.setSize(mesh_.nCells());
     wallPieceSum_ = Zero;
+    wallTorqueMoment_.setSize(mesh_.nCells());
+    wallTorqueMoment_ = Zero;
 
     label nFallback = 0;
     scalar maxMismatch = 0;
@@ -2028,6 +2032,7 @@ void Foam::cutCellGeometry::calcWallPieces()
     for (const label celli : wallCells_)
     {
         tensor T(Zero);
+        tensor Q(Zero);
         vector Ssum(Zero);
         bool broken = false;
 
@@ -2074,8 +2079,10 @@ void Foam::cutCellGeometry::calcWallPieces()
                 if (dTheta > SMALL)
                 {
                     const vector Sk((isOwner ? 1 : -1)*dTheta*Sf[facei]);
+                    const vector rk(wetCentreGeo_[facei] - xc[celli]);
                     Ssum += Sk;
-                    T += (wetCentreGeo_[facei] - xc[celli])*Sk;
+                    T += rk*Sk;
+                    Q += rk*(rk ^ Sk);
                 }
             }
         }
@@ -2107,8 +2114,10 @@ void Foam::cutCellGeometry::calcWallPieces()
                 const point& a = loop[i];
                 const point& b = loop[loop.fcIndex(i)];
                 const vector A(0.5*((a - m) ^ (b - m)));
+                const vector rk((m + a + b)/3.0 - xc[celli]);
                 Ssum += A;
-                T += ((m + a + b)/3.0 - xc[celli])*A;
+                T += rk*A;
+                Q += rk*(rk ^ A);
             }
         }
 
@@ -2118,6 +2127,7 @@ void Foam::cutCellGeometry::calcWallPieces()
             // Fall back on the wall value at the foot of the centroid normal
             ++nFallback;
             T = (dWall_[celli]*Sw[celli]/max(Awall_[celli], VSMALL))*Sw[celli];
+            Q = Zero;
             Ssum = Sw[celli];
         }
         else
@@ -2126,6 +2136,7 @@ void Foam::cutCellGeometry::calcWallPieces()
         }
         wallMoment_[celli] = T;
         wallPieceSum_[celli] = Ssum;
+        wallTorqueMoment_[celli] = Q;
     }
 
     reduce(nFallback, sumOp<label>());
@@ -2612,14 +2623,39 @@ void Foam::cutCellGeometry::forces
     const volVectorField& U,
     const volScalarField& nu,
     List<vector>& Fp,
-    List<vector>& Fv
+    List<vector>& Fv,
+    const volScalarField* nuMolecularPtr
+) const
+{
+    List<vector> Mp, Mv;
+    forces(p, U, nu, Fp, Fv, Mp, Mv, nuMolecularPtr);
+}
+
+
+void Foam::cutCellGeometry::forces
+(
+    const volScalarField& p,
+    const volVectorField& U,
+    const volScalarField& nu,
+    List<vector>& Fp,
+    List<vector>& Fv,
+    List<vector>& Mp,
+    List<vector>& Mv,
+    const volScalarField* nuMolecularPtr
 ) const
 {
     Fp.setSize(bodies_.size());
     Fv.setSize(bodies_.size());
+    Mp.setSize(bodies_.size());
+    Mv.setSize(bodies_.size());
     Fp = Zero;
     Fv = Zero;
+    Mp = Zero;
+    Mv = Zero;
     const scalarField& V = mesh_.V();
+    const vectorField& C = mesh_.cellCentres();
+    const vectorField& valueOff = valueOffset_.primitiveField();
+    const vectorField& centroidOff = centroidOffset_.primitiveField();
 
     tmp<volVectorField> tgp;
     if (secondOrder_) tgp = lsqGrad(p);
@@ -2630,26 +2666,76 @@ void Foam::cutCellGeometry::forces
         if (bodyi >= bodies_.size()) continue;
         // pressure on the wall, p_P Sw, plus with the second-order treatment
         // sum_k g_P.(x_k - x_c) S_k over the wall pieces (as in grad())
-        Fp[bodyi] += p[celli]*Sw_[celli];
+        vector fp(p[celli]*Sw_[celli]);
+
+        // moment of fp about the base point x_b of the wall pieces (second
+        // order: sum_k (x_k - x_b) ^ S_k (p_P + g_P.(x_k - x_b)); first order:
+        // p_P Sw at the foot of the wall normal, no moment) and wall centroid
+        // r_w relative to x_b, the lever of the viscous traction
+        // (T: sum_k (x_k - x_b) S_k, first order the single piece Sw at x_w)
+        vector mp(Zero);
+        point xb;
+        vector rw;
+        tensor T;
         if (secondOrder_)
         {
-            Fp[bodyi] += tgp()[celli] & wallMoment_[celli];
-        }
-        // viscous traction, nu (u_P - u_b)/d Awall
-        if (moving_)
-        {
-            Fv[bodyi] += nu[celli]*noSlipCoeff_[celli]*V[celli]
-                        *(U[celli] - UbPtr_()[celli]);
+            T = wallMoment_[celli];
+            const vector& g = tgp()[celli];
+            xb = C[celli] + valueOff[celli];
+            fp += g & T;
+            mp = p[celli]*vector(T.yz() - T.zy(), T.zx() - T.xz(), T.xy() - T.yx())
+               + (g & wallTorqueMoment_[celli]);
+            rw = (T & Sw_[celli])/max(magSqr(Sw_[celli]), VSMALL);
         }
         else
         {
-            Fv[bodyi] += nu[celli]*noSlipCoeff_[celli]*V[celli]*U[celli];
+            xb = C[celli] + centroidOff[celli];
+            rw = dWall_[celli]*Sw_[celli]/max(Awall_[celli], VSMALL);
+            T = rw*Sw_[celli];
+        }
+
+        // viscous traction, nu (u_P - u_b)/d Awall
+        vector fv;
+        if (moving_)
+        {
+            fv = nu[celli]*noSlipCoeff_[celli]*V[celli]
+                *(U[celli] - UbPtr_()[celli]);
+        }
+        else
+        {
+            fv = nu[celli]*noSlipCoeff_[celli]*V[celli]*U[celli];
+        }
+
+        const vector rb(bodies_[bodyi].relativePosition(xb));
+        Fp[bodyi] += fp;
+        Fv[bodyi] += fv;
+        Mp[bodyi] += (rb ^ fp) + mp;
+        Mv[bodyi] += (rb + rw) ^ fv;
+
+        // The traction above is nu du/dn, the wall flux of the Laplacian
+        // form of the momentum equation; the stress is nu (grad u + grad u^T)
+        // with the molecular viscosity at the wall. On the no-slip wall of a
+        // rigid body (u = U + omega ^ r) the transpose part is nu (n ^ omega)
+        // per unit area, n out of the body (-Sw/|Sw|): nu omega ^ S_k on
+        // piece k. It sums to zero over a closed body, its moment does not
+        // (-2 pi nu omega R^2 on a rotating circular cylinder):
+        // sum_k (x_k - x_b) ^ (omega ^ S_k) = omega tr(T) - omega & T
+        const vector& omega = bodies_[bodyi].omega();
+        if (magSqr(omega) > 0)
+        {
+            const scalar nuMol =
+                nuMolecularPtr ? (*nuMolecularPtr)[celli] : nu[celli];
+            const vector fr(nuMol*(omega ^ Sw_[celli]));
+            Fv[bodyi] += fr;
+            Mv[bodyi] += (rb ^ fr) + nuMol*(omega*tr(T) - (omega & T));
         }
     }
     forAll(Fp, i)
     {
         reduce(Fp[i], sumOp<vector>());
         reduce(Fv[i], sumOp<vector>());
+        reduce(Mp[i], sumOp<vector>());
+        reduce(Mv[i], sumOp<vector>());
     }
 }
 
@@ -2658,11 +2744,12 @@ void Foam::cutCellGeometry::reportForces
 (
     const volScalarField& p,
     const volVectorField& U,
-    const volScalarField& nu
+    const volScalarField& nu,
+    const volScalarField* nuMolecularPtr
 ) const
 {
-    List<vector> Fp, Fv;
-    forces(p, U, nu, Fp, Fv);
+    List<vector> Fp, Fv, Mp, Mv;
+    forces(p, U, nu, Fp, Fv, Mp, Mv, nuMolecularPtr);
 
     forAll(bodies_, bodyi)
     {
@@ -2670,40 +2757,65 @@ void Foam::cutCellGeometry::reportForces
             << ": pressure " << Fp[bodyi]
             << " viscous " << Fv[bodyi]
             << " total " << Fp[bodyi] + Fv[bodyi] << endl;
+        Info<< "IBM moment on " << bodies_[bodyi].name()
+            << " about " << bodies_[bodyi].currentCentre()
+            << ": pressure " << Mp[bodyi]
+            << " viscous " << Mv[bodyi]
+            << " total " << Mp[bodyi] + Mv[bodyi] << endl;
     }
 
     if (writeForces_ && Pstream::master())
     {
-        if (!forcesFilePtr_)
-        {
-            const fileName dir
-            (
-                mesh_.time().globalPath()/"postProcessing"/"ibmForces"
-               /mesh_.time().timeName()
-            );
-            mkDir(dir);
-            forcesFilePtr_.reset(new OFstream(dir/"forces.dat"));
-            OFstream& os = forcesFilePtr_();
-            os  << "# Forces per unit density on the immersed bodies" << nl
-                << "# time";
-            forAll(bodies_, bodyi)
-            {
-                os  << "  " << bodies_[bodyi].name()
-                    << ":Fp(x y z)  " << bodies_[bodyi].name()
-                    << ":Fv(x y z)";
-            }
-            os  << nl;
-        }
-        OFstream& os = forcesFilePtr_();
-        os  << mesh_.time().timeName();
+        writeForceFile(forcesFilePtr_, "forces.dat", "Forces", "F", Fp, Fv);
+        writeForceFile
+        (
+            momentsFilePtr_, "moments.dat",
+            "Moments about the body centres (ibmBody::currentCentre)", "M",
+            Mp, Mv
+        );
+    }
+}
+
+
+void Foam::cutCellGeometry::writeForceFile
+(
+    autoPtr<OFstream>& filePtr,
+    const word& fileBaseName,
+    const string& title,
+    const word& symbol,
+    const List<vector>& Xp,
+    const List<vector>& Xv
+) const
+{
+    if (!filePtr)
+    {
+        const fileName dir
+        (
+            mesh_.time().globalPath()/"postProcessing"/"ibmForces"
+           /mesh_.time().timeName()
+        );
+        mkDir(dir);
+        filePtr.reset(new OFstream(dir/fileBaseName));
+        OFstream& os = filePtr();
+        os  << "# " << title.c_str() << " per unit density on the immersed bodies" << nl
+            << "# time";
         forAll(bodies_, bodyi)
         {
-            os  << ' ' << Fp[bodyi].x() << ' ' << Fp[bodyi].y() << ' ' << Fp[bodyi].z()
-                << ' ' << Fv[bodyi].x() << ' ' << Fv[bodyi].y() << ' ' << Fv[bodyi].z();
+            os  << "  " << bodies_[bodyi].name()
+                << ':' << symbol << "p(x y z)  " << bodies_[bodyi].name()
+                << ':' << symbol << "v(x y z)";
         }
         os  << nl;
-        os.flush();
     }
+    OFstream& os = filePtr();
+    os  << mesh_.time().timeName();
+    forAll(bodies_, bodyi)
+    {
+        os  << ' ' << Xp[bodyi].x() << ' ' << Xp[bodyi].y() << ' ' << Xp[bodyi].z()
+            << ' ' << Xv[bodyi].x() << ' ' << Xv[bodyi].y() << ' ' << Xv[bodyi].z();
+    }
+    os  << nl;
+    os.flush();
 }
 
 

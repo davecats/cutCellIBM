@@ -118,13 +118,25 @@ def force_history(d, depth):
     return h[:, 0], (h[:, 1:4] + h[:, 4:7])/depth
 
 
-def periodic_statistics(t, cl, cd, window):
+def moment_history(d, depth):
+    """t, total moment per unit depth (n, 3) about the centre of the first body, from
+    postProcessing/ibmForces/*/moments.dat (all restarts; C1)"""
+    rows = []
+    for f in sorted(Path(d).glob("postProcessing/ibmForces/*/moments.dat"), key=lambda p: float(p.parent.name)):
+        rows.append(np.loadtxt(f, ndmin=2))
+    h = np.vstack(rows)
+    return h[:, 0], (h[:, 1:4] + h[:, 4:7])/depth
+
+
+def periodic_statistics(t, cl, cd, window, cm=None):
     """means and r.m.s. of the fluctuations over the whole C_L cycles in the last `window` time units
     (the whole window if not oscillating), Strouhal frequency (per time unit) from the up-crossings
     of C_L through its mean (nan if not oscillating). A window that is not a whole number of cycles
-    biases the mean by up to amplitude/(pi * cycles): 0.02 in C_L for V12, alpha = 1."""
+    biases the mean by up to amplitude/(pi * cycles): 0.02 in C_L for V12, alpha = 1. cm (optional,
+    same times): moment coefficient, mean and r.m.s. over the same cycles."""
     s = t >= t[-1] - window
     t, cl, cd = t[s], cl[s], cd[s]
+    cm = cm[s] if cm is not None else None
     x = cl - cl.mean()
     i = np.where((x[:-1] < 0) & (x[1:] >= 0))[0]
     tc = t[i] - x[i]*(t[i + 1] - t[i])/(x[i + 1] - x[i])
@@ -132,7 +144,10 @@ def periodic_statistics(t, cl, cd, window):
     if oscillating:
         w = (t >= t[i[0] + 1]) & (t <= t[i[-1]])
         t, cl, cd = t[w], cl[w], cd[w]
+        cm = cm[w] if cm is not None else None
     m = {"C_L": float(cl.mean()), "C_D": float(cd.mean()),
          "C_Lrms": float(np.sqrt(np.mean((cl - cl.mean())**2))), "C_Drms": float(np.sqrt(np.mean((cd - cd.mean())**2)))}
     m["f"] = float((len(tc) - 1)/(tc[-1] - tc[0])) if oscillating else float("nan")
+    if cm is not None:
+        m.update(C_M=float(cm.mean()), C_Mrms=float(np.sqrt(np.mean((cm - cm.mean())**2))))
     return m

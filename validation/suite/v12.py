@@ -4,7 +4,9 @@ domain of half width 102.4 (their L = 100 D), inflow U, outflow p = 0, slip side
 h0 = 3.2 with 7 (D/h = 40) or 8 (D/h = 80) nested levels. The rotation is a tangential wall
 velocity of an invariant geometry (motion none, angularVelocity 2 alpha), ibmPimpleFoam; statistics
 over the whole cycles in the last 50 time units of 150. Tier 1: alpha = 0, 1, 2; alpha = 2 also at
-D/h = 160 (9 levels, 6 NP ranks; decision D4: -2.2 % at D/h = 80, converging); torque (C_M) needs C1."""
+D/h = 160 (9 levels, 6 NP ranks; decision D4: -2.2 % at D/h = 80, converging). Torque C_M = M/(U^2 a^2)
+(positive against the rotation; postProcessing/ibmForces moments.dat, C1) against the body-fitted
+solution, figure 11 reported."""
 import numpy as np
 
 import common
@@ -72,7 +74,9 @@ def one(ctx, alpha, levels):
     common.sh("decomposePar", d, "log.decomposePar")
     common.sh("ibmPimpleFoam", d, "log.ibmPimpleFoam", np_=ranks(levels))
     t, F = meshes.force_history(d, 0.1)
-    st = meshes.periodic_statistics(t, 2*F[:, 1], 2*F[:, 0], WINDOW)
+    tm, M = meshes.moment_history(d, 0.1)
+    assert np.array_equal(t, tm), "forces.dat and moments.dat times differ"
+    st = meshes.periodic_statistics(t, 2*F[:, 1], 2*F[:, 0], WINDOW, -M[:, 2]/0.5**2)
     return {"alpha": alpha, "Dh": round(1/h), "cells": ncells, "St": st.pop("f"), **st}
 
 
@@ -82,7 +86,7 @@ def run(ctx, res):
     rows = common.pmap(lambda j: one(ctx, *j), jobs, max(1, ctx.jobs // NP))
     res.data["rows"] = rows
     res.data["metrics"] = {"a%g_Dh%d_%s" % (r["alpha"], r["Dh"], q): r[q] for r in rows
-                           for q in ("C_L", "C_D", "C_Lrms", "St") if r[q] is not None and np.isfinite(r[q])}
+                           for q in ("C_L", "C_D", "C_Lrms", "St", "C_M") if r.get(q) is not None and np.isfinite(r[q])}
     ref = rot.figure11()
     bf = rot.bodyFitted()
     for a in (0, 1, 2):
@@ -112,4 +116,11 @@ def run(ctx, res):
         if a < 1.9:
             R = rot.TEXT["alpha=0"]["St"] if a == 0 else ref["St"][i]
             res.rel("alpha %g: St, D/h = %d" % (a, g["Dh"]), g["St"], R, 0.01, seq("St"))
-    res.report("torque C_M", None, note="needs the torque output (C1)")
+        # torque: body-fitted (OpenFOAM forces, full stress) mesh-converged to 4 digits; figure 11
+        # gives it only as (C_P - C_D)/alpha, uncertain by ~0.03/alpha
+        R = bf[a]["C_M"]
+        res.absolute("alpha %g: mean C_M, D/h = %d, against body-fitted" % (a, g["Dh"]), g["C_M"], R,
+                     max(0.02*abs(R), 0.005), seq("C_M"))
+        if a >= 1:
+            res.report("alpha %g: mean C_M, D/h = %d, against figure 11 ((C_P - C_D)/alpha)" % (a, g["Dh"]),
+                       g["C_M"], ref=ref["C_M"][i], note=seq("C_M"))

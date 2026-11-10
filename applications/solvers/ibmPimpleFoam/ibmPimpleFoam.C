@@ -126,14 +126,19 @@ int main(int argc, char *argv[])
         // Passive scalars, if constant/scalarTransportProperties exists
         scalars.solve();
 
-        ibm.reportForces
-        (
-            p,
-            U,
-            ibmTurbulent
-          ? ibm.wallViscosity(U, turbulence->nu())()
-          : turbulence->nuEff()()
-        );
+        {
+            // molecular viscosity: transpose stress on rotating walls
+            const tmp<volScalarField> tnuMolecular(turbulence->nu());
+            ibm.reportForces
+            (
+                p,
+                U,
+                ibmTurbulent
+              ? ibm.wallViscosity(U, turbulence->nu())()
+              : turbulence->nuEff()(),
+                &tnuMolecular()
+            );
+        }
 
         runTime.write();
 

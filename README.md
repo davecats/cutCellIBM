@@ -212,7 +212,18 @@ Written fields (start time; every write time for moving bodies): `ibmAlpha`,
 moving bodies `ibmUb`. Forces per body (pressure `Σ p_P Sw`, on `scalar_secondOrder` with `secondOrder true` plus
 `g_P · Σ_k (x_k − x_c) S_k` over the wall pieces; viscous
 `Σ ν A_wall/d_wall (u_P - u_b)`, per unit density) are printed every step and written to
-`postProcessing/ibmForces/<time>/forces.dat`.
+`postProcessing/ibmForces/<time>/forces.dat`. Moments, with the same columns, go to
+`moments.dat` next to it and to the log: about the body's current centre (the centre of
+rotation if the motion gives one, otherwise the body centre: cylinder or sphere centre, box
+centre, bounding-box centre of a surface, mesh centre for an `alphaField` body; minimum image in
+periodic directions); for another point add `(c − c') × F`. The pressure moment is
+`Σ_k (x_k − c) × S_k (p_P + g_P · (x_k − x_c))` over the wall pieces, the viscous one takes the
+traction at the wall centroid of the cell. The traction `ν (u_P − u_b)/d` is `ν ∂u/∂n`, the wall
+flux of the Laplacian form of the momentum equation; the stress also has `ν (∇u)ᵀ·n`, which on
+the no-slip wall of a rigid body is `ν n × ω` (molecular ν, n out of the body). It sums to zero
+over a closed body but not its moment (`−2πνωR²` per unit length on a rotating circular
+cylinder, 45 % of the Taylor-Couette torque of `tutorials/order/taylorCouette`), so it is added
+for rotating bodies. Taylor-Couette torque (V1): second order on both cylinders, 1.1e-4 at N = 320.
 
 ## 3. Moving bodies
 
@@ -321,7 +332,7 @@ alphaMin        0.02;      // slivers with less fluid are absorbed into the body
 nSubSamples     32;        // samples per direction for the cell fluid fraction (2-D: 32x32)
 nBisect         40;        // bisection steps locating the wall on cut edges
 writeFields     true;      // write the geometry fields at start-up
-writeForces     true;      // postProcessing/ibmForces/<time>/forces.dat
+writeForces     true;      // postProcessing/ibmForces/<time>/forces.dat, moments.dat
 periodicLengths (10 10 0); // moving bodies only: minimum image in the periodic directions (0: none)
 
 bodies
