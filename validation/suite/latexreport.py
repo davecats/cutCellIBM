@@ -88,6 +88,18 @@ def tex(s):
     return s
 
 
+def brk(s):
+    """tex() with break points after underscores and slashes (long case and metric names)"""
+    return tex(s).replace(r"\_", r"\_\allowbreak{}").replace("/", r"/\allowbreak{}")
+
+
+# fixed column widths that add up to less than the text width (status box ~1.2 cm, 10 x 3 pt
+# column separation): check, value, reference, tolerance, note
+COLS = (r"@{}l p{0.36\textwidth} >{\raggedleft\arraybackslash}p{0.09\textwidth} "
+        r">{\raggedleft\arraybackslash}p{0.09\textwidth} >{\raggedright\arraybackslash}p{0.10\textwidth} "
+        r">{\raggedright\arraybackslash}p{0.20\textwidth}@{}")
+
+
 def fmt(v):
     if v is None:
         return "--"
@@ -97,15 +109,15 @@ def fmt(v):
 
 
 def table(out, r, name=None, keep=lambda c: True, notes=True):
-    L = [r"\begin{longtable}{@{}l p{0.42\textwidth} r r r p{0.22\textwidth}@{}}", r"\toprule",
+    L = [r"\begin{longtable}{%s}" % COLS, r"\toprule",
          r"status & check & value & reference & tol. & note\\", r"\midrule", r"\endhead"]
     for c in r["checks"]:
         if not keep(c) or c["name"] == "baseline":
             continue
         note = (c["note"] or "") if notes else ""
-        L.append(r"\st%s & %s & %s & %s & %s & {\scriptsize %s}\\" % (
-            c["status"].lower(), tex(c["name"]), tex(fmt(c["value"])), tex(fmt(c["ref"])),
-            tex(c["tol"] or "--"), tex(note)))
+        L.append(r"\st%s & %s & %s & %s & {\scriptsize %s} & {\scriptsize %s}\\" % (
+            c["status"].lower(), brk(c["name"]), tex(fmt(c["value"])), tex(fmt(c["ref"])),
+            brk(c["tol"] or "--"), brk(note)))
     L += [r"\bottomrule", r"\end{longtable}"]
     (out.d / "tables" / ("%s.tex" % (name or r["id"]))).write_text("\n".join(L) + "\n")
 
@@ -113,7 +125,7 @@ def table(out, r, name=None, keep=lambda c: True, notes=True):
 def summary_table(out, res):
     """status of the checks against exact and reference data, and separately the change against the
     stored baseline (a FAIL there is a change, intended or not, not a wrong result)"""
-    L = [r"\begin{tabular}{@{}l p{0.42\textwidth} c c r r r r@{}}", r"\toprule",
+    L = [r"\begin{tabular}{@{}l p{0.36\textwidth} c c r r r r@{}}", r"\toprule",
          r"id & title & checks & vs.\ baseline & PASS & FAIL & REPORT & time [s]\\", r"\midrule"]
     for r in res:
         cs = [c for c in r["checks"] if c["name"] != "baseline"]
