@@ -21,6 +21,8 @@ tutorials/**/postProcessing/
 tutorials/**/processor*/
 # validation results
 validation/*.npz
+# notebook references used by validation/compare*.py, V3 and the report (reference_*.py regenerates them)
+!validation/ref_*.npz
 validation/*.log
 validation/__pycache__/
 # notebook clutter
