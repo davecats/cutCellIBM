@@ -1,4 +1,4 @@
-# cutCellIBM: cut-cell immersed boundary method for OpenFOAM-v2106
+# cutCellIBM: cut-cell immersed boundary method for OpenFOAM (v2412; v2106 to v2506)
 
 OpenFOAM implementation of the cut-cell immersed boundary (IBM) method prototyped in
 `.asset/fvm/SIMPLEC_faceArea_noSlip.ipynb` (static bodies, theory in
@@ -128,14 +128,17 @@ etc/bashrc                      installs binaries into platforms/ of this tree
 ```
 
 ```bash
-module load cae/openfoam+/v2106_prf && foamInit   # or: source /opt/OpenFOAM/OpenFOAM-v2106_prf/etc/bashrc
+module load cae/openfoam+/v2412 && foamInit       # or: source /opt/OpenFOAM/OpenFOAM-v2412/etc/bashrc
 source etc/bashrc
 ./Allwmake
 cd tutorials/oscillatingCylinder && ./Allrun       # blockMesh, ibmSetGeometry, ibmPimpleFoam
 ```
 
 `etc/bashrc` redirects `FOAM_USER_APPBIN/LIBBIN` into `platforms/` of this directory and
-prepends them to `PATH`/`LD_LIBRARY_PATH`. Parallel runs use the usual
+prepends them to `PATH`/`LD_LIBRARY_PATH`. The validated version is v2412 (the validation
+baseline and HoreKa); v2106, v2212, v2506 pass the gates with the same numbers
+(`doc/amr.md` section 6). The build directory does not carry the OpenFOAM version: build each
+version in its own copy of the tree (`git worktree`). Parallel runs use the usual
 `decomposePar; mpirun -np N ibmPimpleFoam -parallel`. After changing a class layout in the
 library, rebuild the solvers as well (`./Allwmake` does): an application compiled against
 an older header allocates the geometry object with the wrong size.

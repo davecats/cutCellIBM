@@ -6,7 +6,7 @@
     suite.py accept G1 ...|all [--commit c]     results/<c>/<id>.json -> baseline/<id>.json
     suite.py report [--commit c]                results/<c>/report.md, matrix.png, report.html
 
-Needs OpenFOAM-v2106 (IBM_SUITE_FOAM, default the _prf bashrc of istmio2/hydra) and the project
+Needs OpenFOAM-v2412 (IBM_SUITE_FOAM, default /opt/OpenFOAM/OpenFOAM-v2412) and the project
 built for the commit under test (`./Allwmake`); python with numpy, scipy, matplotlib.
 """
 import argparse

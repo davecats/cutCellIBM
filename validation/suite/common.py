@@ -24,9 +24,11 @@ VALIDATION = SUITE.parent
 REPO = VALIDATION.parent
 TUTORIALS = REPO / "tutorials"
 RUNS = Path(os.environ.get("IBM_SUITE_RUNS", Path.home() / "runs" / "suite"))
+# OpenFOAM v2412 (the default since 2026-11-10, as on HoreKa; v2106_prf before): set IBM_SUITE_FOAM
+# for another version, e.g. "source /opt/OpenFOAM/OpenFOAM-v2106_prf/etc/bashrc; export LD_LIBRARY_PATH=..."
 FOAM_ENV = os.environ.get("IBM_SUITE_FOAM",
-                          "source /opt/OpenFOAM/OpenFOAM-v2106_prf/etc/bashrc > /dev/null 2>&1; "
-                          "export LD_LIBRARY_PATH=/opt/OpenFOAM/ThirdParty-v2106_prf/platforms/"
+                          "source /opt/OpenFOAM/OpenFOAM-v2412/etc/bashrc > /dev/null 2>&1; "
+                          "export LD_LIBRARY_PATH=/opt/OpenFOAM/ThirdParty-v2412/platforms/"
                           "linux64GccDPInt32/lib:$LD_LIBRARY_PATH")   # kahip etc. for decomposePar
 sys.path.insert(0, str(VALIDATION))
 

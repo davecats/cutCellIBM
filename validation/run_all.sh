@@ -1,6 +1,6 @@
 #!/bin/bash
 # Reproduce the validation of the cut-cell IBM solvers against the notebook.
-# Needs: OpenFOAM-v2106 sourced, the project built (./Allwmake), and the
+# Needs: OpenFOAM (v2412; v2106 to v2506) sourced, the project built (./Allwmake), and the
 # notebook's python environment (fvm/.venv) for the reference and comparison.
 cd "${0%/*}" || exit 1
 set -e

@@ -1,5 +1,5 @@
-# Source after OpenFOAM (v2106; also compiles with v2212, v2306, v2406, v2412, v2506):
-#   module load cae/openfoam+/v2106_prf && foamInit && source etc/bashrc
+# Source after OpenFOAM (v2412, the validated default; also v2106, v2212, v2306, v2406, v2506):
+#   module load cae/openfoam+/v2412 && foamInit && source etc/bashrc
 # Installs the cutCellIBM library and solvers into this project tree (one tree
 # per OpenFOAM version: the build directories do not carry the version).
 CUTCELL_IBM_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
