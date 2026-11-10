@@ -11,49 +11,49 @@
  ],
  "KIND": "case",
  "TIER": 1,
- "commit": "d05799c",
- "suite": "e9a7524",
- "status": "REPORT",
- "started": "2026-11-06 13:29:27",
- "seconds": 2.2,
- "cases": "/home/ws/xt8786/runs/suite/d05799c/V3",
+ "commit": "e7d742a",
+ "suite": "e7d742a",
+ "status": "FAIL",
+ "started": "2026-11-10 10:26:27",
+ "seconds": 1.7,
+ "cases": "/home/ws/xt8786/runs/suite/e7d742a/V3",
  "checks": [
   {
-   "name": "osc_notebook: max |F_x - notebook| / max|F_x| (history)",
-   "status": "REPORT",
-   "value": 0.0025355272863696013,
-   "ref": null,
-   "tol": null,
-   "note": "2e-5 on 2026-09-08; notebook = method of 2026-09"
+   "name": "osc_notebook: max |F_x - notebook| / max|F_x| after the first 10 steps",
+   "status": "PASS",
+   "value": 1.79e-05,
+   "ref": 0.0,
+   "tol": "\u00b1 0.0001",
+   "note": "all sampled steps: 2.54e-03 (impulsive start); deviation +1.79e-05"
   },
   {
    "name": "osc_notebook: max |u - notebook| / max|u| (final field)",
-   "status": "REPORT",
-   "value": 0.0013650238473767887,
-   "ref": null,
-   "tol": null,
-   "note": ""
+   "status": "PASS",
+   "value": 7.933227344992051e-07,
+   "ref": 0.0,
+   "tol": "\u00b1 1e-05",
+   "note": "deviation +7.93e-07"
   },
   {
-   "name": "gal_notebook: max |F_x - notebook| / max|F_x| (history)",
-   "status": "REPORT",
-   "value": 0.002601072145717995,
-   "ref": null,
-   "tol": null,
-   "note": "2e-5 on 2026-09-08; notebook = method of 2026-09"
+   "name": "gal_notebook: max |F_x - notebook| / max|F_x| after the first 10 steps",
+   "status": "PASS",
+   "value": 3.35e-05,
+   "ref": 0.0,
+   "tol": "\u00b1 0.0001",
+   "note": "all sampled steps: 2.60e-03 (impulsive start); deviation +3.35e-05"
   },
   {
    "name": "gal_notebook: max |u - notebook| / max|u| (final field)",
-   "status": "REPORT",
-   "value": 0.0028528588564574174,
-   "ref": null,
-   "tol": null,
-   "note": ""
+   "status": "PASS",
+   "value": 1.1437425029988005e-06,
+   "ref": 0.0,
+   "tol": "\u00b1 1e-05",
+   "note": "deviation +1.14e-06"
   },
   {
    "name": "osc_default: max |F_x - notebook| / max|F_x| (second order against the first-order notebook)",
    "status": "REPORT",
-   "value": 0.03170356491281024,
+   "value": 0.0457,
    "ref": null,
    "tol": null,
    "note": ""
@@ -69,39 +69,43 @@
   {
    "name": "Galilean: translating (mean of last 400 steps) vs fixed cylinder, default options",
    "status": "REPORT",
-   "value": 5.82174,
+   "value": 5.82168,
    "ref": 5.816949884181001,
    "tol": null,
    "note": "deviation +0.08 %"
   },
   {
-   "name": "baseline",
-   "status": "REPORT",
-   "value": 12,
+   "name": "regression against baseline d05799c (12 metrics)",
+   "status": "FAIL",
+   "value": 99959.90889978976,
    "ref": null,
-   "tol": null,
-   "note": "no stored baseline: this run can be accepted as one"
+   "tol": "<= 1 (in units of the tolerance)",
+   "note": "rtol 1e-05, atol 0; worst gal_notebook_du"
   }
  ],
  "data": {
   "compare": {
    "osc_notebook": {
-    "dF": 0.0025355272863696013,
-    "du": 0.0013650238473767887,
+    "dF": 1.79e-05,
+    "dF0": 0.0025355272863696013,
+    "du": 7.933227344992051e-07,
     "meanF": null
    },
    "gal_notebook": {
-    "dF": 0.002601072145717995,
-    "du": 0.0028528588564574174,
+    "dF": 3.35e-05,
+    "dF0": 0.002601072145717995,
+    "du": 1.1437425029988005e-06,
     "meanF": -5.69138
    },
    "gal_default": {
-    "dF": 0.026762677925013936,
-    "du": 0.1160735705717713,
-    "meanF": -5.82174
+    "dF": 0.0426,
+    "dF0": 0.026762677925013936,
+    "du": 0.11615353858456617,
+    "meanF": -5.82168
    },
    "osc_default": {
-    "dF": 0.03170356491281024,
+    "dF": 0.0457,
+    "dF0": 0.03170356491281024,
     "du": 0.12149443561208267,
     "meanF": null
    }
@@ -111,20 +115,19 @@
    "cyl_default": 5.816949884181001
   },
   "metrics": {
-   "osc_notebook_dF": 0.0025355272863696013,
-   "osc_notebook_du": 0.0013650238473767887,
-   "gal_notebook_dF": 0.002601072145717995,
-   "gal_notebook_du": 0.0028528588564574174,
+   "osc_notebook_dF": 1.79e-05,
+   "osc_notebook_du": 7.933227344992051e-07,
+   "gal_notebook_dF": 3.35e-05,
+   "gal_notebook_du": 1.1437425029988005e-06,
    "gal_notebook_meanF": -5.69138,
-   "gal_default_dF": 0.026762677925013936,
-   "gal_default_du": 0.1160735705717713,
-   "gal_default_meanF": -5.82174,
-   "osc_default_dF": 0.03170356491281024,
+   "gal_default_dF": 0.0426,
+   "gal_default_du": 0.11615353858456617,
+   "gal_default_meanF": -5.82168,
+   "osc_default_dF": 0.0457,
    "osc_default_du": 0.12149443561208267,
    "cyl_notebook": 5.6603835509994,
    "cyl_default": 5.816949884181001
   }
  },
- "figures": [],
- "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+ "figures": []
 }

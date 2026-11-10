@@ -10,11 +10,12 @@
  ],
  "KIND": "gate",
  "TIER": 0,
- "commit": "d05799c",
- "status": "PASS",
- "started": "2026-11-06 10:44:10",
- "seconds": 99.6,
- "cases": "/home/ws/xt8786/runs/suite/77df7f0/G6.1",
+ "commit": "e7d742a",
+ "suite": "e7d742a",
+ "status": "FAIL",
+ "started": "2026-11-10 01:44:11",
+ "seconds": 145.8,
+ "cases": "/home/ws/xt8786/runs/suite/e7d742a/G6",
  "checks": [
   {
    "name": "staticCylinder_zeroFlux: transient budget error (relative, per step)",
@@ -43,34 +44,26 @@
   {
    "name": "oscillating_zeroFlux: transient budget error (relative, per step)",
    "status": "PASS",
-   "value": 1.0928519136391577e-10,
+   "value": 1.0190163230585329e-10,
    "ref": null,
    "tol": "<= 1e-09",
-   "note": "400 steps; max |T - Twall| in the solid 1.5e-60"
+   "note": "400 steps; max |T - Twall| in the solid 7.6e-54"
   },
   {
    "name": "oscillating_fixedValue: transient budget error (relative, per step)",
    "status": "PASS",
-   "value": 6.427777302997366e-11,
+   "value": 6.146393544094702e-11,
    "ref": null,
    "tol": "<= 1e-09",
-   "note": "400 steps; max |T - Twall| in the solid 3.5e-64"
+   "note": "400 steps; max |T - Twall| in the solid 4.1e-57"
   },
   {
    "name": "galilean_zeroFlux: transient budget error (relative, per step)",
    "status": "PASS",
-   "value": 6.4785030430613215e-12,
+   "value": 3.708126065897211e-10,
    "ref": null,
    "tol": "<= 1e-09",
-   "note": "1200 steps; max |T - Twall| in the solid 1.6e-19"
-  },
-  {
-   "name": "galilean_zeroFlux: steps whose scalar solve hit maxIter 1000",
-   "status": "REPORT",
-   "value": 1,
-   "ref": null,
-   "tol": null,
-   "note": "budget change there up to 3.32e-07 relative (open: doc/secondOrderStudy.md, ibmConvection by default)"
+   "note": "1200 steps; max |T - Twall| in the solid 1.1e-17"
   },
   {
    "name": "multiScalar: transient budget error (relative, per step)",
@@ -97,12 +90,12 @@
    "note": "202 steps; max |T - Twall| in the solid 0.0e+00"
   },
   {
-   "name": "baseline",
-   "status": "REPORT",
-   "value": 9,
+   "name": "regression against baseline d05799c (9 metrics)",
+   "status": "FAIL",
+   "value": 275.1923724344631,
    "ref": null,
-   "tol": null,
-   "note": "no stored baseline: this run can be accepted as one"
+   "tol": "<= 1 (in units of the tolerance)",
+   "note": "rtol 0.05, atol 1e-12; worst galilean_zeroFlux_budget"
   }
  ],
  "data": {
@@ -134,28 +127,26 @@
    [
     "oscillating_zeroFlux",
     "transient",
-    1.0928519136391577e-10,
-    1.49400674091e-60,
+    1.0190163230585329e-10,
+    7.55421885024e-54,
     400,
     []
    ],
    [
     "oscillating_fixedValue",
     "transient",
-    6.427777302997366e-11,
-    3.54564532192e-64,
+    6.146393544094702e-11,
+    4.08694522732e-57,
     400,
     []
    ],
    [
     "galilean_zeroFlux",
     "transient",
-    6.4785030430613215e-12,
-    1.5527299394e-19,
+    3.708126065897211e-10,
+    1.08568941053e-17,
     1200,
-    [
-     3.3152188133205813e-07
-    ]
+    []
    ],
    [
     "multiScalar",
@@ -186,15 +177,13 @@
    "staticCylinder_zeroFlux_budget": 1.7538812158296216e-12,
    "staticCylinder_fixedValue_budget": 9.351419147010907e-12,
    "steadyCylinder_fixedValue_budget": 9.139265888328355e-11,
-   "oscillating_zeroFlux_budget": 1.0928519136391577e-10,
-   "oscillating_fixedValue_budget": 6.427777302997366e-11,
-   "galilean_zeroFlux_budget": 6.4785030430613215e-12,
+   "oscillating_zeroFlux_budget": 1.0190163230585329e-10,
+   "oscillating_fixedValue_budget": 6.146393544094702e-11,
+   "galilean_zeroFlux_budget": 3.708126065897211e-10,
    "multiScalar_budget": 9.351419147010907e-12,
    "multiScalar/c_budget": 1.7538812158296216e-12,
    "multiScalar/d_budget": 1.3150095151120092e-12
   }
  },
- "figures": [],
- "suite": "77df7f0",
- "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+ "figures": []
 }

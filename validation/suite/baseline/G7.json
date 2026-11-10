@@ -13,19 +13,100 @@
  "RELIES": [],
  "KIND": "gate",
  "TIER": 0,
- "commit": "d05799c",
- "status": "REPORT",
- "started": "2026-11-06 10:08:09",
- "seconds": 84.3,
- "cases": "/home/ws/xt8786/runs/suite/77df7f0/G7",
+ "commit": "e7d742a",
+ "suite": "e7d742a",
+ "status": "FAIL",
+ "started": "2026-11-10 01:46:37",
+ "seconds": 141.5,
+ "cases": "/home/ws/xt8786/runs/suite/e7d742a/G7",
  "checks": [
   {
-   "name": "baseline",
-   "status": "REPORT",
-   "value": 9,
+   "name": "cylinderRe1/cylinder: max |F - F_base|/|F_base|",
+   "status": "PASS",
+   "value": 0.0,
    "ref": null,
-   "tol": null,
-   "note": "no stored baseline: this run can be accepted as one"
+   "tol": "<= 1e-06",
+   "note": "baseline d05799c"
+  },
+  {
+   "name": "cylinderRe1_stl/cylinder: max |F - F_base|/|F_base|",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 1e-06",
+   "note": "baseline d05799c"
+  },
+  {
+   "name": "cylinderRe1_alphaField/cylinder: max |F - F_base|/|F_base|",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 1e-06",
+   "note": "baseline d05799c"
+  },
+  {
+   "name": "cylinderRe1_pimple/cylinder: max |F - F_base|/|F_base|",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 1e-06",
+   "note": "baseline d05799c"
+  },
+  {
+   "name": "cylinderRe1_pimple_freeSlip/cylinder: max |F - F_base|/|F_base|",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 1e-06",
+   "note": "baseline d05799c"
+  },
+  {
+   "name": "twoCylinders/bigNoSlip: max |F - F_base|/|F_base|",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 1e-06",
+   "note": "baseline d05799c"
+  },
+  {
+   "name": "twoCylinders/smallFreeSlip: max |F - F_base|/|F_base|",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 1e-06",
+   "note": "baseline d05799c"
+  },
+  {
+   "name": "oscillatingCylinder/cylinder: max |F - F_base|/|F_base|",
+   "status": "FAIL",
+   "value": 2.0045117393395517e-05,
+   "ref": null,
+   "tol": "<= 1e-06",
+   "note": "baseline d05799c"
+  },
+  {
+   "name": "galileanTranslating/cylinder: max |F - F_base|/|F_base|",
+   "status": "FAIL",
+   "value": 0.0005820490907061606,
+   "ref": null,
+   "tol": "<= 1e-06",
+   "note": "baseline d05799c"
+  },
+  {
+   "name": "order/taylorCouette/inner: max |F - F_base|/|F_base|",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 1e-06",
+   "note": "baseline d05799c"
+  },
+  {
+   "name": "order/taylorCouette/outer: max |F - F_base|/|F_base|",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 1e-06",
+   "note": "baseline d05799c"
   }
  ],
  "data": {
@@ -79,16 +160,16 @@
    },
    "oscillatingCylinder": {
     "cylinder": [
-     0.479526400936,
-     -8.28333983436e-14,
-     1.7316027397e-32
+     0.479536013099,
+     1.82993634894e-13,
+     1.73200191554e-32
     ]
    },
    "galileanTranslating": {
     "cylinder": [
-     -0.719243889707,
-     5.91392169339e-11,
-     5.1075768929e-32
+     -0.719662524959,
+     -5.36115287364e-13,
+     5.08404726149e-32
     ]
    },
    "order/taylorCouette": {
@@ -126,12 +207,12 @@
    "twoCylinders/smallFreeSlip_Fx": 0.19722597641,
    "twoCylinders/smallFreeSlip_Fy": 0.00350244006808,
    "twoCylinders/smallFreeSlip_Fz": 7.1339437645e-32,
-   "oscillatingCylinder/cylinder_Fx": 0.479526400936,
-   "oscillatingCylinder/cylinder_Fy": -8.28333983436e-14,
-   "oscillatingCylinder/cylinder_Fz": 1.7316027397e-32,
-   "galileanTranslating/cylinder_Fx": -0.719243889707,
-   "galileanTranslating/cylinder_Fy": 5.91392169339e-11,
-   "galileanTranslating/cylinder_Fz": 5.1075768929e-32,
+   "oscillatingCylinder/cylinder_Fx": 0.479536013099,
+   "oscillatingCylinder/cylinder_Fy": 1.82993634894e-13,
+   "oscillatingCylinder/cylinder_Fz": 1.73200191554e-32,
+   "galileanTranslating/cylinder_Fx": -0.719662524959,
+   "galileanTranslating/cylinder_Fy": -5.36115287364e-13,
+   "galileanTranslating/cylinder_Fz": 5.08404726149e-32,
    "order/taylorCouette/inner_Fx": -2.0563824426e-08,
    "order/taylorCouette/inner_Fy": -3.7538994288e-08,
    "order/taylorCouette/inner_Fz": 1.10177167119e-33,
@@ -140,7 +221,5 @@
    "order/taylorCouette/outer_Fz": -3.7193413816e-35
   }
  },
- "figures": [],
- "suite": "77df7f0",
- "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+ "figures": []
 }

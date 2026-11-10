@@ -3,7 +3,8 @@
 domain of half width 102.4 (their L = 100 D), inflow U, outflow p = 0, slip sides. Background
 h0 = 3.2 with 7 (D/h = 40) or 8 (D/h = 80) nested levels. The rotation is a tangential wall
 velocity of an invariant geometry (motion none, angularVelocity 2 alpha), ibmPimpleFoam; statistics
-over the last 50 time units of 150. Tier 1: alpha = 0, 1, 2; torque (C_M) needs C1."""
+over the whole cycles in the last 50 time units of 150. Tier 1: alpha = 0, 1, 2; alpha = 2 also at
+D/h = 160 (9 levels, 6 NP ranks; decision D4: -2.2 % at D/h = 80, converging); torque (C_M) needs C1."""
 import numpy as np
 
 import common
@@ -22,6 +23,10 @@ CENTRE = (0.0123, 0.0071, 0.0)   # off the mesh lines
 END, WINDOW = 150.0, 50.0
 NP = 8
 CYL = common.TUTORIALS / "cylinderRe1"
+
+
+def ranks(levels):
+    return NP if levels < 9 else 6*NP
 
 
 def setup(d, alpha, levels):
@@ -54,7 +59,7 @@ PIMPLE { momentumPredictor yes; nOuterCorrectors 3; nCorrectors 2; nNonOrthogona
     dt = 0.5*h/(1.5 + alpha)                  # Courant 0.5 with |u| <= 1.5 + alpha
     geometry.control_dict(d, "ibmPimpleFoam", endTime=END, deltaT=repr(float(dt)), writeInterval=int(round(END/dt)))
     write_dict(d / "system" / "decomposeParDict", "dictionary", "decomposeParDict",
-               "numberOfSubdomains %d;\nmethod scotch;\n" % NP)
+               "numberOfSubdomains %d;\nmethod scotch;\n" % ranks(levels))
     return ncells, h
 
 
@@ -65,7 +70,7 @@ def one(ctx, alpha, levels):
     else:
         ncells, h = None, H0/2**levels
     common.sh("decomposePar", d, "log.decomposePar")
-    common.sh("ibmPimpleFoam", d, "log.ibmPimpleFoam", np_=NP)
+    common.sh("ibmPimpleFoam", d, "log.ibmPimpleFoam", np_=ranks(levels))
     t, F = meshes.force_history(d, 0.1)
     st = meshes.periodic_statistics(t, 2*F[:, 1], 2*F[:, 0], WINDOW)
     return {"alpha": alpha, "Dh": round(1/h), "cells": ncells, "St": st.pop("f"), **st}
@@ -73,11 +78,13 @@ def one(ctx, alpha, levels):
 
 def run(ctx, res):
     jobs = [(a, lv) for a in (0, 1, 2) for lv in ((7,) if ctx.quick else (7, 8))]
+    jobs = ([] if ctx.quick else [(2, 9)]) + jobs      # longest first
     rows = common.pmap(lambda j: one(ctx, *j), jobs, max(1, ctx.jobs // NP))
     res.data["rows"] = rows
     res.data["metrics"] = {"a%g_Dh%d_%s" % (r["alpha"], r["Dh"], q): r[q] for r in rows
                            for q in ("C_L", "C_D", "C_Lrms", "St") if r[q] is not None and np.isfinite(r[q])}
     ref = rot.figure11()
+    bf = rot.bodyFitted()
     for a in (0, 1, 2):
         s = sorted([r for r in rows if r["alpha"] == a], key=lambda r: r["Dh"])
         g = s[-1]
@@ -85,7 +92,20 @@ def run(ctx, res):
         seq = lambda q: " ".join("%.4g" % r[q] for r in s)
         for q in ("C_L", "C_D"):
             R = ref[q][i]
-            res.absolute("alpha %g: mean %s, D/h = %d" % (a, q, g["Dh"]), g[q], R, max(0.02*abs(R), 0.02), seq(q))
+            tol = max(0.02*abs(R), 0.02)
+            if a == 1 and q == "C_L":
+                # the digitised figure 11 (-2.265) is 10 % off the body-fitted solution of the same
+                # problem (-2.499, mesh-converged), to which the IBM converges (finding 7, D3)
+                res.report("alpha 1: mean C_L, D/h = %d, against figure 11 (digitised)" % g["Dh"], g[q],
+                           ref=R, note=seq(q))
+                R = bf[a][q]
+                res.absolute("alpha 1: mean C_L, D/h = %d, against body-fitted (D3)" % g["Dh"], g[q], R,
+                             max(0.02*abs(R), 0.02), seq(q))
+                continue
+            res.absolute("alpha %g: mean %s, D/h = %d" % (a, q, g["Dh"]), g[q], R, tol, seq(q))
+        for q in ("C_L", "C_D", "C_Lrms", "St"):
+            res.report("alpha %g: %s, D/h = %d, vs body-fitted M 128 (rel.; abs. where |ref| < 0.01)" % (a, q, g["Dh"]),
+                       g[q]/bf[a][q] - 1 if abs(bf[a][q]) > 0.01 else g[q] - bf[a][q], note=seq(q))
         for q in ("C_Lrms", "C_Drms"):
             R = ref[q][i]
             res.absolute("alpha %g: %s, D/h = %d" % (a, q, g["Dh"]), g[q], R, max(0.05*abs(R), 0.01), seq(q))

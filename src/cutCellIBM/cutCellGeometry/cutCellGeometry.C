@@ -1445,7 +1445,15 @@ void Foam::cutCellGeometry::calcFromLevelSet
     alpha.setSize(cells.size());
     cellBody.setSize(cells.size(), -1);
 
-    label nCandidates = 0;
+    // Samples per cell (an empty direction has one)
+    label nSamples = 1;
+    for (direction d = 0; d < 3; ++d)
+    {
+        if (mesh_.solutionD()[d] > 0) nSamples *= nSubSamples_;
+    }
+    const vectorField& faceAreas = mesh_.faceAreas();
+
+    label nCandidates = 0, nMissed = 0;
     forAll(cells, celli)
     {
         const cell& c = cells[celli];
@@ -1463,10 +1471,38 @@ void Foam::cutCellGeometry::calcFromLevelSet
 
         if (nPos > 0 && nNeg > 0)
         {
-            point c;
-            alpha[celli] = sampleCellFraction(celli, c);
-            centroidOffset[celli] = c - mesh_.cellCentres()[celli];
+            point xc;
+            alpha[celli] = sampleCellFraction(celli, xc);
             ++nCandidates;
+
+            // A cell with a wet face holds fluid (the face fractions are
+            // exact up to the bisection), also when its fluid is smaller than
+            // a sample and no sample falls into it. Without fluid it would be
+            // closed below and the wall area and fluid volume would depend on
+            // the sub-sampling (G1, finding 4). Its fraction is then below
+            // one sample: half of one; its fluid centroid the mean of the wet
+            // face centres, weighted by their wet areas.
+            if (alpha[celli] <= 0)
+            {
+                vector sum(Zero);
+                scalar wSum = 0;
+                for (const label facei : c)
+                {
+                    const scalar w = theta[facei]*mag(faceAreas[facei]);
+                    if (w > 0)
+                    {
+                        sum += w*wetCentre[facei];
+                        wSum += w;
+                    }
+                }
+                if (wSum > 0)
+                {
+                    alpha[celli] = 0.5/nSamples;
+                    xc = sum/wSum;
+                    ++nMissed;
+                }
+            }
+            centroidOffset[celli] = xc - mesh_.cellCentres()[celli];
         }
         else
         {
@@ -1507,8 +1543,10 @@ void Foam::cutCellGeometry::calcFromLevelSet
     }
 
     reduce(nCandidates, sumOp<label>());
+    reduce(nMissed, sumOp<label>());
     Info<< "    level-set bodies: " << returnReduce(cutEdges.size(), sumOp<label>())
-        << " cut edges, " << nCandidates << " sub-sampled cells" << endl;
+        << " cut edges, " << nCandidates << " sub-sampled cells, " << nMissed
+        << " with fluid smaller than a sample" << endl;
 }
 
 

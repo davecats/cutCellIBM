@@ -12,11 +12,12 @@
  ],
  "KIND": "gate",
  "TIER": 0,
- "commit": "d05799c",
+ "commit": "e7d742a",
+ "suite": "e7d742a",
  "status": "PASS",
- "started": "2026-11-06 10:00:58",
- "seconds": 6.4,
- "cases": "/home/ws/xt8786/runs/suite/77df7f0/G2.2",
+ "started": "2026-11-10 01:35:31",
+ "seconds": 9.1,
+ "cases": "/home/ws/xt8786/runs/suite/e7d742a/G2",
  "checks": [
   {
    "name": "LD order (L2, finest 3), mergeAlpha 0",
@@ -139,12 +140,12 @@
    "note": ""
   },
   {
-   "name": "baseline",
-   "status": "REPORT",
-   "value": 60,
+   "name": "regression against baseline d05799c (60 metrics)",
+   "status": "PASS",
+   "value": 0.0,
    "ref": null,
-   "tol": null,
-   "note": "no stored baseline: this run can be accepted as one"
+   "tol": "<= 1 (in units of the tolerance)",
+   "note": "rtol 0.01, atol 0; worst -"
   }
  ],
  "data": {
@@ -933,7 +934,5 @@
    "GL_3d_N32_ma0_so1_inv0": 0.0581208016821
   }
  },
- "figures": [],
- "suite": "77df7f0",
- "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+ "figures": []
 }

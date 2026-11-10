@@ -10,12 +10,12 @@
  ],
  "KIND": "case",
  "TIER": 1,
- "commit": "d05799c",
- "suite": "e9a7524",
+ "commit": "e7d742a",
+ "suite": "e7d742a",
  "status": "PASS",
- "started": "2026-11-06 13:29:26",
- "seconds": 0.5,
- "cases": "/home/ws/xt8786/runs/suite/debug/v15.3",
+ "started": "2026-11-10 11:22:28",
+ "seconds": 4044.6,
+ "cases": "/home/ws/xt8786/runs/suite/e7d742a/V15",
  "checks": [
   {
    "name": "runs not converged (residualControl, 40000 iterations)",
@@ -50,12 +50,12 @@
    "note": "deviation +1.07 %"
   },
   {
-   "name": "baseline",
-   "status": "REPORT",
-   "value": 2,
+   "name": "regression against baseline d05799c (2 metrics)",
+   "status": "PASS",
+   "value": 0.0,
    "ref": null,
-   "tol": null,
-   "note": "no stored baseline: this run can be accepted as one"
+   "tol": "<= 1 (in units of the tolerance)",
+   "note": "rtol 0.0001, atol 0; worst -"
   }
  ],
  "data": {
@@ -85,6 +85,5 @@
    "ibm_273_f0.5_ma0.5_C_D": 0.00287951478584
   }
  },
- "figures": [],
- "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+ "figures": []
 }

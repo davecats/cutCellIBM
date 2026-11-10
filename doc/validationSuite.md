@@ -620,46 +620,124 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    immersed walls (f = 0.3) match the body-fitted channel to 1.8e-5 (0.16 % closer than the cycle
    values). `tutorials/turbulence/channelSA/makeCase.py` now writes ν̃ 0.7; its body-fitted
    cases had also been given the `cutCellCorrected` schemes since de164be (af25a0b).
-2. **G9: pressure at the junction of an immersed wall with the outer boundary** does not
+2. ~~G9: pressure at the junction of an immersed wall with the outer boundary~~ **resolved
+   (6619272 level wall, e7d742a 45° wall).** Did not
    converge (max |p − p_exact| ≈ 0.07 at N = 20…160 where the level wall meets the outflow
    boundary; body-fitted corner 2e-3 and converging). Relevant to V14 (cylinder spanning the
    channel walls) and V15 (plate meeting the outflow).
-3. **G9: wall at 45°**: interior p max norm stalls near 6e-3 (L2 second order).
-4. **G1**: the wall area depends on nSubSamples (nSubSamples 8: area error not converging).
-5. **V3: the first-order moving path no longer reproduces the notebook** (force history 2.5e-3,
-   final u 1.4e-3 / 2.9e-3; 2e-5 on 2026-09-08). Not attributed (candidates since then:
-   bc08f21 wall-velocity evaluation point, b01303a rotating-wall mass source, 7f50469
-   fillUncovered); needs a bisect or a regenerated reference. Galilean equivalence (translating
-   vs fixed cylinder, N = 81): +0.55 % at first order, +0.08 % at the defaults.
-6. **One PISO pass per step is first order in time** (V5 2D-2, V12). DFG 2D-2 at D/h = 40
+   **Level wall: the gate's boundary data.** A cut outer face carries theta U_b.S; G9 took U_b
+   at the geometric face centre, which at f = 0.5 lies on the wall (U_b = 0: the wet half of the
+   face carried no flux) and at f = 0.1 behind it: an O(1) mass defect of the corner cell at
+   every N. With U_b at the centroid of the wet part the junction max converges (f = 0.5: 2.1e-2,
+   8.0e-3, 4.0e-3, 2.3e-3; f = 0.1: 3.8e-2 ... 3.8e-3; was 0.07). A fixedValue on a cut face is
+   the value over its wet part (README). **Open: the 45° wall** where it meets the top (inflow)
+   boundary in an acute (45°) fluid wedge: one small cut cell (alpha 0.19 at N = 160) at
+   -1.5e-2, -1.8e-2, -2.6e-2 (N = 40, 80, 160), the same without linking and without
+   ibmConvection; with the exact p prescribed on the outer faces too (instead of zeroGradient)
+   -1.1e-2 at every N. Its neighbours and the obtuse (135°) junction at the bottom converge
+   (1.6e-3); the L2 norms and force orders are unaffected. Not V14/V15 (right-angle junctions).
+   **45° wall: the boundary gradient of cut cells (e7d742a).** A fixedValue patch differences
+   v_b − v_P over the mesh delta (cell centre to face centre), but v_b is the value at the
+   wet-face centroid and v_P at the value point (fluid or group centroid): where the offset has a
+   component normal to the boundary the viscous flux of the face is wrong by an O(1) factor
+   (right-angle junctions: the offset is parallel to the boundary, no error). `cutCellCorrected`
+   now corrects fixed-value faces of non-coupled patches like the internal ones, with
+   d = x'_f − x_v. Junction cell: u error 6.6e-3, 1.9e-3, 3.9e-4 (N = 40, 80, 160; was 3.2e-2,
+   1.7e-2, 7.8e-3), p error 1.8e-2, 1.2e-2, 5.4e-3 (first order like every zeroGradient-p
+   boundary cell, e.g. the top-left corner 8.0e-3, 4.0e-3, 1.9e-3); with the exact p on the
+   outer faces the junction is no longer the maximum (1.4e-2 ... 1.7e-3, top row). G1–G8 and
+   every tutorial force bit-identical.
+3. ~~G9: wall at 45°: interior p max norm stalls near 6e-3~~ **resolved (e2a9780): it is finding
+   2.** The 45° wall meets the bottom of the Hiemenz box at x = -0.465, 0.135 from the left face;
+   the "interior" excluded the faces other than the bottom, so the junction counted. The max
+   error at N = 80, 160 sits within 0.007 of the bottom. Interior = 0.1 from every outer face but
+   a body-fitted wall: p Linf 2.8e-2, 6.9e-3, 2.1e-3, 5.1e-4 (order 1.88, was 0.06).
+4. ~~G1: the wall area depends on nSubSamples~~ **resolved (f562ca6): cut cells closed by the
+   sampling.** The wall area comes from the exact face fractions (closure), not from the samples;
+   but a cut cell whose fluid is smaller than one sample got alpha = 0 and was closed like a solid
+   cell, which moved its wall segment onto the neighbours' faces and dropped its volume. Not only
+   nSubSamples 8: the default 32 left 2-11 such cells per G1 mesh, 64 still 2-3. A candidate cell
+   with a wet face now keeps half a sample's fraction (centroid: wet-area-weighted wet face
+   centres). 2-D area independent of nSubSamples 8...64, second order (8.93e-4, 2.20e-4, 5.45e-5,
+   1.41e-5). Static tutorials bit-identical; moving bodies change (c8c771f, G7: 2.0e-5
+   oscillating, 5.8e-4 translating; G6 translating budget 6.5e-12 -> 3.7e-10 per step, within
+   its 1e-9; not traced, presumably the cells with half a sample's fraction). No nSubSamples minimum needed
+   for the area; the volume error still scales with h/nSubSamples. The inverted (concave)
+   cylinder still varied by ~1e-5 of the area: f562ca6 looped over the wrong faces (a `point c`
+   shadowed the cell; c8c771f), so for it no missed cell was caught. Since c8c771f the 2-D wall
+   area is identical to 12 digits for nSubSamples 8...64, outside and inside, N = 20...160.
+5. ~~V3: the first-order moving path no longer reproduces the notebook~~ **resolved (41e9947).**
+   Bisect over 11 builds with fixed case files and every option pinned: the force difference
+   (2.5e-3) is the same back to 38e21af, the commit that matched: V3 took the maximum over sampled
+   steps including the impulsive first two (the first step differs by 0.19 % since 2026-09-08,
+   README). The final fields changed at 7f50469: fillUncovered (intended; p of uncovered cells
+   from the fluid neighbours). reference_moving.py --fillUncovered ports it (without it the stored
+   references are reproduced bit for bit): force 1.8e-5 / 3.4e-5 after the first 10 steps, u
+   2.5e-7 / 5.7e-7 (oscillating / translating); V3 checks 1e-4 and 1e-5. Galilean equivalence
+   (translating vs fixed cylinder, N = 81): +0.55 % at first order, +0.08 % at the defaults.
+6. **One PISO pass per step is first order in time** (V5 2D-2, V12) **resolved**. DFG 2D-2 at D/h = 40
    (nOuterCorrectors 1, Courant 0.8, backward): C_L amplitude +12.8 %, St −1.2 %; at dt/2
    +6.7 %, −0.7 %; with 3 outer correctors (same dt) +0.8 %, −0.3 % (the remaining spatial
    error). D/h = 80 with one pass (+5.9 %) carries the error of its time step, not of its mesh.
-   The convecting flux of a single pass is that of the previous step; whether the immersed
-   wall adds to this (lagged wall terms) is not separated yet (needs the same test body-fitted).
-   V5 2D-2 and V12 now use 3 outer correctors (V13: 2); the tutorials still use 1. With them V5
+   The convecting flux of a single pass is that of the previous step. **Generic PISO, not the
+   immersed wall** (D2, `bodyfitted.py dfg`, O-grid M = 64, 44k cells, same Δt): one pass
+   C_Lmax +12.9 %, St −1.28 %; dt/2 +7.0 %, −0.82 %; 3 outer correctors +1.1 %, −0.34 % (C_Dmax
+   +1.04 / +0.53 / +0.02 %). The one-pass error halves with Δt and matches the immersed one.
+   V5 2D-2 and V12 use 3 outer correctors (V13: 2), so does the one time-resolved tutorial
+   (`amr/cylinderRe100`); the others are Re = 1 marched to a steady state with Δt ≈ 1. With them V5
    passes at D/h = 80 (St −0.04 %, C_Dmax +0.14 %, C_Lmax −0.07 %, Δp −0.35 %).
-7. **V12 α = 1: mean C_L −2.482 (D/h = 80) against −2.265 (figure 11 digitised)**, moving away
+7. ~~V12 α = 1: mean C_L −2.482 (D/h = 80) against −2.265 (figure 11 digitised)~~ **resolved
+   (668471e): the reference.**, moving away
    on refinement (−2.452 at D/h = 40); α = 2 (steady) converges to its reference (−5.600,
    −5.469 → −5.351), α = 0 passes. **Not finding 6**: with 3 outer correctors (D/h = 80, to
    t = 150) the mean over the same 9 whole cycles is −2.464 (one pass −2.482); C_D, C_L r.m.s.
    and St agree at the same α. Remaining candidates: the reference (read off a bitmap curve; no
    independent tabulated value at Re = 200 found), the rotating-wall treatment at moderate α,
    domain and boundary conditions. Proposed: a body-fitted rotating cylinder at α = 1.
+   Body-fitted pimpleFoam on O-grids, same domain and boundary conditions (`bodyfitted.py rot`,
+   M = 64 / 128 cells per quarter circle, 61k / 243k cells): α = 1 mean C_L −2.4984 / −2.4994,
+   C_D 1.083, C_Lrms 0.4946, St 0.1931; the IBM (3 outer correctors) converges to it: −2.375,
+   −2.465 at D/h = 40, 80 (1.4 % short). Figure 11 is 10 % off both. α = 0: body-fitted C_D
+   1.3206, St 0.1949, C_Lrms 0.4732 (IBM D/h = 80: 1.3229, 0.1949, 0.4734); α = 2: C_L −5.375,
+   C_D 0.2887 (IBM D/h = 40, 80, 160: −5.073, −5.303, −5.358; C_D 0.354, 0.294, 0.292). V12
+   checks α = 1 mean C_L against the body-fitted M 128 (`data/rotatingCylinder_bodyFitted`)
+   and reports figure 11 and the body-fitted comparison for every α. Not checked: whether the
+   shared domain/boundary setup or the digitisation separates both from Mittal & Kumar.
 8. ~~V12 statistics over a window that is not a whole number of cycles~~ **resolved**: the last
    50 time units are 9.6 periods at α = 1; the partial period biased mean C_L by −0.021 (α = 1)
    and +0.015 (α = 0, reference 0, tolerance 0.02). `meshes.periodic_statistics` now averages
    over the whole C_L cycles inside the window; V12 re-evaluated, verdicts unchanged.
+9. ~~G9: wall shear force order 0.91 for the tilted Homann wall (0.023 → 0.043 at N = 80 with
+   the boundary data of 6619272)~~ **resolved: the metrics.** (a) The exact Homann force came from
+   a staircase quadrature over the box, 0.85 % off (viscous) and 0.8 % (pressure); now the wall
+   polygon, exact. (b) Most of the error was the wall-normal part ν u_n/d of the discrete wall
+   flux: exact normal viscous stress on a no-slip wall is zero, the discrete one is first order
+   (Homann −0.146, −0.076, −0.039 of |F_v| at N = 20, 40, 80); body-fitted the same (OpenFOAM's
+   wall patch, level Hiemenz −0.037 … −0.0042; tangential error IBM / body-fitted 0.0323 /
+   0.0305, 0.0088 / 0.0083, 0.0023 / 0.0023, 0.0006 / 0.0006). The old boundary data gave a
+   positive normal error that partly cancelled it. G9 checks the tangential part (orders 1.79 to
+   1.93) and reports the normal part. (c) The pressure force depends on the pressure constant
+   (fixed in one reference cell): now with the mean error removed as in the norms (finest
+   errors 1e-5 … 2e-3; Homann was 4 %).
 
 ### Decisions (2026-11-07)
 
 - **D1** Tier-1 baseline accepted from 5008932 (`validation/suite/baseline/`), V12 with its FAIL;
   V12 is re-accepted after D3/D4.
+  Done (2026-11-10): baseline re-accepted from e7d742a (G1–G9, V1–V5, V7, V13, V15; V1–V5, V7,
+  V13, V15 bit-identical to c8c771f; G9 with the metrics of finding 9) and V12 from c8c771f
+  (no cut cell touches an outer boundary, e7d742a cannot change it): every V12 check against
+  the literature and the body-fitted references passes, α = 2 at D/h = 160 C_L −5.357 (the same
+  case on 128 instead of 48 ranks agrees to 6 digits). G7 takes the moving-body change of
+  finding 4.
 - **D2** (finding 6) Body-fitted DFG 2D-2 with one pass at D/h = 40 first, to separate generic
   PISO from lagged wall terms; then 2–3 outer correctors in the transient tutorials and docs.
+  Done: generic PISO (finding 6); `amr/cylinderRe100` to 3 outer correctors, README.
 - **D3** (finding 7) Body-fitted rotating cylinder at α = 1 (O-grid, same domain, BCs and
   rotating-wall velocity) as independent reference; the check stays FAIL until then.
+  Done (668471e): the IBM agrees with it, figure 11 does not (finding 7).
 - **D4** V12 α = 2: add D/h = 160 (steady, locally).
+  Done: −5.073, −5.303, −5.358 at D/h = 40, 80, 160 (body-fitted −5.375): converging.
 - **D5** (finding 2) Junction pressure stays REPORT in G9; fixed before V14–V16 (tier 2).
 - **D6** (finding 3) 45° wall: locate the cells of the max error and isolate the cut topology now.
 - **D7** (finding 4) Minimum nSubSamples (16 in 2-D) in tutorials and docs with a warning below

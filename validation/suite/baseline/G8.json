@@ -9,12 +9,12 @@
  ],
  "KIND": "gate",
  "TIER": 0,
- "commit": "5008932",
- "suite": "7ebe434",
+ "commit": "e7d742a",
+ "suite": "e7d742a",
  "status": "PASS",
- "started": "2026-11-06 13:45:04",
- "seconds": 222.4,
- "cases": "/home/ws/xt8786/runs/suite/5008932/G8",
+ "started": "2026-11-10 01:48:58",
+ "seconds": 73.2,
+ "cases": "/home/ws/xt8786/runs/suite/e7d742a/G8",
  "checks": [
   {
    "name": "cylinder: |drag_np4/drag_serial - 1|",

@@ -10,12 +10,12 @@
  ],
  "KIND": "case",
  "TIER": 1,
- "commit": "d05799c",
- "suite": "e9a7524",
+ "commit": "e7d742a",
+ "suite": "e7d742a",
  "status": "PASS",
- "started": "2026-11-06 11:19:18",
- "seconds": 7780.7,
- "cases": "/home/ws/xt8786/runs/suite/d05799c/V4",
+ "started": "2026-11-10 08:46:28",
+ "seconds": 9226.0,
+ "cases": "/home/ws/xt8786/runs/suite/e7d742a/V4",
  "checks": [
   {
    "name": "body-fitted M = 64 vs 128 (content/rate)",
@@ -34,12 +34,12 @@
    "note": "162.95 162.41 162.37; deviation +0.132 %"
   },
   {
-   "name": "baseline",
-   "status": "REPORT",
-   "value": 5,
+   "name": "regression against baseline d05799c (5 metrics)",
+   "status": "PASS",
+   "value": 0.0,
    "ref": null,
-   "tol": null,
-   "note": "no stored baseline: this run can be accepted as one"
+   "tol": "<= 1 (in units of the tolerance)",
+   "note": "rtol 1e-05, atol 0; worst -"
   }
  ],
  "data": {
@@ -88,6 +88,5 @@
    "bf_128_ratio": 162.15780806411942
   }
  },
- "figures": [],
- "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+ "figures": []
 }

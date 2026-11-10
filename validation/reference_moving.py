@@ -10,6 +10,9 @@ Usage:
   reference_moving.py --motion oscillate --nSteps 400 --out ref_osc.npz
   reference_moving.py --motion translate --uTrans 0.5 --uBulk 0 --nSteps 1200 --out ref_gal.npz
   reference_moving.py --freeStream          (prints the free-stream table)
+  ibmPimpleFoam since 7f50469 (cells just uncovered get p from their neighbours):
+  reference_moving.py --motion oscillate --nSteps 400 --fillUncovered --out ref_osc_fill.npz
+  reference_moving.py --motion translate --uTrans 0.5 --uBulk 0 --nSteps 1200 --seamFix --fillUncovered --out ref_gal_seamFix_fill.npz
 """
 import os, sys, argparse, time
 os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
@@ -32,6 +35,8 @@ ap.add_argument('--uBulk', type=float, default=0.0)
 ap.add_argument('--alphaMin', type=float, default=0.02)
 ap.add_argument('--freeStream', action='store_true')
 ap.add_argument('--seamFix', action='store_true', help='close both copies of a periodic face when an absorbed cell touches it (see README)')
+ap.add_argument('--fillUncovered', action='store_true', help='cells just uncovered take p from their fluid '
+                'neighbours, as ibmPimpleFoam since 7f50469 (see README)')
 ap.add_argument('--out', default='ref_moving.npz')
 args = ap.parse_args()
 
@@ -251,9 +256,31 @@ def bodyForce(p, U, uWall):
         fVisc = np.zeros(2)
     return fPres+fVisc
 
+def fillUncovered(f, solidOld):
+    """cells fluid now and solid before the update: the mean over their open faces of the
+    fluid neighbours, layer by layer (cutCellGeometry::fillUncovered)"""
+    known = fluid & ~solidOld
+    for layer in range(10):
+        s = np.zeros_like(f)
+        n = np.zeros_like(f)
+        # (theta of the face, neighbour shift): left, right, down, up
+        for th, sh, ax in ((thX[:, :-1], 1, 1), (thX[:, 1:], -1, 1), (thY[:-1, :], 1, 0), (thY[1:, :], -1, 0)):
+            kn = np.roll(known, sh, ax)
+            m = (th > 0) & kn & ~known
+            s += np.where(m, np.roll(f, sh, ax), 0.0)
+            n += m
+        new = fluid & ~known & (n > 0)
+        f[new] = s[new]/n[new]
+        known = known | new
+        if not (fluid & ~known).any():
+            break
+
 def timeStep(t, dt, VAR, phiHbyAx, phiHbyAy):
     VARold = VAR.copy()
+    solidOld = solid.copy()
     updateGeometry(*bodyPosition(t+dt))
+    if args.fillUncovered:
+        fillUncovered(VAR[IP], solidOld)
     uWall = bodyVelocity(t+dt)
     massSrc, alphaVOld = ibm_movingWall(uWall, dt)
     jRef, iRef = referenceCell()

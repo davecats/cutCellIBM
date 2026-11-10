@@ -12,124 +12,228 @@
  ],
  "KIND": "case",
  "TIER": 1,
- "commit": "5008932",
- "suite": "6b9617f",
+ "commit": "c8c771f",
+ "suite": "8e93460",
  "status": "FAIL",
- "started": "2026-11-07 16:20:50",
- "seconds": 0.8,
- "cases": "/home/ws/xt8786/runs/suite/5008932/V12",
+ "started": "2026-11-09 09:35:21",
+ "seconds": 85544.8,
+ "cases": "/home/ws/xt8786/runs/suite/c8c771f/V12",
  "checks": [
   {
    "name": "alpha 0: mean C_L, D/h = 80",
    "status": "PASS",
-   "value": 6.894198098876109e-05,
+   "value": -5.400238744046015e-05,
    "ref": 0.0,
    "tol": "\u00b1 0.02",
-   "note": "-0.001744 6.894e-05; deviation +6.89e-05"
+   "note": "-0.001977 -5.4e-05; deviation -5.4e-05"
   },
   {
    "name": "alpha 0: mean C_D, D/h = 80",
    "status": "PASS",
-   "value": 1.327522758462308,
+   "value": 1.3231059961095506,
    "ref": 1.318,
    "tol": "\u00b1 0.02636",
-   "note": "1.344 1.328; deviation +0.00952"
+   "note": "1.335 1.323; deviation +0.00511"
+  },
+  {
+   "name": "alpha 0: C_L, D/h = 80, vs body-fitted M 128 (rel.; abs. where |ref| < 0.01)",
+   "status": "REPORT",
+   "value": 7.952730653082511e-05,
+   "ref": null,
+   "tol": null,
+   "note": "-0.001977 -5.4e-05"
+  },
+  {
+   "name": "alpha 0: C_D, D/h = 80, vs body-fitted M 128 (rel.; abs. where |ref| < 0.01)",
+   "status": "REPORT",
+   "value": 0.0019275138683432225,
+   "ref": null,
+   "tol": null,
+   "note": "1.335 1.323"
+  },
+  {
+   "name": "alpha 0: C_Lrms, D/h = 80, vs body-fitted M 128 (rel.; abs. where |ref| < 0.01)",
+   "status": "REPORT",
+   "value": 0.0006045248337753772,
+   "ref": null,
+   "tol": null,
+   "note": "0.477 0.4735"
+  },
+  {
+   "name": "alpha 0: St, D/h = 80, vs body-fitted M 128 (rel.; abs. where |ref| < 0.01)",
+   "status": "REPORT",
+   "value": -0.00015594321242351494,
+   "ref": null,
+   "tol": null,
+   "note": "0.1943 0.1949"
   },
   {
    "name": "alpha 0: C_Lrms, D/h = 80",
    "status": "PASS",
-   "value": 0.48185022636676816,
+   "value": 0.4735343232217316,
    "ref": 0.471,
    "tol": "\u00b1 0.02355",
-   "note": "0.4931 0.4819; deviation +0.0109"
+   "note": "0.477 0.4735; deviation +0.00253"
   },
   {
    "name": "alpha 0: C_Drms, D/h = 80",
    "status": "PASS",
-   "value": 0.032028208840631435,
+   "value": 0.030968511378310044,
    "ref": 0.03,
    "tol": "\u00b1 0.01",
-   "note": "0.03351 0.03203; deviation +0.00203"
+   "note": "0.03141 0.03097; deviation +0.000969"
   },
   {
    "name": "alpha 0: St, D/h = 80",
    "status": "PASS",
-   "value": 0.1946680835521851,
+   "value": 0.19489286383530074,
    "ref": 0.1934,
    "tol": "1 %",
-   "note": "0.1938 0.1947; deviation +0.656 %"
+   "note": "0.1943 0.1949; deviation +0.772 %"
   },
   {
-   "name": "alpha 1: mean C_L, D/h = 80",
-   "status": "FAIL",
-   "value": -2.482231487786914,
+   "name": "alpha 1: mean C_L, D/h = 80, against figure 11 (digitised)",
+   "status": "REPORT",
+   "value": -2.464149657931734,
    "ref": -2.265,
-   "tol": "\u00b1 0.0453",
-   "note": "-2.452 -2.482; deviation -0.217"
+   "tol": null,
+   "note": "-2.38 -2.464"
+  },
+  {
+   "name": "alpha 1: mean C_L, D/h = 80, against body-fitted (D3)",
+   "status": "PASS",
+   "value": -2.464149657931734,
+   "ref": -2.4994327210382337,
+   "tol": "\u00b1 0.0499887",
+   "note": "-2.38 -2.464; deviation +0.0353"
   },
   {
    "name": "alpha 1: mean C_D, D/h = 80",
    "status": "PASS",
-   "value": 1.0967534959113312,
+   "value": 1.0975933293235,
    "ref": 1.084,
    "tol": "\u00b1 0.02168",
-   "note": "1.138 1.097; deviation +0.0128"
+   "note": "1.14 1.098; deviation +0.0136"
+  },
+  {
+   "name": "alpha 1: C_L, D/h = 80, vs body-fitted M 128 (rel.; abs. where |ref| < 0.01)",
+   "status": "REPORT",
+   "value": -0.014116428423743943,
+   "ref": null,
+   "tol": null,
+   "note": "-2.38 -2.464"
+  },
+  {
+   "name": "alpha 1: C_D, D/h = 80, vs body-fitted M 128 (rel.; abs. where |ref| < 0.01)",
+   "status": "REPORT",
+   "value": 0.013468260884939687,
+   "ref": null,
+   "tol": null,
+   "note": "1.14 1.098"
+  },
+  {
+   "name": "alpha 1: C_Lrms, D/h = 80, vs body-fitted M 128 (rel.; abs. where |ref| < 0.01)",
+   "status": "REPORT",
+   "value": 0.012786430567468754,
+   "ref": null,
+   "tol": null,
+   "note": "0.5233 0.5009"
+  },
+  {
+   "name": "alpha 1: St, D/h = 80, vs body-fitted M 128 (rel.; abs. where |ref| < 0.01)",
+   "status": "REPORT",
+   "value": -0.0007737583933564718,
+   "ref": null,
+   "tol": null,
+   "note": "0.1923 0.193"
   },
   {
    "name": "alpha 1: C_Lrms, D/h = 80",
    "status": "PASS",
-   "value": 0.5049399097018195,
+   "value": 0.5008820261490917,
    "ref": 0.494,
    "tol": "\u00b1 0.0247",
-   "note": "0.535 0.5049; deviation +0.0109"
+   "note": "0.5233 0.5009; deviation +0.00688"
   },
   {
    "name": "alpha 1: C_Drms, D/h = 80",
    "status": "PASS",
-   "value": 0.13467176851659818,
+   "value": 0.13292127762488617,
    "ref": 0.131,
    "tol": "\u00b1 0.01",
-   "note": "0.1399 0.1347; deviation +0.00367"
+   "note": "0.1344 0.1329; deviation +0.00192"
   },
   {
    "name": "alpha 1: St, D/h = 80",
    "status": "PASS",
-   "value": 0.19281021587254824,
+   "value": 0.1929759477966936,
    "ref": 0.1921,
    "tol": "1 %",
-   "note": "0.1922 0.1928; deviation +0.37 %"
+   "note": "0.1923 0.193; deviation +0.456 %"
   },
   {
-   "name": "alpha 2: mean C_L, D/h = 80",
-   "status": "FAIL",
-   "value": -5.468907450697287,
+   "name": "alpha 2: mean C_L, D/h = 160",
+   "status": "PASS",
+   "value": -5.357093702440941,
    "ref": -5.351,
    "tol": "\u00b1 0.10702",
-   "note": "-5.599 -5.469; deviation -0.118"
+   "note": "-5.072 -5.3 -5.357; deviation -0.00609"
   },
   {
-   "name": "alpha 2: mean C_D, D/h = 80",
+   "name": "alpha 2: mean C_D, D/h = 160",
    "status": "PASS",
-   "value": 0.27973699873444846,
+   "value": 0.2915514973807127,
    "ref": 0.29,
    "tol": "\u00b1 0.02",
-   "note": "0.2654 0.2797; deviation -0.0103"
+   "note": "0.3549 0.2934 0.2916; deviation +0.00155"
   },
   {
-   "name": "alpha 2: C_Lrms, D/h = 80",
+   "name": "alpha 2: C_L, D/h = 160, vs body-fitted M 128 (rel.; abs. where |ref| < 0.01)",
+   "status": "REPORT",
+   "value": -0.0033363809022611823,
+   "ref": null,
+   "tol": null,
+   "note": "-5.072 -5.3 -5.357"
+  },
+  {
+   "name": "alpha 2: C_D, D/h = 160, vs body-fitted M 128 (rel.; abs. where |ref| < 0.01)",
+   "status": "REPORT",
+   "value": 0.009755470313208114,
+   "ref": null,
+   "tol": null,
+   "note": "0.3549 0.2934 0.2916"
+  },
+  {
+   "name": "alpha 2: C_Lrms, D/h = 160, vs body-fitted M 128 (rel.; abs. where |ref| < 0.01)",
+   "status": "REPORT",
+   "value": -0.000889290710012861,
+   "ref": null,
+   "tol": null,
+   "note": "0.1479 0.008039 0.005288"
+  },
+  {
+   "name": "alpha 2: St, D/h = 160, vs body-fitted M 128 (rel.; abs. where |ref| < 0.01)",
+   "status": "REPORT",
+   "value": 1.0159564655221405,
+   "ref": null,
+   "tol": null,
+   "note": "0.1806 0.1805 0.3642"
+  },
+  {
+   "name": "alpha 2: C_Lrms, D/h = 160",
    "status": "PASS",
-   "value": 0.00323122972646323,
+   "value": 0.005288333123902917,
    "ref": 0.002,
    "tol": "\u00b1 0.01",
-   "note": "0.01202 0.003231; deviation +0.00123"
+   "note": "0.1479 0.008039 0.005288; deviation +0.00329"
   },
   {
-   "name": "alpha 2: C_Drms, D/h = 80",
+   "name": "alpha 2: C_Drms, D/h = 160",
    "status": "PASS",
-   "value": 0.0012503590626583643,
+   "value": 0.002296284262334034,
    "ref": 0.0,
    "tol": "\u00b1 0.01",
-   "note": "0.004387 0.00125; deviation +0.00125"
+   "note": "0.05608 0.003052 0.002296; deviation +0.0023"
   },
   {
    "name": "torque C_M",
@@ -140,102 +244,116 @@
    "note": "needs the torque output (C1)"
   },
   {
-   "name": "baseline",
-   "status": "REPORT",
-   "value": 24,
+   "name": "regression against baseline 5008932 (28 metrics)",
+   "status": "FAIL",
+   "value": 113001.09452507713,
    "ref": null,
-   "tol": null,
-   "note": "no stored baseline: this run can be accepted as one"
+   "tol": "<= 1 (in units of the tolerance)",
+   "note": "rtol 0.0001, atol 0; worst a2_Dh40_C_Lrms; not in baseline: a2_Dh160_C_L, a2_Dh160_C_D, a2_Dh160_C_Lrms, a2_Dh160_St"
   }
  ],
  "data": {
   "rows": [
    {
+    "alpha": 2,
+    "Dh": 160,
+    "cells": 208216,
+    "St": 0.3641989145841712,
+    "C_L": -5.357093702440941,
+    "C_D": 0.2915514973807127,
+    "C_Lrms": 0.005288333123902917,
+    "C_Drms": 0.002296284262334034
+   },
+   {
     "alpha": 0,
     "Dh": 40,
-    "cells": null,
-    "St": 0.19382240092793684,
-    "C_L": -0.0017437531030141931,
-    "C_D": 1.3435689171567873,
-    "C_Lrms": 0.4930992137055541,
-    "C_Drms": 0.03350826351617253
+    "cells": 35242,
+    "St": 0.1943358823319511,
+    "C_L": -0.001976593201812204,
+    "C_D": 1.3354075807684047,
+    "C_Lrms": 0.4770374822317639,
+    "C_Drms": 0.031409474156522614
    },
    {
     "alpha": 0,
     "Dh": 80,
-    "cells": null,
-    "St": 0.1946680835521851,
-    "C_L": 6.894198098876109e-05,
-    "C_D": 1.327522758462308,
-    "C_Lrms": 0.48185022636676816,
-    "C_Drms": 0.032028208840631435
+    "cells": 74521,
+    "St": 0.19489286383530074,
+    "C_L": -5.400238744046015e-05,
+    "C_D": 1.3231059961095506,
+    "C_Lrms": 0.4735343232217316,
+    "C_Drms": 0.030968511378310044
    },
    {
     "alpha": 1,
     "Dh": 40,
-    "cells": null,
-    "St": 0.1922478904865075,
-    "C_L": -2.4515823366228715,
-    "C_D": 1.137950564157615,
-    "C_Lrms": 0.5350057458323183,
-    "C_Drms": 0.1398758132609803
+    "cells": 35242,
+    "St": 0.1923289371925704,
+    "C_L": -2.3796986867149377,
+    "C_D": 1.1401076112045188,
+    "C_Lrms": 0.5233257441909596,
+    "C_Drms": 0.13440973831019704
    },
    {
     "alpha": 1,
     "Dh": 80,
-    "cells": null,
-    "St": 0.19281021587254824,
-    "C_L": -2.482231487786914,
-    "C_D": 1.0967534959113312,
-    "C_Lrms": 0.5049399097018195,
-    "C_Drms": 0.13467176851659818
+    "cells": 74521,
+    "St": 0.1929759477966936,
+    "C_L": -2.464149657931734,
+    "C_D": 1.0975933293235,
+    "C_Lrms": 0.5008820261490917,
+    "C_Drms": 0.13292127762488617
    },
    {
     "alpha": 2,
     "Dh": 40,
-    "cells": null,
-    "St": 0.17263341571067972,
-    "C_L": -5.599493953228431,
-    "C_D": 0.2654390885453896,
-    "C_Lrms": 0.01202140994018252,
-    "C_Drms": 0.004386848111679882
+    "cells": 35242,
+    "St": 0.1805821573336679,
+    "C_L": -5.072094792954052,
+    "C_D": 0.3548826075062701,
+    "C_Lrms": 0.1478646580377092,
+    "C_Drms": 0.05608368939509231
    },
    {
     "alpha": 2,
     "Dh": 80,
-    "cells": null,
-    "St": 0.17762897335648217,
-    "C_L": -5.468907450697287,
-    "C_D": 0.27973699873444846,
-    "C_Lrms": 0.00323122972646323,
-    "C_Drms": 0.0012503590626583643
+    "cells": 74521,
+    "St": 0.18051173456017994,
+    "C_L": -5.300109057715397,
+    "C_D": 0.2933832447356665,
+    "C_Lrms": 0.008038784282763339,
+    "C_Drms": 0.0030518059056863166
    }
   ],
   "metrics": {
-   "a0_Dh40_C_L": -0.0017437531030141931,
-   "a0_Dh40_C_D": 1.3435689171567873,
-   "a0_Dh40_C_Lrms": 0.4930992137055541,
-   "a0_Dh40_St": 0.19382240092793684,
-   "a0_Dh80_C_L": 6.894198098876109e-05,
-   "a0_Dh80_C_D": 1.327522758462308,
-   "a0_Dh80_C_Lrms": 0.48185022636676816,
-   "a0_Dh80_St": 0.1946680835521851,
-   "a1_Dh40_C_L": -2.4515823366228715,
-   "a1_Dh40_C_D": 1.137950564157615,
-   "a1_Dh40_C_Lrms": 0.5350057458323183,
-   "a1_Dh40_St": 0.1922478904865075,
-   "a1_Dh80_C_L": -2.482231487786914,
-   "a1_Dh80_C_D": 1.0967534959113312,
-   "a1_Dh80_C_Lrms": 0.5049399097018195,
-   "a1_Dh80_St": 0.19281021587254824,
-   "a2_Dh40_C_L": -5.599493953228431,
-   "a2_Dh40_C_D": 0.2654390885453896,
-   "a2_Dh40_C_Lrms": 0.01202140994018252,
-   "a2_Dh40_St": 0.17263341571067972,
-   "a2_Dh80_C_L": -5.468907450697287,
-   "a2_Dh80_C_D": 0.27973699873444846,
-   "a2_Dh80_C_Lrms": 0.00323122972646323,
-   "a2_Dh80_St": 0.17762897335648217
+   "a2_Dh160_C_L": -5.357093702440941,
+   "a2_Dh160_C_D": 0.2915514973807127,
+   "a2_Dh160_C_Lrms": 0.005288333123902917,
+   "a2_Dh160_St": 0.3641989145841712,
+   "a0_Dh40_C_L": -0.001976593201812204,
+   "a0_Dh40_C_D": 1.3354075807684047,
+   "a0_Dh40_C_Lrms": 0.4770374822317639,
+   "a0_Dh40_St": 0.1943358823319511,
+   "a0_Dh80_C_L": -5.400238744046015e-05,
+   "a0_Dh80_C_D": 1.3231059961095506,
+   "a0_Dh80_C_Lrms": 0.4735343232217316,
+   "a0_Dh80_St": 0.19489286383530074,
+   "a1_Dh40_C_L": -2.3796986867149377,
+   "a1_Dh40_C_D": 1.1401076112045188,
+   "a1_Dh40_C_Lrms": 0.5233257441909596,
+   "a1_Dh40_St": 0.1923289371925704,
+   "a1_Dh80_C_L": -2.464149657931734,
+   "a1_Dh80_C_D": 1.0975933293235,
+   "a1_Dh80_C_Lrms": 0.5008820261490917,
+   "a1_Dh80_St": 0.1929759477966936,
+   "a2_Dh40_C_L": -5.072094792954052,
+   "a2_Dh40_C_D": 0.3548826075062701,
+   "a2_Dh40_C_Lrms": 0.1478646580377092,
+   "a2_Dh40_St": 0.1805821573336679,
+   "a2_Dh80_C_L": -5.300109057715397,
+   "a2_Dh80_C_D": 0.2933832447356665,
+   "a2_Dh80_C_Lrms": 0.008038784282763339,
+   "a2_Dh80_St": 0.18051173456017994
   }
  },
  "figures": []

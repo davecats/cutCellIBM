@@ -163,6 +163,14 @@ cells are made regular by `ibm.constrainPressure(pEqn)`, and `pEqn.flux()` is th
 automatically θ-weighted. Everything else (`constrainHbyA`, `setReference`, `p.relax()`,
 fvOptions, residual control, PIMPLE loops) is untouched simpleFoam/pimpleFoam.
 
+A boundary face of the domain cut by a body carries θ U_b·Sf: a `fixedValue` U_b there is the
+velocity over its wet part (e.g. at the centroid of the wet part), not at the face centre,
+which can lie on or behind the wall. A uniform value is unaffected; a profile evaluated at the
+face centres is not (G9: with the face-centre value the corner pressure did not converge).
+With `secondOrder` the boundary gradient of such a face is taken from the cell's value point to
+the wet-face centroid (`cutCellCorrected`), not over the mesh delta: where a wall meets the
+boundary at an angle the value point is off the cell centre normal to the boundary.
+
 Why this and not the alternatives:
 
 * Scaling `mesh.Sf()/V()` in place would make all operators θ/α-aware implicitly, but
@@ -362,8 +370,12 @@ momentumSource
   interpolation `linear`.
 * `PIMPLE { consistent yes; nOuterCorrectors 3; nCorrectors 1; ddtCorr yes; }` for moving
   bodies: with a single outer iteration the convective flux would be assembled from a
-  geometry one displacement out of date. `ddtCorr yes` (the OpenFOAM default) keeps the
-  Rhie-Chow coupling independent of Δt; switch it off only to compare with the notebooks.
+  geometry one displacement out of date. For any time-resolved flow, static bodies too, use
+  2–3 outer correctors: one PISO pass convects with the flux of the previous step and is
+  first order in time whatever the ddt scheme (DFG 2D-2 at the same Δt: C_L amplitude
+  +12.8 % with one pass, +12.9 % body-fitted; +0.8 % with three). Runs marched to a steady
+  state with Δt ≈ 1 (the `cylinderRe1_pimple` and scalar tutorials) do not need it.
+  `ddtCorr yes` (the OpenFOAM default) keeps the Rhie-Chow coupling independent of Δt; switch it off only to compare with the notebooks.
   No under-relaxation of `U` in PIMPLE; `relaxationFactors { equations { U 0.9; } fields
   { p 1; } }` for SIMPLE.
 * The pressure reference cell (`pRefCell`/`pRefPoint`) must be a fluid cell; with moving
