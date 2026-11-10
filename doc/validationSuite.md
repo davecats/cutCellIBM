@@ -620,7 +620,8 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    immersed walls (f = 0.3) match the body-fitted channel to 1.8e-5 (0.16 % closer than the cycle
    values). `tutorials/turbulence/channelSA/makeCase.py` now writes ν̃ 0.7; its body-fitted
    cases had also been given the `cutCellCorrected` schemes since de164be (af25a0b).
-2. **G9: pressure at the junction of an immersed wall with the outer boundary** does not
+2. ~~G9: pressure at the junction of an immersed wall with the outer boundary~~ **resolved
+   (6619272 level wall, e7d742a 45° wall).** Did not
    converge (max |p − p_exact| ≈ 0.07 at N = 20…160 where the level wall meets the outflow
    boundary; body-fitted corner 2e-3 and converging). Relevant to V14 (cylinder spanning the
    channel walls) and V15 (plate meeting the outflow).
@@ -635,6 +636,17 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    ibmConvection; with the exact p prescribed on the outer faces too (instead of zeroGradient)
    -1.1e-2 at every N. Its neighbours and the obtuse (135°) junction at the bottom converge
    (1.6e-3); the L2 norms and force orders are unaffected. Not V14/V15 (right-angle junctions).
+   **45° wall: the boundary gradient of cut cells (e7d742a).** A fixedValue patch differences
+   v_b − v_P over the mesh delta (cell centre to face centre), but v_b is the value at the
+   wet-face centroid and v_P at the value point (fluid or group centroid): where the offset has a
+   component normal to the boundary the viscous flux of the face is wrong by an O(1) factor
+   (right-angle junctions: the offset is parallel to the boundary, no error). `cutCellCorrected`
+   now corrects fixed-value faces of non-coupled patches like the internal ones, with
+   d = x'_f − x_v. Junction cell: u error 6.6e-3, 1.9e-3, 3.9e-4 (N = 40, 80, 160; was 3.2e-2,
+   1.7e-2, 7.8e-3), p error 1.8e-2, 1.2e-2, 5.4e-3 (first order like every zeroGradient-p
+   boundary cell, e.g. the top-left corner 8.0e-3, 4.0e-3, 1.9e-3); with the exact p on the
+   outer faces the junction is no longer the maximum (1.4e-2 ... 1.7e-3, top row). G1–G8 and
+   every tutorial force bit-identical.
 3. ~~G9: wall at 45°: interior p max norm stalls near 6e-3~~ **resolved (e2a9780): it is finding
    2.** The 45° wall meets the bottom of the Hiemenz box at x = -0.465, 0.135 from the left face;
    the "interior" excluded the faces other than the bottom, so the junction counted. The max
@@ -695,6 +707,18 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    50 time units are 9.6 periods at α = 1; the partial period biased mean C_L by −0.021 (α = 1)
    and +0.015 (α = 0, reference 0, tolerance 0.02). `meshes.periodic_statistics` now averages
    over the whole C_L cycles inside the window; V12 re-evaluated, verdicts unchanged.
+9. ~~G9: wall shear force order 0.91 for the tilted Homann wall (0.023 → 0.043 at N = 80 with
+   the boundary data of 6619272)~~ **resolved: the metrics.** (a) The exact Homann force came from
+   a staircase quadrature over the box, 0.85 % off (viscous) and 0.8 % (pressure); now the wall
+   polygon, exact. (b) Most of the error was the wall-normal part ν u_n/d of the discrete wall
+   flux: exact normal viscous stress on a no-slip wall is zero, the discrete one is first order
+   (Homann −0.146, −0.076, −0.039 of |F_v| at N = 20, 40, 80); body-fitted the same (OpenFOAM's
+   wall patch, level Hiemenz −0.037 … −0.0042; tangential error IBM / body-fitted 0.0323 /
+   0.0305, 0.0088 / 0.0083, 0.0023 / 0.0023, 0.0006 / 0.0006). The old boundary data gave a
+   positive normal error that partly cancelled it. G9 checks the tangential part (orders 1.79 to
+   1.93) and reports the normal part. (c) The pressure force depends on the pressure constant
+   (fixed in one reference cell): now with the mean error removed as in the norms (finest
+   errors 1e-5 … 2e-3; Homann was 4 %).
 
 ### Decisions (2026-11-07)
 

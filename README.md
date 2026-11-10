@@ -167,6 +167,9 @@ A boundary face of the domain cut by a body carries θ U_b·Sf: a `fixedValue` U
 velocity over its wet part (e.g. at the centroid of the wet part), not at the face centre,
 which can lie on or behind the wall. A uniform value is unaffected; a profile evaluated at the
 face centres is not (G9: with the face-centre value the corner pressure did not converge).
+With `secondOrder` the boundary gradient of such a face is taken from the cell's value point to
+the wet-face centroid (`cutCellCorrected`), not over the mesh delta: where a wall meets the
+boundary at an angle the value point is off the cell centre normal to the boundary.
 
 Why this and not the alternatives:
 

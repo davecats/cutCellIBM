@@ -6,7 +6,8 @@ traction (K3) without curvature or separation (doc/validationSuite.md §11).
 a = 1, nu = 0.01; U from the exact solution on every outer face (cut faces: at the centroid of their wet part), p zeroGradient (fixedFluxPressure is evaluated before the solver sets it) with the
 exact value in a reference cell; steady ibmSimpleFoam. Errors at the fluid centroids
 (alpha-weighted L2, Linf) of u and p; the wall force against the exact integral over the wall
-inside the box (viscous: tangential shear; pressure: p0 - a^2 s^2/2). Body-fitted control:
+polygon inside the box (viscous: the tangential part against the shear, the normal part
+nu u_n/d reported; pressure: p0 - a^2 s^2/2, with the mean pressure error removed as in the norms). Body-fitted control:
 level wall as a mesh patch."""
 import math
 import os
@@ -179,35 +180,45 @@ def boundary_values(d, kind, tan, f, N, bf, origin, nrm):
                "boundaryField\n{\n%s\n%s\n}\n" % ("\n".join(pp), empty))
 
 
-def wall_force_exact(kind, lo, hi, origin, nrm, depth):
-    """exact (pressure, viscous) force of the fluid on the wall inside the box, p0 = 0"""
-    _, fpp0, _ = hz.solve(kind)
-    if kind == "hiemenz":
-        t = np.array([nrm[1], -nrm[0], 0.0])
-        s = np.linspace(-4, 4, 400001)
-        x = origin[None, :] + s[:, None]*t[None, :]
-        inside = np.all((x[:, :2] >= lo[:2] - 1e-12) & (x[:, :2] <= hi[:2] + 1e-12), axis=1)
-        s = s[inside]
-        ds = s[1] - s[0]
-        w = np.full(len(s), ds)
-        w[[0, -1]] *= 0.5
-        P = -np.sum(w*(-0.5*A*A*s*s))*depth*nrm            # -p n (n into the fluid = out of the body)
-        V = np.sum(w*NU*A*s*math.sqrt(A/NU)*fpp0)*depth*t
-        return P, V
-    # Homann: quadrature over the wall plane inside the box
-    e1 = np.array([1.0, 0.0, 0.0])
+def wall_polygon(lo, hi, origin, nrm):
+    """vertices (ordered) of the wall plane (x - origin).nrm = 0 inside the box [lo, hi]"""
+    c = [np.array([[lo, hi][i][0], [lo, hi][j][1], [lo, hi][k][2]]) for i in (0, 1) for j in (0, 1) for k in (0, 1)]
+    pts = []
+    for a in range(8):
+        for b in range(a + 1, 8):
+            if bin(a ^ b).count("1") != 1:      # box edges join corners differing in one coordinate
+                continue
+            da, db = np.dot(c[a] - origin, nrm), np.dot(c[b] - origin, nrm)
+            if da*db < 0:
+                pts.append(c[a] + da/(da - db)*(c[b] - c[a]))
+            elif da == 0:
+                pts.append(c[a])
+    P = np.unique(np.round(np.array(pts), 14), axis=0)
+    m = P.mean(0)
+    e1 = (P[0] - m)/np.linalg.norm(P[0] - m)
     e2 = np.cross(nrm, e1)
-    m = 801
-    u = np.linspace(-1.2, 1.2, m)
-    U1, U2 = np.meshgrid(u, u, indexing="ij")
-    X = origin + U1[..., None]*e1 + U2[..., None]*e2
-    inside = np.all((X >= lo - 1e-12) & (X <= hi + 1e-12), axis=-1)
-    dA = (u[1] - u[0])**2
-    r2 = U1**2 + U2**2
-    P = -np.sum(inside*(-0.5*A*A*r2))*dA*nrm
+    return P[np.argsort(np.arctan2((P - m) @ e2, (P - m) @ e1))]
+
+
+def wall_force_exact(kind, lo, hi, origin, nrm):
+    """exact (pressure, viscous) force of the fluid on the wall inside the box, p0 = 0: the wall
+    polygon fan-triangulated, mid-edge rule (exact for the quadratic wall pressure and the
+    linear shear; a staircase quadrature over the box was off by 0.8 % for Homann)"""
+    _, fpp0, _ = hz.solve(kind)
     tau = NU*A*math.sqrt(A/NU)*fpp0
-    V = tau*dA*(np.sum(inside*U1)*e1 + np.sum(inside*U2)*e2)
-    return P, V
+    t = np.array([nrm[1], -nrm[0], 0.0])
+    P = wall_polygon(lo, hi, origin, nrm)
+    Fp, Fv = np.zeros(3), np.zeros(3)
+    for i in range(1, len(P) - 1):
+        a, b, c = P[0], P[i], P[i + 1]
+        At = 0.5*np.dot(np.cross(b - a, c - a), nrm)
+        for q in ((a + b)/2, (b + c)/2, (c + a)/2):
+            r = q - origin
+            # wall coordinate: s t in the Hiemenz plane (uniform in z), r - (r.n) n for Homann
+            r = np.dot(r, t)*t if kind == "hiemenz" else r - np.dot(r, nrm)*nrm
+            Fp += At/3*0.5*A*A*np.dot(r, r)*nrm        # -p n, p = -a^2 |r|^2/2 (n out of the body)
+            Fv += At/3*tau*r
+    return Fp, Fv
 
 
 def one(ctx, kind, tan, f, N, bf=False, ma=0.5, conv=True):
@@ -235,7 +246,8 @@ def one(ctx, kind, tan, f, N, bf=False, ma=0.5, conv=True):
     Ue, pe = hz.exact(xc, A, NU, origin, nrm, kind)
     eu = np.linalg.norm(U - Ue, axis=1)
     ep = p - pe
-    ep -= np.sum(a[fl]*ep[fl])/np.sum(a[fl])
+    pmean = np.sum(a[fl]*ep[fl])/np.sum(a[fl])
+    ep -= pmean
     lo, hi, _, _, _, ax = config(kind, tan, f, N, bf)
     # interior: farther than 0.1 from every outer face but a body-fitted wall (where the wall
     # meets the Dirichlet boundary the pressure is not converged, finding 2: reported apart).
@@ -250,16 +262,24 @@ def one(ctx, kind, tan, f, N, bf=False, ma=0.5, conv=True):
         w = a[m]/a[m].sum()
         return (float(np.sqrt(np.sum(w*eu[m]**2))), float(eu[m].max()),
                 float(np.sqrt(np.sum(w*ep[m]**2))), float(np.abs(ep[m]).max()))
-    depth = (hi[2] - lo[2]) if kind == "hiemenz" else 1.0
     row = {"name": name, "kind": kind, "tan": tan, "f": f, "N": N, "bf": bf, "ma": ma, "conv": conv,
            "converged": "SIMPLE solution converged" in log}
     row.update(zip(("uL2", "uLinf", "pL2", "pLinf"), norms(fl)))
     row.update(zip(("uL2i", "uLinfi", "pL2i", "pLinfi"), norms(inner)))
     if not bf:
-        Fp, Fv = wall_force_exact(kind, lo, hi, origin, nrm, depth)
+        Fp, Fv = wall_force_exact(kind, lo, hi, origin, nrm)
         F = common.ibm_force(log, "wall")
-        row["eFp"] = float(np.linalg.norm(F["pressure"] - Fp)/np.linalg.norm(Fp))
-        row["eFv"] = float(np.linalg.norm(F["viscous"] - Fv)/max(np.linalg.norm(Fv), 1e-300))
+        # pressure: defined up to a constant (fixed in one reference cell); with the mean error
+        # removed as in the norms (p - c on the wall pieces moves the force by -c sum Sw)
+        Sw, _ = read_field(os.path.join(d, "0", "ibmSw"))
+        Fpc = F["pressure"] - pmean*Sw.sum(0)
+        row["eFp"] = float(np.linalg.norm(Fpc - Fp)/np.linalg.norm(Fp))
+        # viscous: the tangential part (the wall shear); the normal part nu u_n/d of the discrete
+        # wall flux is first order (exact: zero normal viscous stress on a no-slip wall), the
+        # same on a body-fitted wall patch (doc §12 finding 2)
+        ev = F["viscous"] - Fv
+        row["eFvn"] = float(np.dot(ev, nrm)/max(np.linalg.norm(Fv), 1e-300))
+        row["eFv"] = float(np.linalg.norm(ev - np.dot(ev, nrm)*nrm)/max(np.linalg.norm(Fv), 1e-300))
         row["Fv"], row["Fv_exact"] = F["viscous"].tolist(), Fv.tolist()
         row["Fp"], row["Fp_exact"] = F["pressure"].tolist(), Fp.tolist()
     return row
@@ -304,8 +324,10 @@ def run(ctx, res):
             pv = common.order(h, [r["eFv"] for r in s])
             nv = "rel. error " + " ".join("%.2e" % r["eFv"] for r in s)
             if default:
-                res.ge("wall shear force order, " + lab, pv, 0.9, nv)
+                res.ge("wall shear force (tangential) order, " + lab, pv, 0.9, nv)
             else:
-                res.report("wall shear force order, " + lab + opt, pv, note=nv)
+                res.report("wall shear force (tangential) order, " + lab + opt, pv, note=nv)
+            res.report("wall viscous force normal part / |F_v| (finest), " + lab + opt, s[-1]["eFvn"],
+                       note=" ".join("%+.2e" % r["eFvn"] for r in s))
             res.report("wall pressure force rel. error (finest), " + lab + opt, s[-1]["eFp"],
                        note=" ".join("%.2e" % r["eFp"] for r in s))
