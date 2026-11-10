@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 
 import common
+import report
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt   # noqa: E402
@@ -110,12 +111,20 @@ def table(out, r, name=None, keep=lambda c: True, notes=True):
 
 
 def summary_table(out, res):
-    L = [r"\begin{tabular}{@{}l p{0.47\textwidth} c r r r r@{}}", r"\toprule",
-         r"id & title & status & PASS & FAIL & REPORT & time [s]\\", r"\midrule"]
+    """status of the checks against exact and reference data, and separately the change against the
+    stored baseline (a FAIL there is a change, intended or not, not a wrong result)"""
+    L = [r"\begin{tabular}{@{}l p{0.42\textwidth} c c r r r r@{}}", r"\toprule",
+         r"id & title & checks & vs.\ baseline & PASS & FAIL & REPORT & time [s]\\", r"\midrule"]
     for r in res:
-        n = {s: sum(c["status"] == s for c in r["checks"] if c["name"] != "baseline") for s in STATUS}
-        L.append(r"\hyperref[sec:%s]{%s} & %s & \st%s & %d & %d & %d & %.0f\\" % (
-            r["id"], r["id"], tex(r["TITLE"]), r["status"].lower(), n["PASS"], n["FAIL"], n["REPORT"], r["seconds"]))
+        cs = [c for c in r["checks"] if c["name"] != "baseline"]
+        n = {s: sum(c["status"] == s for c in cs) for s in STATUS}
+        st = "\\st" + report.reference_status(r).lower()
+        reg = [c for c in cs if report.is_regression(c)]
+        rst = ("\\st" + report.baseline_status(r).lower()) if reg else "--"
+        base = sorted({m for c in reg for m in __import__("re").findall(r"baseline (\w+)", c["name"] + " " + str(c.get("note") or ""))})
+        L.append(r"\hyperref[sec:%s]{%s} & %s & %s & %s & %d & %d & %d & %.0f\\" % (
+            r["id"], r["id"], tex(r["TITLE"]), st, rst + (r" {\scriptsize %s}" % ", ".join(base) if base else ""),
+            n["PASS"], n["FAIL"], n["REPORT"], r["seconds"]))
     L += [r"\bottomrule", r"\end{tabular}"]
     (out.d / "tables" / "summary.tex").write_text("\n".join(L) + "\n")
 
@@ -250,8 +259,8 @@ def g9(out, r):
         series(ax[1], i, N, [x["pL2i"] for x in s], lab)
         series(ax[2], i, N, [x["pLinfi"] for x in s], lab)
         series(ax[3], i, N, [x["pLinf"] for x in s], lab)
-    for a, t in zip(ax, ("u, L2 (all fluid cells)", "p, L2 (interior)", "p, max (interior)  [finding 3]",
-                         "p, max (all: junction)  [finding 2]")):
+    for a, t in zip(ax, ("u, L2 (all fluid cells)", "p, L2 (interior)", "p, max (interior)",
+                         "p, max (all, incl. the junction)")):
         loglog(a)
         a.set_title(t)
         slope(a, 20, 1e-2, 2, 160)
@@ -314,9 +323,9 @@ def v3(out, r):
         return dat[:, 0], (dat[:, 1] + dat[:, 4])/(2*Cf[:, 2].max())
 
     fig, ax = plt.subplots(1, 2, figsize=(7.0, 2.5))
-    h = np.load(common.VALIDATION / "ref_osc.npz", allow_pickle=True)["history"]
+    h = np.load(common.VALIDATION / "ref_osc_fill.npz", allow_pickle=True)["history"]
     s = h[:, 0] > 0.3
-    ax[0].plot(h[s, 0], h[s, 5], color=REF, lw=2.6, alpha=0.35, label="notebook (2026-09)")
+    ax[0].plot(h[s, 0], h[s, 5], color=REF, lw=2.6, alpha=0.35, label="notebook (--fillUncovered)")
     for i, opt in enumerate(("notebook", "default")):
         t, F = fx(root / ("osc_" + opt))
         s = t > 0.3
@@ -325,8 +334,8 @@ def v3(out, r):
     ax[0].set_ylabel("$F_x$")
     ax[0].set_title("oscillating cylinder, $F_x$ (after the impulsive start)")
     ax[0].legend(loc="lower right")
-    for i, (case, ref, lab) in enumerate((("osc_notebook", "ref_osc.npz", "oscillating"),
-                                          ("gal_notebook", "ref_gal_seamFix.npz", "translating"))):
+    for i, (case, ref, lab) in enumerate((("osc_notebook", "ref_osc_fill.npz", "oscillating"),
+                                          ("gal_notebook", "ref_gal_seamFix_fill.npz", "translating"))):
         h = np.load(common.VALIDATION / ref, allow_pickle=True)["history"]
         t, F = fx(root / case)
         n = min(len(t), len(h))
@@ -335,7 +344,7 @@ def v3(out, r):
                    label="%s (steps 1-2: %.1e of the peak)" % (lab, np.abs(F[:3] - h[:3, 5]).max()/np.abs(h[:n, 5]).max()))
     ax[1].set_xlabel("$t / t_{end}$")
     ax[1].set_ylabel("$(F_x - F_{x,nb})$ / max$|F_{x,nb}|$")
-    ax[1].set_title("notebook options: difference after step 10 [finding 5]")
+    ax[1].set_title("notebook options: difference after step 10 (finding 5 resolved)")
     ax[1].legend(loc="upper left", bbox_to_anchor=(1.02, 1))
     out.save(fig, "V3_moving")
 
@@ -382,10 +391,13 @@ def v5(out, r, diag):
 
     # 2D-2: the last cycle of each run against FeatFlow level 6
     root = Path(r["cases"])
-    runs = [(root / "re100_k0.nOuter1", 0.0025, "D/h 40, 1 pass, $\\Delta t$"),
-            (diag / "dt2", 0.0025, "D/h 40, 1 pass, $\\Delta t/2$"),
+    # the one-pass runs are the diagnostic of finding 6 (code d05799c, before the sliver fix, which
+    # changes V5 by 4e-4)
+    one = common.RUNS / "d05799c" / "V5"
+    runs = [(one / "re100_k0.nOuter1", 0.0025, "D/h 40, 1 pass, $\\Delta t$ (d05799c)"),
+            (diag / "dt2", 0.0025, "D/h 40, 1 pass, $\\Delta t/2$ (d05799c)"),
             (root / "re100_k0", 0.0025, "D/h 40, 3 outer correctors"),
-            (root / "re100_k1.nOuter1", 0.00125, "D/h 80, 1 pass"),
+            (one / "re100_k1.nOuter1", 0.00125, "D/h 80, 1 pass (d05799c)"),
             (root / "re100_k1", 0.00125, "D/h 80, 3 outer correctors")]
     tr, cdr, clr, _ = dfg.bench2_cycle()
     R = dfg.bench2_summary()[6]
@@ -474,42 +486,35 @@ def v12_history(d):
 def v12(out, r, diag):
     import reference_rotatingCylinder as rot
     ref = rot.figure11()
+    bf = rot.bodyFitted()
     rows = r["data"]["rows"]
     fig, ax = plt.subplots(1, 3, figsize=(9.6, 2.6))
     ok = np.isfinite(ref["C_L"]) & (ref["alpha"] <= 2.6)
+    A = sorted(bf)
     for a, q, lab in ((ax[0], "C_L", "mean $C_L$"), (ax[1], "C_D", "mean $C_D$")):
         a.plot(ref["alpha"][ok], ref[q][ok], color=REF, lw=2.4, alpha=0.35, label="Mittal & Kumar 2003, fig. 11")
-        for i, Dh in enumerate((40, 80)):
+        a.plot(A, [bf[x][q] for x in A], lw=0, color=REF, marker="o", mfc="none", ms=8,
+               label="body-fitted, M 128")
+        for i, Dh in enumerate((40, 80, 160)):
             s = sorted([x for x in rows if x["Dh"] == Dh], key=lambda x: x["alpha"])
-            a.plot([x["alpha"] for x in s], [x[q] for x in s], lw=0, color=C[i], marker=M[i], ms=5,
-                   label="D/h %d, 1 pass" % Dh)
+            if s:
+                a.plot([x["alpha"] for x in s], [x[q] for x in s], lw=0, color=C[i], marker=M[i], ms=4,
+                       label="D/h %d" % Dh)
         a.set_xlabel("$\\alpha = a\\omega/U$")
         a.set_title(lab)
-    # alpha = 1, D/h = 80: one pass against 3 outer correctors, means over the same window
-    t1, cd1, cl1 = v12_history(Path(r["cases"]) / "alpha1_Dh80")
-    dd = diag / "alpha1_Dh80"
-    t3 = cl3 = None
-    if dd.exists():
-        t3, cd3, cl3 = v12_history(dd)
-    te = t1[-1] if t3 is None or t3[-1] >= t1[-1] - 1e-6 else t3[-1]
-    T = 1/r["data"]["metrics"]["a1_Dh80_St"]   # whole shedding cycles: a partial one biases the mean
-    w0 = te - T*np.floor((min(50, te - 55))/T)
-    for i, (t, cl, lab) in enumerate(((t1, cl1, "1 pass"), (t3, cl3, "3 outer correctors"))):
-        if t is None:
-            continue
-        s = (t >= w0) & (t <= te)
-        m = cl[s].mean()
-        ax[2].plot(t[t >= w0 - 10], cl[t >= w0 - 10], color=C[i + 1], lw=0.7,
-                   label="%s: mean %.3f (t %.0f-%.0f)" % (lab, m, w0, te))
-        ax[2].plot([w0, te], [m, m], color=C[i + 1], lw=1.6)
-        if i == 1:
-            ax[0].plot([1], [m], lw=0, color=C[2], marker=M[2], ms=5,
-                       label="D/h 80, 3 outer corr.%s" % ("" if t3[-1] > 150 - 1e-3 else " (partial)"))
-    ax[2].axhline(-2.265, color=REF, ls="--", lw=0.9, label="reference mean -2.265")
+    # alpha = 1, D/h = 80: history and its mean over whole shedding cycles in the last 50 time units
+    t, cd, cl = v12_history(Path(r["cases"]) / "alpha1_Dh80")
+    T = 1/r["data"]["metrics"]["a1_Dh80_St"]
+    w0 = t[-1] - T*np.floor(50/T)
+    m = [x for x in rows if (x["alpha"], x["Dh"]) == (1, 80)][0]["C_L"]
+    ax[2].plot(t[t >= w0 - 10], cl[t >= w0 - 10], color=C[1], lw=0.7, label="IBM D/h 80: mean %.3f" % m)
+    ax[2].plot([w0, t[-1]], [m, m], color=C[1], lw=1.6)
+    ax[2].axhline(bf[1.0]["C_L"], color=REF, lw=1.2, label="body-fitted M 128: mean %.3f" % bf[1.0]["C_L"])
+    ax[2].axhline(-2.265, color=REF, ls="--", lw=0.9, label="fig. 11 (digitised): -2.265")
     ax[2].set_ylim(-3.3, -1.5)
     ax[2].set_xlabel("t U/D")
     ax[2].set_ylabel("$C_L$")
-    ax[2].set_title("$\\alpha$ = 1, D/h 80 [finding 7]")
+    ax[2].set_title("$\\alpha$ = 1, D/h 80 (finding 7: the reference)")
     ax[0].legend(loc="lower left")
     ax[2].legend(loc="upper left", bbox_to_anchor=(1.02, 1))
     out.save(fig, "V12_rotating")

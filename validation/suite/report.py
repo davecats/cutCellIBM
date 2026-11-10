@@ -27,14 +27,36 @@ def fmt(v):
     return str(v)
 
 
+def is_regression(c):
+    """change detection against the stored baseline (the regression check of every case, the
+    per-tutorial force comparison of G7), as opposed to checks against exact or reference data"""
+    return c["name"].startswith("regression against baseline") or "F_base" in c["name"]
+
+
+def reference_status(r):
+    """status of the checks against exact and reference data (FAIL, PASS, or REPORT if none decides)"""
+    st = [c["status"] for c in r["checks"] if c["name"] != "baseline" and not is_regression(c)]
+    return "FAIL" if "FAIL" in st else "PASS" if "PASS" in st else "REPORT"
+
+
+def baseline_status(r):
+    """status of the change against the stored baseline, None without such a check"""
+    st = [c["status"] for c in r["checks"] if is_regression(c)]
+    return ("FAIL" if "FAIL" in st else "PASS") if st else None
+
+
 def write(commit):
     d, res = load(commit)
     L = ["# Validation suite, commit %s" % commit, ""]
-    L += ["| id | title | status | PASS | FAIL | REPORT | time [s] |", "|---|---|---|---|---|---|---|"]
+    L += ["Status: the checks against exact and reference data; the change against the stored baseline",
+          "(regression) separately: a FAIL there is a change, intended or not, not a wrong result.", "",
+          "| id | title | checks | vs. baseline | PASS | FAIL | REPORT | time [s] |",
+          "|---|---|---|---|---|---|---|---|"]
     for r in res:
         n = {s: sum(c["status"] == s for c in r["checks"]) for s in COLOURS}
-        L.append("| %s | %s | **%s** | %d | %d | %d | %.0f |" % (r["id"], r["TITLE"], r["status"], n["PASS"],
-                                                              n["FAIL"], n["REPORT"], r["seconds"]))
+        L.append("| %s | %s | **%s** | %s | %d | %d | %d | %.0f |" % (
+            r["id"], r["TITLE"], reference_status(r), baseline_status(r) or "-", n["PASS"], n["FAIL"], n["REPORT"],
+            r["seconds"]))
     for r in res:
         L += ["", "## %s %s: %s" % (r["id"], r["TITLE"], r["status"]), "",
               "Stresses %s; relies on %s. Cases: `%s`." % (" ".join(r["STRESSES"]), " ".join(r["RELIES"]) or "-",
@@ -59,7 +81,7 @@ def matrix(d, res):
     for j, r in enumerate(res):
         for i, k in enumerate(COMPONENTS):
             if k in r["STRESSES"]:
-                ax.add_patch(Rectangle((j, i), 0.92, 0.92, color=COLOURS[r["status"]]))
+                ax.add_patch(Rectangle((j, i), 0.92, 0.92, color=COLOURS[reference_status(r)]))
             elif k in r.get("RELIES_K", []):
                 ax.add_patch(Rectangle((j, i), 0.92, 0.92, color="#e0e0e0"))
     ax.set_xlim(0, len(res))
@@ -71,7 +93,8 @@ def matrix(d, res):
     ax.tick_params(length=0)
     for s in ax.spines.values():
         s.set_visible(False)
-    ax.set_title("components stressed, by status (green PASS, red FAIL, grey REPORT)", fontsize=9)
+    ax.set_title("components stressed, by the checks against exact and reference data\n"
+                 "(green PASS, red FAIL, grey REPORT; the change against the baseline not included)", fontsize=9)
     fig.tight_layout()
     fig.savefig(d / "matrix.png", dpi=130)
     plt.close(fig)
