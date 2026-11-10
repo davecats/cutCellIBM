@@ -288,6 +288,15 @@ version). Two changes were needed:
 The solvers and AMR runs have been checked on v2506 (the 2-D AMR cylinder on 4 ranks,
 the periodic scalar case: budget error 9e-12).
 
+2026-11-10 (6692870): the wall-function code needs `#include "treeDataCell.H"` for
+`cellTree()` (v2212 no longer includes it through `fvMatrices.H`); built against v2212
+on istmdraco with `~/Codes/tools/buildtree_v2212.sh`, no warnings. Validation gates
+G1–G9 and V1 on v2212 (`IBM_SUITE_FOAM` set to the v2212 environment, runs in
+`~/runs/suite_v2212`): all pass, and against the v2106 baseline (e7d742a) every
+regression metric is within its tolerance at zero distance; tutorial forces agree to
+3e-17 (relative), the round-off Taylor-Couette forces to 2e-10. v2112 (HoreKa) is
+not available locally: the same gates are to be run there before its first use.
+
 ## 7. Tests
 
 All runs are in `/home/ws/xt8786/runs/amr_study` (scripts `regression.sh`,
