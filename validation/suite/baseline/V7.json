@@ -13,12 +13,12 @@
  ],
  "KIND": "case",
  "TIER": 1,
- "commit": "5008932",
- "suite": "7ebe434",
+ "commit": "e7d742a",
+ "suite": "e7d742a",
  "status": "PASS",
- "started": "2026-11-06 13:48:47",
- "seconds": 151.8,
- "cases": "/home/ws/xt8786/runs/suite/5008932/V7",
+ "started": "2026-11-10 11:20:14",
+ "seconds": 133.0,
+ "cases": "/home/ws/xt8786/runs/suite/e7d742a/V7",
  "checks": [
   {
    "name": "runs not stationary (driving gradient over the last 100 iterations > 1e-10)",
@@ -61,12 +61,12 @@
    "note": "max |du+| at y+ = 5, 30, 100, 300: 0.004; deviation +5.29e-05 %"
   },
   {
-   "name": "baseline",
-   "status": "REPORT",
-   "value": 5,
+   "name": "regression against baseline 5008932 (5 metrics)",
+   "status": "PASS",
+   "value": 0.0,
    "ref": null,
-   "tol": null,
-   "note": "no stored baseline: this run can be accepted as one"
+   "tol": "<= 1 (in units of the tolerance)",
+   "note": "rtol 0.0001, atol 0; worst -"
   }
  ],
  "data": {

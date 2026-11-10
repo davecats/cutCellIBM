@@ -9,35 +9,34 @@
  ],
  "KIND": "gate",
  "TIER": 0,
- "commit": "d05799c",
+ "commit": "e7d742a",
+ "suite": "e7d742a",
  "status": "PASS",
- "started": "2026-11-06 10:06:37",
- "seconds": 1.8,
- "cases": "/home/ws/xt8786/runs/suite/77df7f0/G4",
+ "started": "2026-11-10 01:43:58",
+ "seconds": 4.2,
+ "cases": "/home/ws/xt8786/runs/suite/e7d742a/G4",
  "checks": [
   {
    "name": "max |U - u_b| over the fluid, all written times",
    "status": "PASS",
-   "value": 1.78849266663e-13,
+   "value": 1.38882694116e-13,
    "ref": null,
    "tol": "<= 1e-10",
    "note": "latest time 0.125"
   },
   {
-   "name": "baseline",
-   "status": "REPORT",
-   "value": 1,
+   "name": "regression against baseline d05799c (1 metrics)",
+   "status": "PASS",
+   "value": 0.033903038901771085,
    "ref": null,
-   "tol": null,
-   "note": "no stored baseline: this run can be accepted as one"
+   "tol": "<= 1 (in units of the tolerance)",
+   "note": "rtol 1, atol 1e-12; worst max_dU"
   }
  ],
  "data": {
   "metrics": {
-   "max_dU": 1.78849266663e-13
+   "max_dU": 1.38882694116e-13
   }
  },
- "figures": [],
- "suite": "77df7f0",
- "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+ "figures": []
 }

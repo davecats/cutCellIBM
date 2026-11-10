@@ -12,16 +12,17 @@
  ],
  "KIND": "gate",
  "TIER": 0,
- "commit": "d05799c",
+ "commit": "e7d742a",
+ "suite": "e7d742a",
  "status": "PASS",
- "started": "2026-11-06 10:01:05",
- "seconds": 301.3,
- "cases": "/home/ws/xt8786/runs/suite/77df7f0/G3",
+ "started": "2026-11-10 01:35:41",
+ "seconds": 497.6,
+ "cases": "/home/ws/xt8786/runs/suite/e7d742a/G3",
  "checks": [
   {
    "name": "max|U| order, mergeAlpha 0.5",
    "status": "PASS",
-   "value": 1.9739833097972581,
+   "value": 1.9739829951048837,
    "ref": null,
    "tol": ">= 1.8",
    "note": "max|U| 2.492e-04 5.657e-05 1.614e-05"
@@ -29,7 +30,7 @@
   {
    "name": "pressure error order (max), mergeAlpha 0.5",
    "status": "REPORT",
-   "value": 0.982199610511574,
+   "value": 0.9821890012362285,
    "ref": null,
    "tol": null,
    "note": "max|p + y| 4.526e-02 2.261e-02 1.160e-02"
@@ -51,12 +52,12 @@
    "note": "max|p + y| 1.626e-02 7.489e-03 3.846e-03"
   },
   {
-   "name": "baseline",
-   "status": "REPORT",
-   "value": 12,
+   "name": "regression against baseline d05799c (12 metrics)",
+   "status": "PASS",
+   "value": 0.2405228779105948,
    "ref": null,
-   "tol": null,
-   "note": "no stored baseline: this run can be accepted as one"
+   "tol": "<= 1 (in units of the tolerance)",
+   "note": "rtol 0.05, atol 0; worst N160_ma0.5_rmsU"
   }
  ],
  "data": {
@@ -97,9 +98,9 @@
     "N": 160,
     "ma": 0.5,
     "t": "10",
-    "maxU": 1.6144471216373653e-05,
-    "rmsU": 2.753189042474524e-06,
-    "maxEp": 0.011597488848033022
+    "maxU": 1.614447825950186e-05,
+    "rmsU": 2.7862992900709183e-06,
+    "maxEp": 0.011597659420266027
    },
    {
     "N": 160,
@@ -119,13 +120,11 @@
    "N80_ma0.5_rmsU": 1.4834804915513594e-05,
    "N80_ma0_maxU": 6.137899705151937e-05,
    "N80_ma0_rmsU": 8.710310064147205e-06,
-   "N160_ma0.5_maxU": 1.6144471216373653e-05,
-   "N160_ma0.5_rmsU": 2.753189042474524e-06,
+   "N160_ma0.5_maxU": 1.614447825950186e-05,
+   "N160_ma0.5_rmsU": 2.7862992900709183e-06,
    "N160_ma0_maxU": 1.6615702436744875e-05,
    "N160_ma0_rmsU": 1.639851601930195e-06
   }
  },
- "figures": [],
- "suite": "77df7f0",
- "note": "run at code d05799c; 5008932 differs from d05799c only in tutorials/turbulence/channelSA/makeCase.py (used by G8 and V7 alone)"
+ "figures": []
 }

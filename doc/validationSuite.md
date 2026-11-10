@@ -724,6 +724,12 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
 
 - **D1** Tier-1 baseline accepted from 5008932 (`validation/suite/baseline/`), V12 with its FAIL;
   V12 is re-accepted after D3/D4.
+  Done (2026-11-10): baseline re-accepted from e7d742a (G1–G9, V1–V5, V7, V13, V15; V1–V5, V7,
+  V13, V15 bit-identical to c8c771f; G9 with the metrics of finding 9) and V12 from c8c771f
+  (no cut cell touches an outer boundary, e7d742a cannot change it): every V12 check against
+  the literature and the body-fitted references passes, α = 2 at D/h = 160 C_L −5.357 (the same
+  case on 128 instead of 48 ranks agrees to 6 digits). G7 takes the moving-body change of
+  finding 4.
 - **D2** (finding 6) Body-fitted DFG 2D-2 with one pass at D/h = 40 first, to separate generic
   PISO from lagged wall terms; then 2–3 outer correctors in the transient tutorials and docs.
   Done: generic PISO (finding 6); `amr/cylinderRe100` to 3 outer correctors, README.
