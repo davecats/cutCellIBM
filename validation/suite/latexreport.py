@@ -1,6 +1,6 @@
 """Figures and LaTeX tables of one commit's results, for the consolidated report:
 results/<commit>/figures/<ID>_<what>.{pdf,png} from the result JSONs and the case directories
-they name, results/<commit>/tables/<ID>.tex (every check: status, value, reference, tolerance,
+they name (flow pictures of the 2-D cases: flowfield.py), results/<commit>/tables/<ID>.tex (every check: status, value, reference, tolerance,
 note). The narrative (results/<commit>/report/report.tex) includes them.
 
     latexreport.py <commit> [--diag DIR ...]
@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 
 import common
+import flowfield
 import report
 import matplotlib
 matplotlib.use("Agg")
@@ -628,6 +629,7 @@ def main():
                   ("V3", v3), ("V4", v4), ("V7", v7), ("V13", v13), ("V15", v15)):
         if k in R:
             fn(out, R[k])
+    flowfield.figures(out, R)
     if "V12" in R:
         v12(out, R["V12"], diag12)
     if "V5" in R:
