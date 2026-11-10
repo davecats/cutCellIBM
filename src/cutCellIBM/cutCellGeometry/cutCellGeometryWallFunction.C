@@ -7,6 +7,7 @@
 #include "cyclicPolyPatch.H"
 #include "globalIndex.H"
 #include "PstreamBuffers.H"
+#include "treeDataCell.H"
 
 namespace
 {
