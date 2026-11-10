@@ -297,6 +297,14 @@ regression metric is within its tolerance at zero distance; tutorial forces agre
 3e-17 (relative), the round-off Taylor-Couette forces to 2e-10. v2112 (HoreKa) is
 not available locally: the same gates are to be run there before its first use.
 
+Same on v2412 and v2506 (31d1827, `~/Codes/tools/buildtree_of.sh <tree> <version>`): no
+errors, and no warnings after `hexRef` uses `Pstream::broadcast` from v2406 on (the
+scatter calls are deprecated since 2024-01). G1–G9 and V1 pass on both, every regression
+metric against the v2106 baseline at zero distance, tutorial forces to 1e-17, the
+Taylor-Couette torque error 1.09e-4 at N = 320 as on v2106. The Re 100 AMR cylinder on 4
+ranks (scotch, load balancing on, 100 steps, 10 adaptations) gives the same force history
+on v2506 as on v2106 to every digit.
+
 ## 7. Tests
 
 All runs are in `/home/ws/xt8786/runs/amr_study` (scripts `regression.sh`,
