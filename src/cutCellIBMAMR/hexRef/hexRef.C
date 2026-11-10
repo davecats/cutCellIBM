@@ -446,7 +446,11 @@ Foam::scalar Foam::hexRef::getLevel0EdgeLength() const
     // Get the minimum per level over all processors. Note minimum so if
     // cells are not cubic we use the smallest edge side.
     Pstream::listCombineGather(typEdgeLenSqr, minEqOp<scalar>());
+    #if (OPENFOAM >= 2406)
+    Pstream::broadcast(typEdgeLenSqr);   // listCombineScatter is deprecated since 2024-01
+    #else
     Pstream::listCombineScatter(typEdgeLenSqr);
+    #endif
 
     if (debug)
     {
@@ -481,7 +485,11 @@ Foam::scalar Foam::hexRef::getLevel0EdgeLength() const
     }
 
     Pstream::listCombineGather(maxEdgeLenSqr, maxEqOp<scalar>());
+    #if (OPENFOAM >= 2406)
+    Pstream::broadcast(maxEdgeLenSqr);   // listCombineScatter is deprecated since 2024-01
+    #else
     Pstream::listCombineScatter(maxEdgeLenSqr);
+    #endif
 
     if (debug)
     {

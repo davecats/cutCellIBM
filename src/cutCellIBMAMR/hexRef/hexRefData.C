@@ -281,7 +281,11 @@ void Foam::hexRef8Data::sync(const IOobject& io)
     {
         // Get master length
         scalar masterLen = level0EdgePtr_().value();
+        #if (OPENFOAM >= 2406)
+        Pstream::broadcast(masterLen);   // scatter is deprecated since 2024-01
+        #else
         Pstream::scatter(masterLen);
+        #endif
         if (!level0EdgePtr_.valid())
         {
             IOobject rio(io);
