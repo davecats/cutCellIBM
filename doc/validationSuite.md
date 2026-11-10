@@ -63,7 +63,7 @@ fill these gaps.
 | G6 | scalar budgets (`tutorials/scalar`) | closure ≤ 10⁻¹⁰ relative |
 | G7 | regression: forces of every tutorial against the stored baseline | ≤ 10⁻⁶ relative (larger = intended change, baseline updated in the same commit with a reason) |
 | G8 | decomposition: cylinderRe1 and channelSA (linked, wall law) serial vs 4 and 6 ranks, converged | ≤ 10⁻⁸ relative in the forces |
-| G9 | stagnation flow onto a plane wall, exact NS solution (Hiemenz 2-D: tan α = 0 at cut fractions 0.1, 0.5, 0.9 and tan α = 1/3, 1; Homann 3-D: tan α = 0, 1/3), §11 | order ≥ 1.8 (L2 of u and p), ≥ 0.9 (wall shear); errors within 1 % of the stored baseline |
+| G9 | stagnation flow onto a plane wall, exact NS solution (Hiemenz 2-D: tan α = 0 at cut fractions 0.1, 0.5, 0.9 and tan α = 1/3, 1; Homann 3-D: tan α = 0, 1/3), §11 | order ≥ 1.8 (L2 of u and p), ≥ 1.5 (tangential wall shear); errors within 1 % of the stored baseline |
 
 ## 4. Validation cases
 
@@ -716,7 +716,7 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    wall patch, level Hiemenz −0.037 … −0.0042; tangential error IBM / body-fitted 0.0323 /
    0.0305, 0.0088 / 0.0083, 0.0023 / 0.0023, 0.0006 / 0.0006). The old boundary data gave a
    positive normal error that partly cancelled it. G9 checks the tangential part (orders 1.79 to
-   1.93) and reports the normal part. (c) The pressure force depends on the pressure constant
+   1.93; threshold raised from 0.9 to 1.5, 2026-11-10) and reports the normal part. (c) The pressure force depends on the pressure constant
    (fixed in one reference cell): now with the mean error removed as in the norms (finest
    errors 1e-5 … 2e-3; Homann was 4 %).
 

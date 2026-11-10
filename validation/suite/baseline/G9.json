@@ -14,10 +14,10 @@
  "KIND": "gate",
  "TIER": 0,
  "commit": "e7d742a",
- "suite": "e7d742a",
- "status": "FAIL",
- "started": "2026-11-10 07:31:48",
- "seconds": 26.8,
+ "suite": "81b448b",
+ "status": "PASS",
+ "started": "2026-11-10 15:42:20",
+ "seconds": 26.0,
  "cases": "/home/ws/xt8786/runs/suite/e7d742a/G9",
  "checks": [
   {
@@ -81,7 +81,7 @@
    "status": "PASS",
    "value": 1.9273517153694806,
    "ref": null,
-   "tol": ">= 0.9",
+   "tol": ">= 1.5",
    "note": "rel. error 4.63e-02 1.12e-02 2.88e-03 7.72e-04"
   },
   {
@@ -345,7 +345,7 @@
    "status": "PASS",
    "value": 1.9062458992156783,
    "ref": null,
-   "tol": ">= 0.9",
+   "tol": ">= 1.5",
    "note": "rel. error 3.23e-02 8.85e-03 2.35e-03 6.30e-04"
   },
   {
@@ -417,7 +417,7 @@
    "status": "PASS",
    "value": 1.8741878670010377,
    "ref": null,
-   "tol": ">= 0.9",
+   "tol": ">= 1.5",
    "note": "rel. error 2.93e-02 8.20e-03 2.24e-03 6.10e-04"
   },
   {
@@ -489,7 +489,7 @@
    "status": "PASS",
    "value": 1.8816595627986272,
    "ref": null,
-   "tol": ">= 0.9",
+   "tol": ">= 1.5",
    "note": "rel. error 2.03e-02 6.67e-03 1.98e-03 4.91e-04"
   },
   {
@@ -561,7 +561,7 @@
    "status": "PASS",
    "value": 1.7945917052802511,
    "ref": null,
-   "tol": ">= 0.9",
+   "tol": ">= 1.5",
    "note": "rel. error 8.30e-02 1.56e-02 6.41e-03 1.29e-03"
   },
   {
@@ -673,7 +673,7 @@
    "status": "PASS",
    "value": 1.8090352905648852,
    "ref": null,
-   "tol": ">= 0.9",
+   "tol": ">= 1.5",
    "note": "rel. error 4.30e-02 1.23e-02 3.50e-03"
   },
   {
@@ -745,7 +745,7 @@
    "status": "PASS",
    "value": 1.8496662513824316,
    "ref": null,
-   "tol": ">= 0.9",
+   "tol": ">= 1.5",
    "note": "rel. error 4.89e-02 1.18e-02 3.76e-03"
   },
   {
@@ -765,12 +765,12 @@
    "note": "3.95e-02 2.22e-03 2.09e-03"
   },
   {
-   "name": "regression against baseline d05799c (122 metrics)",
-   "status": "FAIL",
-   "value": 90.36560583528401,
+   "name": "regression against baseline e7d742a (122 metrics)",
+   "status": "PASS",
+   "value": 0.0,
    "ref": null,
    "tol": "<= 1 (in units of the tolerance)",
-   "note": "rtol 0.01, atol 0; worst homann_t0_f0.5_N80_ma0.5_c1_eFv"
+   "note": "rtol 0.01, atol 0; worst -"
   }
  ],
  "data": {

@@ -324,7 +324,7 @@ def run(ctx, res):
             pv = common.order(h, [r["eFv"] for r in s])
             nv = "rel. error " + " ".join("%.2e" % r["eFv"] for r in s)
             if default:
-                res.ge("wall shear force (tangential) order, " + lab, pv, 0.9, nv)
+                res.ge("wall shear force (tangential) order, " + lab, pv, 1.5, nv)
             else:
                 res.report("wall shear force (tangential) order, " + lab + opt, pv, note=nv)
             res.report("wall viscous force normal part / |F_v| (finest), " + lab + opt, s[-1]["eFvn"],
