@@ -90,10 +90,14 @@ patches
 %s    { name frontAndBack; patchInfo { type empty; }; constructFrom set; set fb; }
 );
 """ % pl)
+    return xs, ys
+
+
+def build_mesh(d):
+    """after all dictionaries: createPatch reads system/fvSchemes from v2412 on"""
     common.sh("plot3dToFoam -2D %r -noBlank grid.p2dfmt" % DZ, d, "log.plot3dToFoam")
     common.sh("topoSet", d, "log.topoSet")
     common.sh("createPatch -overwrite", d, "log.createPatch")
-    return xs, ys
 
 
 def case(d, n, ibm, f, ma=0.5, law="spalartAllmaras"):
@@ -171,6 +175,7 @@ timeFormat general; timePrecision 6; runTimeModifiable false;
 functions { wss { type wallShearStress; libs (fieldFunctionObjects); patches (plate);
             writeControl writeTime; } }
 """)
+    build_mesh(d)
 
 
 def cf_bodyfitted(d, t):
