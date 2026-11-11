@@ -22,7 +22,7 @@ Description
     over the group and the rest, with P the average over every split group
     (the identity elsewhere):
 
-        w = Q M'^-1 Q^T r + (1 - P) D^-1 (1 - P) r
+        w = Q M'^-1 Q^T r + (1 - P) (2 D)^-1 (1 - P) r
 
     - Fields uniform in the split groups do not feel the conductances, so
       for them the base preconditioner M' is built on a copy of the matrix
@@ -35,8 +35,9 @@ Description
       with the same weights: a uniform correction then solves every row
       of the group, whatever the softened conductance.
     - The rest, the differences inside the split groups, is dominated by
-      the conductances and local: one Jacobi step with the diagonal D of
-      the matrix.
+      the conductances and local: half a Jacobi step with the diagonal D of
+      the matrix, which is exact for two linked cells (diagonals c,
+      coefficients -c: their difference has the eigenvalue 2 of D^-1 A).
 
     The two subspaces are nearly orthogonal in the energy of the matrix
     (cosine about sqrt(d/c)), so the preconditioned matrix is as well
@@ -108,7 +109,8 @@ class linkedGroupPreconditioner
         //  local group slot
         List<solveScalar> rN_;
 
-        //- Reciprocal of the diagonal of the cells of the split groups
+        //- Half the reciprocal of the diagonal of the cells of the split
+        //  groups
         List<solveScalar> rD_;
 
         //- Weight of every cell of a split group in its merged equation:
@@ -128,7 +130,8 @@ class linkedGroupPreconditioner
 
         //- r with the sum over every split group handed to its cells by
         //  their weights (rMean, all cells), and r less its mean over the
-        //  group divided by the diagonal (rest, cells of the split groups)
+        //  group divided by twice the diagonal (rest, cells of the split
+        //  groups)
         void split
         (
             const solveScalarField& r,

@@ -351,7 +351,10 @@ Foam::linkedGroupPreconditioner::linkedGroupPreconditioner
         baseDict_
     );
 
-    // Number of cells of every split group and the diagonal of its cells
+    // Number of cells of every split group and the diagonal of its cells,
+    // for half a Jacobi step on the differences inside the group: the
+    // difference of two cells linked by c has the eigenvalue 2 of D^-1 A
+    // (diagonals c, coefficients -c), up to 2 in larger groups
     const labelList& cells = ibmPtr_->splitGroupCells();
     const labelList& slot = ibmPtr_->groupSlot();
     const scalarField& diag = matrix.diag();
@@ -360,7 +363,7 @@ Foam::linkedGroupPreconditioner::linkedGroupPreconditioner
     forAll(cells, k)
     {
         n[slot[cells[k]]] += 1;
-        rD_[k] = 1/diag[cells[k]];
+        rD_[k] = 0.5/diag[cells[k]];
     }
     ibmPtr_->groupSlotSum(n);
     rN_.setSize(n.size());

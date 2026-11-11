@@ -614,7 +614,10 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   split over processors slows every solver (V5 D/h 80, 12 split groups: 46 instead of 6.5
   iterations per solve), so decomposed static cases (V5, V12, NACA) keep each group on one
   processor: `ibmSetGeometry -linkZone` and `preserveFaceZones` in decomposeParDict. G8 and the
-  moving-body V13 are decomposed without it.
+  moving-body V13 are decomposed without it and wrap their preconditioners in `linkedGroup`
+  (2026-11-11, README §4), with which split groups no longer cost iterations: V13 D/h = 40,
+  DIC-PCG 203 to 208 iterations per solve with 1 to 7 split links (208 with none; 284 to 447
+  and the limit of 1000 without the wrapper), PBiCGStab-DILU for U 4 to 5 (8 to 54; 3 with none).
 - **V12, V13**: nested static refinement (h0 = 3.2, 7–9 levels), 8 ranks; V13 at Courant ≤ 0.8.
 - **V15**: the IBM plate gives no C_f(x) yet (no wall-shear output): C_D against body-fitted;
   C_f(0.97) of the body-fitted run against TMR reported. Leading edge half a cell (5e-4)

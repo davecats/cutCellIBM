@@ -42,8 +42,10 @@ def setup(d, levels):
     (d / "system" / "fvSchemes").write_text(
         (CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default Euler;"))
     write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", """
-solvers { p { solver PCG; preconditioner DIC; tolerance 1e-9; relTol 0.01; } pFinal { $p; relTol 0; }
-          U { solver PBiCGStab; preconditioner DILU; tolerance 1e-11; relTol 0; } UFinal { $U; } }
+solvers { p { solver PCG; preconditioner { preconditioner linkedGroup; base DIC; } tolerance 1e-9; relTol 0.01; }
+          pFinal { $p; relTol 0; }
+          U { solver PBiCGStab; preconditioner { preconditioner linkedGroup; base DILU; } tolerance 1e-11; relTol 0; }
+          UFinal { $U; } }
 PIMPLE { momentumPredictor yes; nOuterCorrectors 2; nCorrectors 2; nNonOrthogonalCorrectors 0;
          consistent yes; ddtCorr yes; pRefPoint (20 20 0.05); pRefValue 0; }
 """)
