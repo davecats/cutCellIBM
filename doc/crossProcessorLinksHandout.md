@@ -168,12 +168,12 @@ periods), iterations per solve by the number of split links:
 
 | split links | DIC-PCG p: before | with linkedGroup(DIC) | PBiCGStab-DILU Ux: before | with linkedGroup(DILU) |
 |---|---|---|---|---|
-| 0 | 205 | 208 | 3.1 | 3.2 |
-| 1 | 278 | 203 | 8.5 | 4.3 |
-| 3 | 333 | 206 | 30 | 4.6 |
-| 5 | 407 | 206 | 44 | 4.8 |
-| 7 | 452 (max 909) | 208 | 50 | 4.5 |
-| 10 | 530 (max 1000 = maxIter) | | 55 | |
+| 0 | 204 | 204 | 3.1 | 3.1 |
+| 1 | 276 | 206 | 8.5 | 4.3 |
+| 3 | 333 | 207 | 30 | 4.6 |
+| 5 | 407 | 206 | 44 | 4.7 |
+| 7 | 453 (max 917) | 206 | 51 | 4.8 |
+| 10 | 535 (max 1000 = maxIter) | 206 (max 417) | 57 | 4.9 |
 
 (In the stored V13 runs, e.g. `~/runs/suite/6692870/V13/Dh80`, the pressure solve hit
 maxIter 1000 at 3 or more split links, i.e. stopped short of its tolerance; `v13corr.py` in

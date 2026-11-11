@@ -404,7 +404,7 @@ momentumSource
   `linkedGroupPreconditioner`). The iterations then do not depend on how many groups the
   decomposition or the motion of a body splits (DFG 2D-1, D/h = 80, 12 split groups: 13.0
   pressure iterations per solve as without split groups, 36 without the wrapper; oscillating
-  cylinder: 205 whatever the number, up to 530 and the iteration limit without). Without
+  cylinder: 206 whatever the number, up to 535 and the iteration limit without). Without
   split groups it is the base preconditioner. For a static body the decomposition can
   instead keep the groups together: `ibmSetGeometry -linkZone` and
   `constraints { links { type preserveFaceZones; zones (ibmLinkFaces); } }` in
