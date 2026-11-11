@@ -525,8 +525,12 @@ writeMesh       no;
     else:
         run = "blockMesh > log.blockMesh 2>&1 && "
     if a.np > 1:
+        # immersed: every linked group (small cut cell and master) on one processor, from the
+        # faceZone that ibmSetGeometry -linkZone writes (a split group slows the pressure solve)
         write(os.path.join(d, "system/decomposeParDict"), header("dictionary", "decomposeParDict")
-              + "numberOfSubdomains %d;\nmethod scotch;\n" % a.np)
+              + "numberOfSubdomains %d;\nmethod scotch;\n" % a.np
+              + ("constraints { links { type preserveFaceZones; zones (ibmLinkFaces); } }\n"
+                 if a.kind == "ibm" else ""))
     if a.kind == "bf":
         run += "checkMesh > log.checkMesh 2>&1; "
         if a.np > 1:
@@ -536,7 +540,8 @@ writeMesh       no;
         else:
             run += "simpleFoam > log.simpleFoam 2>&1"
     else:
-        run += ("checkMesh > log.checkMesh 2>&1; ibmSetGeometry -writeWallDist > log.geo 2>&1 && "
+        run += ("checkMesh > log.checkMesh 2>&1; ibmSetGeometry -writeWallDist%s > log.geo 2>&1 && "
+                % (" -linkZone" if a.np > 1 else "") +
                 "postProcess -func writeCellCentres -time 0 > log.C 2>&1 && ")
         if a.np > 1:
             run += ("decomposePar -force > log.decomposePar 2>&1 && mpirun -np %d ibmSimpleFoam -parallel "

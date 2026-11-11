@@ -965,6 +965,11 @@ public:
             //  group, -1 otherwise
             const labelList& linkGroup() const { return linkGroup_; }
 
+            //- Face linking every cell to its neighbour on the way to its
+            //  master (an internal or a coupled boundary face), -1 if the
+            //  cell is not linked
+            const labelList& linkFace() const { return linkFace_; }
+
             //- True if small cut cells are linked (mergeAlpha > 0)
             bool linking() const { return mergeAlpha_ > 0; }
 

@@ -127,7 +127,8 @@ NP = 8   # ranks of a 2D-2 run and of the finest 2D-1 run
 
 def decomposed(d, app, times):
     write_dict(d / "system" / "decomposeParDict", "dictionary", "decomposeParDict",
-               "numberOfSubdomains %d;\nmethod scotch;\n" % NP)
+               "numberOfSubdomains %d;\nmethod scotch;\n%s" % (NP, common.LINK_CONSTRAINT))
+    common.link_zone(d)
     common.sh("decomposePar", d, "log.decomposePar")
     common.sh(app, d, "log." + app, np_=NP)
     common.sh("reconstructPar " + times, d, "log.reconstructPar")
