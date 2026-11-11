@@ -106,3 +106,103 @@ pass in your worktree build; no change to serial results beyond round-off unless
 - OpenFOAM v2412 environment: `source /opt/OpenFOAM/OpenFOAM-v2412/etc/bashrc`, ThirdParty lib
   `/opt/OpenFOAM/ThirdParty-v2412/platforms/linux64GccDPInt32/lib` on LD_LIBRARY_PATH for
   decomposePar, then `source <tree>/etc/bashrc`. The code must keep building on v2106-v2506.
+
+## Result (2026-11-11, branch `cross_proc_links`, worktree `~/Codes/openFoam.ibm.docs/xlinks`)
+
+**Mechanism: confirmed, with one addition.** On the 3x case (first 150 SIMPLE iterations,
+PCG + GAMG(faceAreaPair, DICGaussSeidel), 8 ranks) the pressure iterations per solve follow
+the penalty: 36.3, 17.9, 13.8, 10.5 for `mergePenalty` 1e4, 1e2, 1e1, 1 (scotch, no split
+group: 12.7). The addition: with GAMG the slow mode exists on every level, because the two
+clusters that hold the cells of a split link are again coupled by c. A correction of the
+group means on the fine level only (direction 1 as written) therefore repairs a
+single-level preconditioner (DIC-PCG: 744 -> 548, scotch 522) but not GAMG (36 -> 50).
+
+**Fix: the preconditioner `linkedGroup`** (`src/cutCellIBM/linkedGroupPreconditioner`, the
+class header has the derivation), a wrapper around any base preconditioner:
+
+    preconditioner { preconditioner linkedGroup; base { preconditioner GAMG; smoother DICGaussSeidel; ... } }
+    preconditioner { preconditioner linkedGroup; base DIC; }       // or DILU with PBiCGStab
+
+1. The base preconditioner gets a copy of the matrix in which the links over coupled faces
+   are softened to 1 x diagonal (`softPenalty`), so no level sees a stiff coupling across
+   processors. Fields uniform in a split group do not feel the conductance, so for them the
+   softened matrix is the right one.
+2. The residual of a split group enters the base as that of its merged equation (the sum
+   over its cells, handed to them in proportion to their coefficients to the outside); the
+   result is averaged over the group with the same weights. With these weights the softened
+   conductance no longer matters (16.7 iterations for `softPenalty` 0.01 to 1 at that stage).
+3. What is left, the differences inside a split group, takes half a Jacobi step (exact for a
+   pair: its eigenvalue of D^-1 A is 2). A full step was the last 25 % (16.7 -> 13.0).
+
+It is symmetric if the base is, changes the path of the linear solver and not the equations,
+and is the base preconditioner when no group is split. `cutCellGeometry` now keeps the cells
+of the split groups (`splitGroupCells`, also over cyclic faces) and exposes the exchange of
+the group sums (`groupSlotSum`).
+
+**Numbers** (V5 D/h 80, 8 ranks, the manual cut of `~/runs/linksolver3x`; cases, scripts and
+logs in `~/runs/xlinks`):
+
+| decomposition, p preconditioner | split links | p iterations per solve | SIMPLE iterations, C_D |
+|---|---|---|---|
+| first 150 iterations: | | | |
+| scotch, GAMG | 0 | 12.71 | |
+| scotch, linkedGroup(GAMG) | 0 | 12.71 (identical log) | |
+| manual cut shifted by one cell (x >= 0.14875), GAMG | 0 | 12.99 | |
+| manual cut, GAMG | 12 | 36.3 (max 219) | |
+| manual cut, linkedGroup(GAMG) | 12 | 12.99 (max 23) | |
+| manual cut at 0.15125 / 0.1525, GAMG | 6 / 4 | 33.8 / 27.7 | |
+| manual cut, DIC (40 iterations) | 12 | 744 (max 1000) | |
+| manual cut, linkedGroup(DIC) | 12 | 529 | |
+| scotch, DIC | 0 | 522 | |
+| to convergence (residualControl 1e-9): | | | |
+| manual cut shifted, GAMG | 0 | 6.66 | 5663, 5.58089439221e-05 |
+| manual cut, linkedGroup(GAMG) | 12 | 6.66 | 5664, 5.58089439158e-05 |
+| manual cut, GAMG (stopped at 1398) | 12 | 46.7 | |
+| serial reference / scotch (handout above) | | 6.5 | 5660 / 5664, 5.5808943921e-05 / ...196e-05 |
+
+Acceptance: 1.00x the iterations of the same decomposition without split links (target
+1.5x of scotch: 1.02x); C_D equal to the serial value to 9e-11.
+
+Moving body, V13 D/h 40 (scotch, 8 ranks, 0 to 10 split links during the motion; first two
+periods), iterations per solve by the number of split links:
+
+| split links | DIC-PCG p: before | with linkedGroup(DIC) | PBiCGStab-DILU Ux: before | with linkedGroup(DILU) |
+|---|---|---|---|---|
+| 0 | 205 | 208 | 3.1 | 3.2 |
+| 1 | 278 | 203 | 8.5 | 4.3 |
+| 3 | 333 | 206 | 30 | 4.6 |
+| 5 | 407 | 206 | 44 | 4.8 |
+| 7 | 452 (max 909) | 208 | 50 | 4.5 |
+| 10 | 530 (max 1000 = maxIter) | | 55 | |
+
+(In the stored V13 runs, e.g. `~/runs/suite/6692870/V13/Dh80`, the pressure solve hit
+maxIter 1000 at 3 or more split links, i.e. stopped short of its tolerance; `v13corr.py` in
+`~/runs/xlinks` makes this table from a log.)
+
+**Cost.** No measurable cost per iteration: 288 ms per SIMPLE iteration with 12 split links
+and the wrapper against 293 ms for the shifted cut without split links, at equal iteration
+counts (istmdraco, runs alternated). The group sums use PstreamBuffers; fixed-size
+non-blocking messages instead gave nothing measurable (8 ranks 288 against 289 ms, 32 ranks
+462 against 457 ms) and stay on the branch `cross_proc_links_rawexchange`.
+
+**Decomposition independence and gates** (v2412 build of 8a40eb8, results in
+`validation/suite/results/8a40eb8`): G1 to G9 and V1 give the values of 2b1adc3 to
+round-off (G1 to G8 <= 2e-15; G9 2e-9 in one observed order); the two regression failures
+of G6 and G7 are those of 2b1adc3 with the same digits. G8 did not contain a split group
+(scotch on 4 and 6 ranks keeps the 36 linked cells of cylinderRe1 with their masters; the
+wall-resolved channel has no linked cell): it now also runs cylinderRe1 on 5 slabs along x,
+which split 6 links, and requires at least one: drag equal to serial to 1.4e-12. V13 uses
+the wrapper for p and U, the cylinderRe1 tutorials for p. The code builds and gives the same
+V13 iteration counts on v2106 and v2506.
+
+**Not covered.**
+- Solvers without a preconditioner cannot use it: GAMG as the solver (the AMR tutorial) and
+  smoothSolver. For the pressure that means slow convergence with split groups; for U and
+  nuTilda with smoothSolver the iteration count does not react at all (8.8 with and without
+  split links), which means the mean of a split group is left behind by the linear solver
+  (its residual is small, its error is not) and only the outer iterations bring it home:
+  harmless in a steady state, a lag in a time-accurate run. Use PBiCGStab with
+  linkedGroup(DILU) there, as V13 does.
+- V5, V12, V15 and NACA keep the decomposition constraint and their plain preconditioners
+  (nothing is split there). The wrapper would make the constraint unnecessary; that is a
+  decision for the user.
