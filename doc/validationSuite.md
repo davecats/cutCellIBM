@@ -62,7 +62,7 @@ fill these gaps.
 | G5 | rotation sources (`rotatingCylinder`, `eccentricRotation`) | \|Σ S\| ≤ 10⁻¹² ; max \|S\| ≤ stored × 1.05 |
 | G6 | scalar budgets (`tutorials/scalar`) | closure ≤ 10⁻¹⁰ relative |
 | G7 | regression: forces of every tutorial against the stored baseline | ≤ 10⁻⁶ relative (larger = intended change, baseline updated in the same commit with a reason) |
-| G8 | decomposition: cylinderRe1 and channelSA (linked, wall law) serial vs 4 and 6 ranks, converged | ≤ 10⁻⁸ relative in the forces |
+| G8 | decomposition: cylinderRe1 and channelSA (linked, wall law) serial vs 4 and 6 ranks, cylinderRe1 on 5 slabs that split linked groups, converged | ≤ 10⁻⁸ relative in the forces |
 | G9 | stagnation flow onto a plane wall, exact NS solution (Hiemenz 2-D: tan α = 0 at cut fractions 0.1, 0.5, 0.9 and tan α = 1/3, 1; Homann 3-D: tan α = 0, 1/3), §11 | order ≥ 1.8 (L2 of u and p), ≥ 1.5 (tangential wall shear); errors within 1 % of the stored baseline |
 
 ## 4. Validation cases
