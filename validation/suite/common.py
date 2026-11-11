@@ -313,6 +313,12 @@ def value_points(case, t, C):
     return C.copy()
 
 
+def linked_cells(d, log="log.ibmSetGeometry"):
+    """number of linked cut cells reported by ibmSetGeometry (0 without linking)"""
+    m = re.search(r"cell linking: (\d+) cells", (Path(d) / log).read_text())
+    return int(m.group(1)) if m else 0
+
+
 def write_dict(path, cls, obj, body):
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(header(cls, obj) + body)

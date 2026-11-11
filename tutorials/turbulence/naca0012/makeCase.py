@@ -420,7 +420,7 @@ snGradSchemes   { default %s; }
 wallDist        { method %s; }
 """ % ("cutCellCorrected" if so else "corrected", "cutCellCorrected" if so else "corrected",
        "meshWave" if a.kind == "bf" else "ibmLevelSet"))
-    write(os.path.join(d, "system/fvSolution"), header("dictionary", "fvSolution") + """
+    fv = header("dictionary", "fvSolution") + """
 solvers
 {
 %s}
@@ -439,17 +439,21 @@ relaxationFactors
     fields    { p 1; }
     equations { U 0.7; nuTilda 0.7; }
 }
-""" % ((
-        # cell linking makes linked pairs stiff two-cell systems that a point smoother
-        # cannot move together; algebraic pair agglomeration puts each pair into one
-        # coarse cell, so the multigrid coarse correction moves the merged value; for
-        # the pressure, the incomplete-Cholesky smoother also resolves the stiff links
-        '    p { solver GAMG; agglomerator algebraicPair; smoother DICGaussSeidel; tolerance 1e-10; relTol 0.05; }\n'
-        '    "(U|nuTilda)" { solver GAMG; agglomerator algebraicPair; smoother GaussSeidel; nSweeps 2;'
-        ' tolerance 1e-12; relTol 0.1; }\n') if a.kind == "ibm" else (
-        '    p { solver GAMG; smoother GaussSeidel; tolerance 1e-10; relTol 0.05; }\n'
-        '    "(U|nuTilda)" { solver smoothSolver; smoother GaussSeidel; nSweeps 2; tolerance 1e-12; relTol 0.1; }\n'),
-       0.5 * DZ))
+"""
+    # The standard solvers (as in the body-fitted runs) unless cut cells are linked: a linked pair
+    # is a stiff two-cell system that a point smoother cannot move together; algebraic pair
+    # agglomeration puts each pair into one coarse cell, so the multigrid coarse correction moves
+    # the merged value; for the pressure, the incomplete-Cholesky smoother also resolves the stiff
+    # links. They cost twice as much per iteration, so Allrun takes fvSolution.linked only when
+    # ibmSetGeometry reports linked cells.
+    standard = ('    p { solver GAMG; smoother GaussSeidel; tolerance 1e-10; relTol 0.05; }\n'
+                '    "(U|nuTilda)" { solver smoothSolver; smoother GaussSeidel; nSweeps 2; tolerance 1e-12; relTol 0.1; }\n')
+    linked = ('    p { solver GAMG; agglomerator algebraicPair; smoother DICGaussSeidel; tolerance 1e-10; relTol 0.05; }\n'
+              '    "(U|nuTilda)" { solver GAMG; agglomerator algebraicPair; smoother GaussSeidel; nSweeps 2;'
+              ' tolerance 1e-12; relTol 0.1; }\n')
+    write(os.path.join(d, "system/fvSolution"), fv % (standard, 0.5 * DZ))
+    if a.kind == "ibm":
+        write(os.path.join(d, "system/fvSolution.linked"), fv % (linked, 0.5 * DZ))
     cd = header("dictionary", "controlDict") + """
 application     %s;
 %sstartFrom       startTime;
@@ -537,6 +541,7 @@ writeMesh       no;
             run += "simpleFoam > log.simpleFoam 2>&1"
     else:
         run += ("checkMesh > log.checkMesh 2>&1; ibmSetGeometry -writeWallDist > log.geo 2>&1 && "
+                "{ ! grep -qE 'cell linking: [1-9]' log.geo || cp system/fvSolution.linked system/fvSolution; } && "
                 "postProcess -func writeCellCentres -time 0 > log.C 2>&1 && ")
         if a.np > 1:
             run += ("decomposePar -force > log.decomposePar 2>&1 && mpirun -np %d ibmSimpleFoam -parallel "
