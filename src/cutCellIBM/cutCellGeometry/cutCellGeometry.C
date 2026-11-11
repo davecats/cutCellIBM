@@ -205,7 +205,9 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     groupSlot_(),
     slotGroup_(),
     sendSlots_(),
-    recvSlots_()
+    recvSlots_(),
+    splitGroupCells_(),
+    nSplitGroups_(0)
 {
     Info<< "Cut-cell immersed boundary: reading " << name() << nl
         << "    mergeAlpha " << mergeAlpha_
@@ -702,6 +704,8 @@ void Foam::cutCellGeometry::calcLinks()
         sendSlots_[proci].clear();
         recvSlots_[proci].clear();
     }
+    splitGroupCells_.clear();
+    nSplitGroups_ = 0;
 
     if (mergeAlpha_ <= 0)
     {
@@ -920,6 +924,30 @@ void Foam::cutCellGeometry::calcLinks()
                 }
             }
         }
+    }
+
+    // Split groups: those with a link over a coupled face, counted on the
+    // processor of the master
+    {
+        labelList nCoupledLinks(slotGroup_.size(), 0);
+        forAll(linkFace_, celli)
+        {
+            if (linkFace_[celli] >= nInternal)
+            {
+                ++nCoupledLinks[groupSlot_[celli]];
+            }
+        }
+        groupSlotSum(nCoupledLinks);
+        DynamicList<label> cells;
+        forAll(groupSlot_, celli)
+        {
+            const label s = groupSlot_[celli];
+            if (s < 0 || nCoupledLinks[s] == 0) continue;
+            cells.append(celli);
+            if (linkFace_[celli] < 0) ++nSplitGroups_;
+        }
+        splitGroupCells_.transfer(cells);
+        reduce(nSplitGroups_, sumOp<label>());
     }
 
     // Wall distance of the centroid of each merged group (master and all its
