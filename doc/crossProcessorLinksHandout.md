@@ -197,12 +197,16 @@ V13 iteration counts on v2106 and v2506.
 
 **Not covered.**
 - Solvers without a preconditioner cannot use it: GAMG as the solver (the AMR tutorial) and
-  smoothSolver. For the pressure that means slow convergence with split groups; for U and
-  nuTilda with smoothSolver the iteration count does not react at all (8.8 with and without
-  split links), which means the mean of a split group is left behind by the linear solver
-  (its residual is small, its error is not) and only the outer iterations bring it home:
-  harmless in a steady state, a lag in a time-accurate run. Use PBiCGStab with
-  linkedGroup(DILU) there, as V13 does.
+  smoothSolver. For the pressure that means slow convergence with split groups. For U with
+  smoothSolver the iteration count does not react to split links (8.8 sweeps with and
+  without), although a Gauss-Seidel sweep cannot move the mean of a split group any better
+  than the smoothers of the pressure: the solver stops on the global residual. What this
+  leaves behind was not measured. It does not show in the steady V5 run (5664 SIMPLE
+  iterations with 12 split links against 5663 without), and for U the pressure corrector
+  rebuilds the velocity from A and H of the unlinked equation, so the predictor matters
+  little; a transported quantity without a corrector (nuTilda, a scalar) solved by
+  smoothSolver in a time-accurate run would be the case to check. PBiCGStab with
+  linkedGroup(DILU), as in V13, avoids the question.
 - V5, V12, V15 and NACA keep the decomposition constraint and their plain preconditioners
   (nothing is split there). The wrapper would make the constraint unnecessary; that is a
   decision for the user.

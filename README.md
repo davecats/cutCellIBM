@@ -409,8 +409,10 @@ momentumSource
   instead keep the groups together: `ibmSetGeometry -linkZone` and
   `constraints { links { type preserveFaceZones; zones (ibmLinkFaces); } }` in
   `decomposeParDict`. Solvers without a preconditioner (`GAMG`, `smoothSolver`) cannot use
-  the wrapper: they converge slowly (pressure) or leave the split groups behind (momentum,
-  harmless in the steady state).
+  the wrapper: with split groups GAMG as the pressure solver converges slowly, and a
+  Gauss-Seidel sweep hardly moves the mean of a split group (the steady cases do not show
+  it; not checked for time-accurate runs, where `PBiCGStab` with the wrapper is the safe
+  choice).
 * The pressure reference cell (`pRefCell`/`pRefPoint`) must be a fluid cell; with moving
   bodies it is replaced by the fluid cell farthest from the bodies whenever a body covers
   it.
