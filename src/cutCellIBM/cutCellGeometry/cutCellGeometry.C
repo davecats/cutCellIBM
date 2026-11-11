@@ -193,6 +193,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     sampleSendCells_(),
     sampleRecvSlots_(),
     wallSamplesDone_(false),
+    lsqDone_(false),
     mergeAlpha_(getOrDefault<scalar>("mergeAlpha", 0.5)),
     mergePenalty_(getOrDefault<scalar>("mergePenalty", 1e4)),
     linkFace_(),
@@ -596,6 +597,7 @@ void Foam::cutCellGeometry::calcGeometry()
         calcWallPieces();
     }
     wallSamplesDone_ = false;
+    lsqDone_ = false;
 
     upToDate_ = true;
 }
@@ -2147,11 +2149,345 @@ void Foam::cutCellGeometry::calcWallPieces()
 }
 
 
+namespace
+{
+    // A face-gradient correction g_f.(n - d/(n.d)) with |n - d/(n.d)| below
+    // this is round-off of an orthogonal face; the correction is dropped there
+    constexpr Foam::scalar snGradTol = 1e-10;
+}
+
+
+void Foam::cutCellGeometry::calcLsq() const
+{
+    const labelUList& own = mesh_.owner();
+    const labelUList& nei = mesh_.neighbour();
+    const label nCells = mesh_.nCells();
+    const label nInternal = mesh_.nInternalFaces();
+    const fvBoundaryMesh& bm = mesh_.boundary();
+    const surfaceVectorField& Sf = mesh_.Sf();
+    const surfaceScalarField& magSf = mesh_.magSf();
+
+    // Normal matrices A = sum_f w d d over the open faces to fluid
+    // neighbours, w = 1/|d|^2; a linked group has one value at its
+    // centroid and gets one gradient, fitted over the outer faces of the
+    // whole group (the sums of its cells)
+    symmTensorField A(nCells, Zero);
+    labelList nUsed(nCells, 0);
+    auto accumulate = [&](const label celli, const vector& d)
+    {
+        const scalar w = 1.0/max(magSqr(d), VSMALL);
+        A[celli] += w*symm(d*d);
+        ++nUsed[celli];
+        return vector(w*d);
+    };
+
+    DynamicList<label> faces(nInternal);
+    DynamicList<vector> wd(nInternal);
+    forAll(own, facei)
+    {
+        const label o = own[facei], n = nei[facei];
+        if
+        (
+            theta_[facei] <= 0 || solidCells_.test(o) || solidCells_.test(n)
+         || insideGroup(facei)      // one shared value, no information
+        )
+        {
+            continue;
+        }
+        const vector& d = dCentroid_[facei];
+        faces.append(facei);
+        wd.append(accumulate(o, d));
+        accumulate(n, d);
+    }
+    lsqFaces_.transfer(faces);
+    lsqWd_.transfer(wd);
+
+    lsqPatchFaces_.setSize(bm.size());
+    lsqPatchWd_.setSize(bm.size());
+    forAll(bm, patchi)
+    {
+        lsqPatchFaces_[patchi].clear();
+        lsqPatchWd_[patchi].clear();
+        const fvPatch& fvp = bm[patchi];
+        if (!fvp.coupled()) continue;
+        const labelUList& fc = fvp.faceCells();
+        const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
+        const fvsPatchVectorField& dp = dCentroid_.boundaryField()[patchi];
+        DynamicList<label> pf(fvp.size());
+        DynamicList<vector> pw(fvp.size());
+        forAll(fvp, i)
+        {
+            if
+            (
+                tp[i] <= 0 || solidCells_.test(fc[i])
+             || insideGroup(fvp.start() + i)
+            )
+            {
+                continue;
+            }
+            pf.append(i);
+            pw.append(accumulate(fc[i], dp[i]));
+        }
+        lsqPatchFaces_[patchi].transfer(pf);
+        lsqPatchWd_[patchi].transfer(pw);
+    }
+    groupSum(A);
+    groupSum(nUsed);
+
+    // Regularise the empty directions, then invert
+    const Vector<label>& solD = mesh_.solutionD();
+    label nD = 0;
+    for (direction d = 0; d < 3; ++d) if (solD[d] > 0) ++nD;
+
+    lsqInvA_.setSize(nCells);
+    lsqInvA_ = Zero;
+    lsqOk_.reset();
+    lsqOk_.resize(nCells);
+    forAll(A, celli)
+    {
+        if (nUsed[celli] < nD || solidCells_.test(celli)) continue;
+        symmTensor Ai(A[celli]);
+        for (direction d = 0; d < 3; ++d)
+        {
+            if (solD[d] < 0)
+            {
+                Ai[symmTensor::XX + 3*d - (d*(d - 1))/2] += 1.0;   // diagonal: XX, YY, ZZ
+            }
+        }
+        if (det(Ai) > SMALL*pow3(tr(Ai)/3))
+        {
+            lsqInvA_[celli] = inv(Ai);
+            lsqOk_.set(celli);
+        }
+    }
+
+    // Fluid cells with too few fluid neighbours for a least-squares fit
+    // (slivers, mostly in 3-D) take the mean gradient of their fluid face
+    // neighbours that have one
+    boolList ok(nCells, false);
+    for (const label celli : lsqOk_) ok[celli] = true;
+    boolList okN;
+    syncTools::swapBoundaryCellList(mesh_, ok, okN);
+
+    labelList slot(nCells, -1);
+    DynamicList<label> slotCells;
+    DynamicList<label> slotCount;
+    auto slotOf = [&](const label celli)
+    {
+        if (slot[celli] < 0)
+        {
+            slot[celli] = slotCells.size();
+            slotCells.append(celli);
+            slotCount.append(0);
+        }
+        ++slotCount[slot[celli]];
+        return slot[celli];
+    };
+    DynamicList<labelPair> fallback;
+    forAll(own, facei)
+    {
+        const label o = own[facei], n = nei[facei];
+        if (theta_[facei] <= 0) continue;
+        if (ok[n] && !ok[o] && !solidCells_.test(o))
+        {
+            fallback.append(labelPair(slotOf(o), n));
+        }
+        if (ok[o] && !ok[n] && !solidCells_.test(n))
+        {
+            fallback.append(labelPair(slotOf(n), o));
+        }
+    }
+    lsqFallback_.transfer(fallback);
+
+    // Coupled faces whose cell on this side is a fallback cell: the cell on
+    // the other side contributes, so its gradient is needed there
+    boolList fallbackFace(mesh_.nBoundaryFaces(), false);
+    lsqPatchFallback_.setSize(bm.size());
+    forAll(bm, patchi)
+    {
+        lsqPatchFallback_[patchi].clear();
+        const fvPatch& fvp = bm[patchi];
+        if (!fvp.coupled()) continue;
+        const labelUList& fc = fvp.faceCells();
+        const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
+        DynamicList<labelPair> pf;
+        forAll(fvp, i)
+        {
+            const label bfi = fvp.start() + i - nInternal;
+            if (tp[i] > 0 && okN[bfi] && !ok[fc[i]] && !solidCells_.test(fc[i]))
+            {
+                pf.append(labelPair(slotOf(fc[i]), i));
+                fallbackFace[bfi] = true;
+            }
+        }
+        lsqPatchFallback_[patchi].transfer(pf);
+    }
+    lsqFallbackCells_.transfer(slotCells);
+    lsqFallbackCount_.transfer(slotCount);
+
+
+    // Cells whose gradient the second-order corrections read: the cells with
+    // a value offset (cut cells, linked groups), the wall cells, the cells
+    // of the faces with a correction (a face-value offset, a partly wet
+    // face or a face-gradient correction) and the fallback cells with the
+    // neighbours they take the gradient from
+    bitSet near(nCells);
+    const vectorField& off = valueOffset_.primitiveField();
+    forAll(off, celli)
+    {
+        if (solidCells_.test(celli)) continue;
+        if
+        (
+            magSqr(off[celli]) > 0
+         || (linkGroup_.size() == nCells && linkGroup_[celli] >= 0)
+        )
+        {
+            near.set(celli);
+        }
+    }
+    for (const label celli : wallCells_) near.set(celli);
+    for (const label celli : lsqFallbackCells_) near.set(celli);
+    for (const labelPair& p : lsqFallback_) near.set(p.second());
+
+    auto needsSnGrad = [](const vector& n, const vector& d, const scalar dc)
+    {
+        return mag(n - d*dc) > snGradTol;
+    };
+
+    DynamicList<label> sgFaces;
+    forAll(own, facei)
+    {
+        const label o = own[facei], n = nei[facei];
+        if (theta_[facei] <= 0 || solidCells_.test(o) || solidCells_.test(n))
+        {
+            continue;
+        }
+        const bool sg = needsSnGrad
+        (
+            Sf[facei]/magSf[facei], dCentroid_[facei], cutDeltaCoeffs_[facei]
+        );
+        if (sg) sgFaces.append(facei);
+        if (sg || theta_[facei] < 1 || magSqr(faceValueOffset_[facei]) > 0)
+        {
+            near.set(o);
+            near.set(n);
+        }
+    }
+    snGradFaces_.transfer(sgFaces);
+
+    // Coupled faces: a correction on either side (the face-gradient
+    // correction must be the same on both sides, conservation), and the
+    // fallback neighbours on the other side
+    boolList sgB(mesh_.nBoundaryFaces(), false);
+    boolList nearB(mesh_.nBoundaryFaces(), false);
+    forAll(bm, patchi)
+    {
+        const fvPatch& fvp = bm[patchi];
+        const labelUList& fc = fvp.faceCells();
+        const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
+        forAll(fvp, i)
+        {
+            if (tp[i] <= 0 || solidCells_.test(fc[i])) continue;
+            if (!fvp.coupled())
+            {
+                if (tp[i] < 1) near.set(fc[i]);   // fixed value on a cut face
+                continue;
+            }
+            const label bfi = fvp.start() + i - nInternal;
+            sgB[bfi] = needsSnGrad
+            (
+                Sf.boundaryField()[patchi][i]/magSf.boundaryField()[patchi][i],
+                dCentroid_.boundaryField()[patchi][i],
+                cutDeltaCoeffs_.boundaryField()[patchi][i]
+            );
+            nearB[bfi] =
+                sgB[bfi] || tp[i] < 1
+             || magSqr(faceValueOffset_.boundaryField()[patchi][i]) > 0
+             || fallbackFace[bfi];
+        }
+    }
+    boolList sgN(sgB);
+    boolList nearN(nearB);
+    syncTools::swapBoundaryFaceList(mesh_, sgN);
+    syncTools::swapBoundaryFaceList(mesh_, nearN);
+
+    snGradPatchFaces_.setSize(bm.size());
+    forAll(bm, patchi)
+    {
+        snGradPatchFaces_[patchi].clear();
+        const fvPatch& fvp = bm[patchi];
+        if (!fvp.coupled()) continue;
+        const labelUList& fc = fvp.faceCells();
+        const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
+        DynamicList<label> pf;
+        forAll(fvp, i)
+        {
+            if (tp[i] <= 0 || solidCells_.test(fc[i])) continue;
+            const label bfi = fvp.start() + i - nInternal;
+            if (sgB[bfi] || sgN[bfi]) pf.append(i);
+            if (sgB[bfi] || sgN[bfi] || nearB[bfi] || nearN[bfi])
+            {
+                near.set(fc[i]);
+            }
+        }
+        snGradPatchFaces_[patchi].transfer(pf);
+    }
+
+    lsqNearCells_ = near.sortedToc();
+    DynamicList<label> nf;
+    forAll(lsqFaces_, k)
+    {
+        const label facei = lsqFaces_[k];
+        if (near.test(own[facei]) || near.test(nei[facei])) nf.append(k);
+    }
+    lsqNearFaces_.transfer(nf);
+    lsqNearPatchFaces_.setSize(bm.size());
+    forAll(bm, patchi)
+    {
+        lsqNearPatchFaces_[patchi].clear();
+        const labelUList& fc = bm[patchi].faceCells();
+        const labelList& pf = lsqPatchFaces_[patchi];
+        DynamicList<label> npf;
+        forAll(pf, k)
+        {
+            if (near.test(fc[pf[k]])) npf.append(k);
+        }
+        lsqNearPatchFaces_[patchi].transfer(npf);
+    }
+
+    if (debug)
+    {
+        Info<< "    least-squares gradient: "
+            << returnReduce(lsqNearCells_.size(), sumOp<label>())
+            << " cells read by the corrections, "
+            << returnReduce(snGradFaces_.size(), sumOp<label>())
+            << " internal faces with a face-gradient correction" << endl;
+    }
+
+    lsqDone_ = true;
+}
+
+
 Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::lsqGrad
 (
     const volScalarField& f
 ) const
 {
+    return lsqGrad(f, false);
+}
+
+
+Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::lsqGrad
+(
+    const volScalarField& f,
+    const bool near
+) const
+{
+    if (!lsqDone_)
+    {
+        calcLsq();
+    }
+
     tmp<volVectorField> tg
     (
         volVectorField::New
@@ -2170,35 +2506,24 @@ Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::lsqGrad
     const labelUList& nei = mesh_.neighbour();
     const scalarField& fI = f.primitiveField();
 
-    symmTensorField A(mesh_.nCells(), Zero);
+    // r = sum_f w d (f_N - f_P), in face order: the near cells get the sums
+    // of all their faces, as on the whole mesh
     vectorField r(mesh_.nCells(), Zero);
-    labelList nUsed(mesh_.nCells(), 0);
-
-    // A linked group has one value at its centroid and gets one gradient,
-    // fitted over the outer faces of the whole group (the sums of its cells)
-    auto accumulate = [&](const label celli, const vector& d, const scalar df)
+    auto addFace = [&](const label k)
     {
-        const scalar w = 1.0/max(magSqr(d), VSMALL);
-        A[celli] += w*symm(d*d);
-        r[celli] += w*d*df;
-        ++nUsed[celli];
-    };
-
-    forAll(own, facei)
-    {
+        const label facei = lsqFaces_[k];
         const label o = own[facei], n = nei[facei];
-        if
-        (
-            theta_[facei] <= 0 || solidCells_.test(o) || solidCells_.test(n)
-         || insideGroup(facei)      // one shared value, no information
-        )
-        {
-            continue;
-        }
-        const vector& d = dCentroid_[facei];
         const scalar df = fI[n] - fI[o];
-        accumulate(o, d, df);
-        accumulate(n, d, df);       // (-d)(-df) = d df
+        r[o] += lsqWd_[k]*df;
+        r[n] += lsqWd_[k]*df;       // (-d)(-df) = d df
+    };
+    if (near)
+    {
+        for (const label k : lsqNearFaces_) addFace(k);
+    }
+    else
+    {
+        forAll(lsqFaces_, k) addFace(k);
     }
     forAll(mesh_.boundary(), patchi)
     {
@@ -2206,92 +2531,87 @@ Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::lsqGrad
         if (!fvp.coupled()) continue;
         const labelUList& fc = fvp.faceCells();
         const scalarField fN(f.boundaryField()[patchi].patchNeighbourField());
-        const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
-        const fvsPatchVectorField& dp = dCentroid_.boundaryField()[patchi];
-        forAll(fvp, i)
+        const labelList& pf = lsqPatchFaces_[patchi];
+        const vectorField& pw = lsqPatchWd_[patchi];
+        auto addPatchFace = [&](const label k)
         {
-            if
-            (
-                tp[i] <= 0 || solidCells_.test(fc[i])
-             || insideGroup(fvp.start() + i)
-            )
-            {
-                continue;
-            }
-            accumulate(fc[i], dp[i], fN[i] - fI[fc[i]]);
+            const label i = pf[k];
+            r[fc[i]] += pw[k]*(fN[i] - fI[fc[i]]);
+        };
+        if (near)
+        {
+            for (const label k : lsqNearPatchFaces_[patchi]) addPatchFace(k);
+        }
+        else
+        {
+            forAll(pf, k) addPatchFace(k);
         }
     }
-    groupSum(A);
     groupSum(r);
-    groupSum(nUsed);
 
-    // Regularise the empty directions, then invert
-    const Vector<label>& solD = mesh_.solutionD();
-    label nD = 0;
-    for (direction d = 0; d < 3; ++d) if (solD[d] > 0) ++nD;
-
-    boolList ok(mesh_.nCells(), false);
-    forAll(gI, celli)
+    if (near)
     {
-        if (nUsed[celli] < nD || solidCells_.test(celli)) continue;
-        symmTensor Ai(A[celli]);
-        for (direction d = 0; d < 3; ++d)
+        for (const label celli : lsqNearCells_)
         {
-            if (solD[d] < 0)
-            {
-                Ai[symmTensor::XX + 3*d - (d*(d - 1))/2] += 1.0;   // diagonal: XX, YY, ZZ
-            }
+            if (lsqOk_.test(celli)) gI[celli] = lsqInvA_[celli] & r[celli];
         }
-        if (det(Ai) > SMALL*pow3(tr(Ai)/3))
+    }
+    else
+    {
+        for (const label celli : lsqOk_)
         {
-            gI[celli] = inv(Ai) & r[celli];
-            ok[celli] = true;
+            gI[celli] = lsqInvA_[celli] & r[celli];
         }
     }
     g.correctBoundaryConditions();
 
-    // Fluid cells with too few fluid neighbours for a least-squares fit
-    // (slivers, mostly in 3-D) take the mean gradient of their fluid face
-    // neighbours that have one; still exact for a linear field
+    // Fallback cells: the mean gradient of their fluid face neighbours with
+    // a fit; still exact for a linear field
     {
-        vectorField sumG(mesh_.nCells(), Zero);
-        labelList nG(mesh_.nCells(), 0);
-        forAll(own, facei)
+        vectorField sumG(lsqFallbackCells_.size(), Zero);
+        for (const labelPair& p : lsqFallback_)
         {
-            const label o = own[facei], n = nei[facei];
-            if (theta_[facei] <= 0) continue;
-            if (ok[n] && !ok[o]) { sumG[o] += gI[n]; ++nG[o]; }
-            if (ok[o] && !ok[n]) { sumG[n] += gI[o]; ++nG[n]; }
+            sumG[p.first()] += gI[p.second()];
         }
-        boolList okN;
-        syncTools::swapBoundaryCellList(mesh_, ok, okN);
         forAll(mesh_.boundary(), patchi)
         {
-            const fvPatch& fvp = mesh_.boundary()[patchi];
-            if (!fvp.coupled()) continue;
-            const labelUList& fc = fvp.faceCells();
-            const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
+            const labelPairList& pf = lsqPatchFallback_[patchi];
+            if (pf.empty()) continue;
             const vectorField gN(g.boundaryField()[patchi].patchNeighbourField());
-            forAll(fvp, i)
+            for (const labelPair& p : pf)
             {
-                const label bfi = fvp.start() + i - mesh_.nInternalFaces();
-                if (tp[i] > 0 && okN[bfi] && !ok[fc[i]])
-                {
-                    sumG[fc[i]] += gN[i];
-                    ++nG[fc[i]];
-                }
+                sumG[p.first()] += gN[p.second()];
             }
         }
-        forAll(gI, celli)
+        forAll(lsqFallbackCells_, s)
         {
-            if (!ok[celli] && !solidCells_.test(celli) && nG[celli] > 0)
-            {
-                gI[celli] = sumG[celli]/nG[celli];
-            }
+            gI[lsqFallbackCells_[s]] = sumG[s]/lsqFallbackCount_[s];
         }
     }
 
     g.correctBoundaryConditions();
+
+    // Check (DebugSwitches cutCellGeometry 2): the near cells as on the whole mesh
+    if (near && debug > 1)
+    {
+        const tmp<volVectorField> tfull(lsqGrad(f, false));
+        label nDiff = 0;
+        for (const label celli : lsqNearCells_)
+        {
+            if (tfull()[celli] != gI[celli]) ++nDiff;
+        }
+        reduce(nDiff, sumOp<label>());
+        Info<< "    lsqGrad(" << f.name() << ") near cells "
+            << returnReduce(lsqNearCells_.size(), sumOp<label>())
+            << ", differing from the whole-mesh gradient " << nDiff << endl;
+        if (nDiff)
+        {
+            FatalErrorInFunction
+                << "near-cell gradient differs on " << nDiff << " cells"
+                << exit(FatalError);
+        }
+    }
+
     return tg;
 }
 
@@ -2380,7 +2700,7 @@ Foam::tmp<Foam::volVectorField> Foam::cutCellGeometry::grad
         // integrated over the wall pieces, sum_k [p_P + g_P.(x_k - x_c)] S_k:
         // with the least-squares gradient g exact for a linear pressure, the
         // sum is the exact integral over the geometric fluid polyhedron
-        const tmp<volVectorField> tgp(lsqGrad(p));
+        const tmp<volVectorField> tgp(lsqGrad(p, true));
         const volVectorField& gp = tgp();
         const surfaceScalarField& weights = mesh_.weights();
         forAll(own, facei)
@@ -2447,7 +2767,7 @@ Foam::tmp<Foam::surfaceScalarField> Foam::cutCellGeometry::flux
         for (direction cmpt = 0; cmpt < vector::nComponents; ++cmpt)
         {
             if (mesh_.solutionD()[cmpt] < 0) continue;
-            const tmp<volVectorField> tg(lsqGrad(U.component(cmpt)));
+            const tmp<volVectorField> tg(lsqGrad(U.component(cmpt), true));
             const volVectorField& g = tg();
             forAll(own, facei)
             {
@@ -2658,7 +2978,7 @@ void Foam::cutCellGeometry::forces
     const vectorField& centroidOff = centroidOffset_.primitiveField();
 
     tmp<volVectorField> tgp;
-    if (secondOrder_) tgp = lsqGrad(p);
+    if (secondOrder_) tgp = lsqGrad(p, true);
 
     for (const label celli : wallCells_)
     {

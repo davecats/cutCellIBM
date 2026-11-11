@@ -87,6 +87,7 @@ Description
 #include "surfaceFields.H"
 #include "fvMatrices.H"
 #include "bitSet.H"
+#include "labelPair.H"
 #include "OFstream.H"
 #include "ibmBody.H"
 
@@ -285,6 +286,51 @@ class cutCellGeometry
         mutable bool wallSamplesDone_;
 
 
+    // Least-squares gradient (lsqGrad): its geometric part, demand-driven,
+    // rebuilt on the first call after the geometry or the mesh changes
+
+        //- Whether the data below belong to the current geometry
+        mutable bool lsqDone_;
+
+        //- Open internal faces of the fit, in face order, and their
+        //  weighted centroid vectors w d, w = 1/|d|^2
+        mutable labelList lsqFaces_;
+        mutable vectorField lsqWd_;
+
+        //- The same on the coupled patches (patch-local face indices)
+        mutable labelListList lsqPatchFaces_;
+        mutable List<vectorField> lsqPatchWd_;
+
+        //- Inverse of the regularised normal matrix of every cell with a fit
+        mutable symmTensorField lsqInvA_;
+        mutable bitSet lsqOk_;
+
+        //- Fluid cells without a fit (slots), which take the mean gradient
+        //  of their fluid face neighbours with one: the cell and the number
+        //  of those neighbours of every slot, (slot, neighbour cell) over
+        //  the internal faces in face order, and per coupled patch
+        //  (slot, patch face)
+        mutable labelList lsqFallbackCells_;
+        mutable labelList lsqFallbackCount_;
+        mutable labelPairList lsqFallback_;
+        mutable List<labelPairList> lsqPatchFallback_;
+
+        //- Cells whose gradient the second-order corrections read (cells
+        //  with a value offset, wall cells, linked groups, the cells of the
+        //  faces with a correction and the fallback cells with their
+        //  neighbours), and the entries of lsqFaces_/lsqPatchFaces_ that
+        //  touch them
+        mutable labelList lsqNearCells_;
+        mutable labelList lsqNearFaces_;
+        mutable labelListList lsqNearPatchFaces_;
+
+        //- Faces on which the centroid-consistent face-gradient correction
+        //  (snGradCorrection) does not vanish: |n - d/(n.d)| > snGradTol;
+        //  coupled faces if either side needs it
+        mutable labelList snGradFaces_;
+        mutable labelListList snGradPatchFaces_;
+
+
     // Cell linking (merging) of small cut cells, mergeAlpha > 0 only
 
         //- Cells with 0 < alpha < mergeAlpha_ are linked to a fluid face
@@ -409,6 +455,18 @@ class cutCellGeometry
         //- Wall-normal extent and wall-law sample cell of every wall cell
         //  (on first use after a geometry update)
         void calcWallSamples() const;
+
+        //- The geometric part of lsqGrad, the cells and faces the
+        //  second-order corrections read (lsqDone_)
+        void calcLsq() const;
+
+        //- lsqGrad on every cell (near false), or on lsqNearCells_ only,
+        //  zero elsewhere (near true; the same values there)
+        tmp<volVectorField> lsqGrad
+        (
+            const volScalarField& f,
+            const bool near
+        ) const;
 
         //- The open internal or coupled face from a cut cell to the fluid
         //  neighbour with more fluid, preferring the direction away from

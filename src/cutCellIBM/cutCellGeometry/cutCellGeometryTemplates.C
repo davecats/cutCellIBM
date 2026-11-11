@@ -65,7 +65,7 @@ Foam::cutCellGeometry::snGradCorrection
     {
         const tmp<volScalarField> tvc(vf.component(cmpt));
         const volScalarField& vc = tvc();
-        const tmp<volVectorField> tg(lsqGrad(vc));
+        const tmp<volVectorField> tg(lsqGrad(vc, true));
         const volVectorField& g = tg();
 
         surfaceScalarField c
@@ -75,12 +75,10 @@ Foam::cutCellGeometry::snGradCorrection
             dimensionedScalar(vf.dimensions()/dimLength, Zero)
         );
 
-        forAll(own, facei)
+        // Only the faces where the bracket does not vanish (snGradFaces_;
+        // on the other open faces d is parallel to n, n.d = 1/cutDeltaCoeffs)
+        for (const label facei : snGradFaces_)
         {
-            if (theta_[facei] <= 0 || solidCells_.test(own[facei]) || solidCells_.test(nei[facei]))
-            {
-                continue;
-            }
             const vector n(Sf[facei]/magSf[facei]);
             const vector& d = dCentroid_[facei];
             const vector gf(0.5*(g[own[facei]] + g[nei[facei]]));
@@ -124,15 +122,13 @@ Foam::cutCellGeometry::snGradCorrection
             }
             const labelUList& fc = fvp.faceCells();
             const vectorField gN(g.boundaryField()[patchi].patchNeighbourField());
-            const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
             const fvsPatchVectorField& dp = dCentroid_.boundaryField()[patchi];
             const fvsPatchScalarField& dcp = cutDeltaCoeffs_.boundaryField()[patchi];
             const fvsPatchVectorField& Sfp = Sf.boundaryField()[patchi];
             const fvsPatchScalarField& magSfp = magSf.boundaryField()[patchi];
             fvsPatchScalarField& cp = c.boundaryFieldRef()[patchi];
-            forAll(fvp, i)
+            for (const label i : snGradPatchFaces_[patchi])
             {
-                if (tp[i] <= 0 || solidCells_.test(fc[i])) continue;
                 const vector n(Sfp[i]/magSfp[i]);
                 const vector gf(0.5*(g[fc[i]] + gN[i]));
                 cp[i] = (gf & n) - (gf & dp[i])*dcp[i];
@@ -207,7 +203,7 @@ Foam::cutCellGeometry::convectionCorrection
     PtrList<volVectorField> g(nCmpt);
     for (direction cmpt = 0; cmpt < nCmpt; ++cmpt)
     {
-        g.set(cmpt, lsqGrad(vf.component(cmpt)).ptr());
+        g.set(cmpt, lsqGrad(vf.component(cmpt), true).ptr());
     }
 
     const labelUList& own = mesh_.owner();
