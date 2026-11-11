@@ -61,7 +61,7 @@ PIMPLE { momentumPredictor yes; nOuterCorrectors 3; nCorrectors 2; nNonOrthogona
     dt = 0.5*h/(1.5 + alpha)                  # Courant 0.5 with |u| <= 1.5 + alpha
     geometry.control_dict(d, "ibmPimpleFoam", endTime=END, deltaT=repr(float(dt)), writeInterval=int(round(END/dt)))
     write_dict(d / "system" / "decomposeParDict", "dictionary", "decomposeParDict",
-               "numberOfSubdomains %d;\nmethod scotch;\n" % ranks(levels))
+               "numberOfSubdomains %d;\nmethod scotch;\n%s" % (ranks(levels), common.LINK_CONSTRAINT))
     return ncells, h
 
 
@@ -71,6 +71,7 @@ def one(ctx, alpha, levels):
         ncells, h = setup(d, alpha, levels)
     else:
         ncells, h = None, H0/2**levels
+    common.link_zone(d)      # the cylinder rotates in place: the links do not change
     common.sh("decomposePar", d, "log.decomposePar")
     common.sh("ibmPimpleFoam", d, "log.ibmPimpleFoam", np_=ranks(levels))
     t, F = meshes.force_history(d, 0.1)

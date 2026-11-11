@@ -611,11 +611,19 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
 - **V5**: mesh family k (background 0.01/2^k, two nested levels: D/h = 40, 80, 160); 2D-2 from
   rest to t = 16 on 8 ranks, PCG (GAMG stalls on the linked cut-cell pressure: near 1e-6 with
   the default agglomeration, near 2e-9 with pair agglomeration), statistics over the last 3 s.
-  2D-1: CG preconditioned by pair-agglomeration GAMG (DIC-PCG hits maxIter 1000 short of relTol
+  2D-1: CG preconditioned by GAMG with the DICGaussSeidel smoother (DIC-PCG hits maxIter 1000 short of relTol
   0.01 at D/h = 160: 24 s per iteration against 3.5 s; 13 iterations per solve); D/h = 160 on 8
   ranks (5661 SIMPLE iterations at D/h = 80; 20335 at D/h = 160). Pressure difference from a
   quadratic least-squares fit over the fluid cells within 4 h of each point (within 2.5 h: ~10
   cells for 6 coefficients, 11 % low). 2D-2 with 3 PIMPLE outer correctors (finding 6).
+- **Linear solvers of the immersed cases** (2026-11-11, `doc/crossProcessorLinksHandout.md`):
+  the pressure of linked cells needs the incomplete-Cholesky smoother (DICGaussSeidel), not pair
+  agglomeration; GAMG with Gauss-Seidel stalls. Steady immersed cases use CG preconditioned by
+  GAMG(DICGaussSeidel) for p and smoothSolver for U and nuTilda, linked or not. A linked group
+  split over processors slows every solver (V5 D/h 80, 12 split groups: 46 instead of 6.5
+  iterations per solve), so decomposed static cases (V5, V12, NACA) keep each group on one
+  processor: `ibmSetGeometry -linkZone` and `preserveFaceZones` in decomposeParDict. G8 and the
+  moving-body V13 are decomposed without it.
 - **V12, V13**: nested static refinement (h0 = 3.2, 7–9 levels), 8 ranks; V13 at Courant ≤ 0.8.
 - **V15**: the IBM plate gives no C_f(x) yet (no wall-shear output): C_D against body-fitted;
   C_f(0.97) of the body-fitted run against TMR reported. Leading edge half a cell (5e-4)

@@ -147,7 +147,7 @@ interpolationSchemes { default linear; }
 snGradSchemes   { default %s; }
 wallDist        { method %s; }
 """ % (("cutCellCorrected", "cutCellCorrected", "ibmLevelSet") if ibm else ("corrected", "corrected", "meshWave")))
-    fv_solution(d, False)
+    fv_solution(d, ibm)
     write_dict(d / "system" / "controlDict", "dictionary", "controlDict", """
 application %s;
 %sstartFrom startTime; startTime 0; stopAt endTime; endTime 40000; deltaT 1;
@@ -163,14 +163,15 @@ functions { wss { type wallShearStress; libs (fieldFunctionObjects); patches (pl
     build_mesh(d)
 
 
-def fv_solution(d, linked):
-    """the standard linear solvers (as in the body-fitted run) unless cut cells are linked: a
-    linked pair is a stiff two-cell system that a point smoother cannot move together; pair
-    agglomeration puts it into one coarse cell (at twice the cost per iteration otherwise)"""
-    solvers = ('    p { solver GAMG; agglomerator algebraicPair; smoother DICGaussSeidel; tolerance 1e-10; relTol 0.05; }\n'
-               '    "(U|nuTilda)" { solver GAMG; agglomerator algebraicPair; smoother GaussSeidel; nSweeps 2; '
-               'tolerance 1e-12; relTol 0.1; }\n') if linked else (
-               '    p { solver GAMG; smoother GaussSeidel; tolerance 1e-10; relTol 0.05; }\n'
+def fv_solution(d, ibm):
+    """immersed: CG preconditioned by GAMG with the incomplete-Cholesky smoother for the pressure,
+    which resolves the stiff two-cell systems of linked cells (a point Gauss-Seidel smoother
+    cannot: plain GAMG stalls) and is as fast without links; U and nuTilda need no special solver
+    (linkCells redistributes their group residuals). Body-fitted: the standard solvers."""
+    solvers = ('    p { solver PCG; preconditioner { preconditioner GAMG; smoother DICGaussSeidel; '
+               'nCellsInCoarsestLevel 10; tolerance 0; relTol 0; } tolerance 1e-10; relTol 0.05; }\n'
+               if ibm else
+               '    p { solver GAMG; smoother GaussSeidel; tolerance 1e-10; relTol 0.05; }\n') + (
                '    "(U|nuTilda)" { solver smoothSolver; smoother GaussSeidel; nSweeps 2; tolerance 1e-12; relTol 0.1; }\n')
     write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", """
 solvers
@@ -202,7 +203,6 @@ def one(ctx, n, ibm, f=0.5, ma=0.5):
     common.sh("postProcess -func writeCellCentres -time 0", d, "log.postProcess")
     if ibm:
         common.sh("ibmSetGeometry", d, "log.ibmSetGeometry")
-        fv_solution(d, common.linked_cells(d) > 0)
     app = "ibmSimpleFoam" if ibm else "simpleFoam"
     common.sh(app, d, "log." + app)
     log = (d / ("log." + app)).read_text()

@@ -50,7 +50,7 @@ def setup(d, k, Um, unsteady):
     if not unsteady:
         (d / "system" / "fvSchemes").write_text((CYL / "system" / "fvSchemes").read_text())
         write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", """
-solvers { p { solver PCG; preconditioner { preconditioner GAMG; agglomerator algebraicPair;
+solvers { p { solver PCG; preconditioner { preconditioner GAMG;
                 smoother DICGaussSeidel; nCellsInCoarsestLevel 10; tolerance 0; relTol 0; }
               tolerance 1e-12; relTol 0.01; maxIter 1000; }
           U { solver smoothSolver; smoother symGaussSeidel; tolerance 1e-12; relTol 0.1; } }
@@ -58,7 +58,9 @@ SIMPLE { nNonOrthogonalCorrectors 0; consistent yes; residualControl { p 1e-9; U
 relaxationFactors { equations { U 0.9; } fields { p 1.0; } }
 """)
         # GAMG-preconditioned CG: DIC-PCG hits maxIter 1000 short of relTol 0.01 at D/h = 160 (24 s
-        # per iteration, 13 GAMG-PCG iterations instead; plain GAMG stalls, see below)
+        # per iteration, 13 GAMG-PCG iterations instead; plain GAMG stalls, see below). The
+        # incomplete-Cholesky smoother resolves the linked pairs; the default agglomeration does
+        # as well as pair agglomeration (D/h = 40: 6.0 against 4.8 iterations, same time)
         import geometry as g
         g.control_dict(d, "ibmSimpleFoam", endTime=40000, deltaT=1)
         return ncells, hmin, None
@@ -125,7 +127,8 @@ NP = 8   # ranks of a 2D-2 run and of the finest 2D-1 run
 
 def decomposed(d, app, times):
     write_dict(d / "system" / "decomposeParDict", "dictionary", "decomposeParDict",
-               "numberOfSubdomains %d;\nmethod scotch;\n" % NP)
+               "numberOfSubdomains %d;\nmethod scotch;\n%s" % (NP, common.LINK_CONSTRAINT))
+    common.link_zone(d)
     common.sh("decomposePar", d, "log.decomposePar")
     common.sh(app, d, "log." + app, np_=NP)
     common.sh("reconstructPar " + times, d, "log.reconstructPar")

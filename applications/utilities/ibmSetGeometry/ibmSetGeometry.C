@@ -30,6 +30,15 @@ int main(int argc, char *argv[])
 
     argList::addBoolOption
     (
+        "linkZone",
+        "write the faceZone ibmLinkFaces of the faces linking small cut cells "
+        "to their masters (serial), for decomposePar to keep every linked "
+        "group on one processor: constraints { links { type "
+        "preserveFaceZones; zones (ibmLinkFaces); } }"
+    );
+
+    argList::addBoolOption
+    (
         "writeWallDist",
         "write the wall distance of the turbulence models (yWall), with the "
         "wallDist method of system/fvSchemes"
@@ -65,6 +74,53 @@ int main(int argc, char *argv[])
         Info<< "Wall distance: min " << gMin(y.primitiveField())
             << ", max " << gMax(y.primitiveField()) << endl;
         y.write();
+    }
+
+    if (args.found("linkZone"))
+    {
+        // A linked group split over processors is coupled through the
+        // processor faces by the stiff link conductance, which the
+        // processor-local smoothers and preconditioners treat explicitly:
+        // the pressure solve then needs many more iterations
+        // (doc/crossProcessorLinksHandout.md). decomposePar keeps the two
+        // cells of every face of this zone together (preserveFaceZones).
+        if (Pstream::parRun())
+        {
+            FatalErrorInFunction
+                << "-linkZone is for the undecomposed case (before decomposePar)"
+                << exit(FatalError);
+        }
+        const labelList& linkFace = ibm.linkFace();
+        labelHashSet faceSet;
+        forAll(linkFace, celli)
+        {
+            const label facei = linkFace[celli];
+            if (facei >= 0 && facei < mesh.nInternalFaces())
+            {
+                faceSet.insert(facei);
+            }
+        }
+        const labelList addr(faceSet.sortedToc());
+        const boolList flipMap(addr.size(), false);
+
+        const word zoneName("ibmLinkFaces");
+        faceZoneMesh& zones = mesh.faceZones();
+        const label zonei = zones.findZoneID(zoneName);
+        if (zonei < 0)
+        {
+            const label n = zones.size();
+            zones.setSize(n + 1);
+            zones.set(n, new faceZone(zoneName, addr, flipMap, n, zones));
+        }
+        else
+        {
+            zones[zonei].resetAddressing(addr, flipMap);
+        }
+        zones.instance() = mesh.facesInstance();
+        zones.writeOpt(IOobject::AUTO_WRITE);
+        zones.write();
+        Info<< "faceZone " << zoneName << ": " << addr.size()
+            << " link faces written to " << zones.objectPath() << endl;
     }
 
     // Uniform pressure and velocity checks of the operators

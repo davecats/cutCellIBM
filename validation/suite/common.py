@@ -327,10 +327,16 @@ def value_points(case, t, C):
     return C.copy()
 
 
-def linked_cells(d, log="log.ibmSetGeometry"):
-    """number of linked cut cells reported by ibmSetGeometry (0 without linking)"""
-    m = re.search(r"cell linking: (\d+) cells", (Path(d) / log).read_text())
-    return int(m.group(1)) if m else 0
+# decomposeParDict entry that keeps every linked group (small cut cell and master) on one
+# processor; the faceZone is written by ibmSetGeometry -linkZone before decomposePar. A group split
+# over processors makes the pressure solve converge much more slowly
+# (doc/crossProcessorLinksHandout.md)
+LINK_CONSTRAINT = "constraints { links { type preserveFaceZones; zones (ibmLinkFaces); } }\n"
+
+
+def link_zone(d):
+    """write the faceZone of the link faces (serial, before decomposePar)"""
+    sh("ibmSetGeometry -linkZone", d, "log.ibmSetGeometry.linkZone")
 
 
 def write_dict(path, cls, obj, body):
