@@ -11,9 +11,10 @@ problem (scotch on 8 ranks equals serial to 1e-10); the convergence of the linea
   `feature_iddes_from_scalar_secondOrder` at 2b1adc3). Commit 5af1381: the immersed steady cases
   use, for p, CG preconditioned by GAMG with the default (face-area pair) agglomeration and the
   `DICGaussSeidel` smoother; U and nuTilda use `smoothSolver` with Gauss-Seidel; linked or not.
-- The main session is adding a decomposition constraint: `ibmSetGeometry` writes a faceZone of
-  the link faces and `decomposeParDict` gets `preserveFaceZones`, so `decomposePar` keeps each
-  slave with its master. That helps static bodies decomposed once; it does not help moving
+- Commit 155ea8d adds a decomposition constraint: `ibmSetGeometry -linkZone` writes the faceZone
+  `ibmLinkFaces` of the link faces and `decomposeParDict` gets `preserveFaceZones`, so
+  `decomposePar` keeps each slave with its master (V5 D/h 160: 3 split groups -> 0); used by V5,
+  V12 and the NACA generator. Start your worktree from `linked_solvers` at or after 155ea8d. That helps static bodies decomposed once; it does not help moving
   bodies (links change every step), adaptive refinement with load balancing, or any run whose
   decomposition is not under our control. Do not duplicate it; your target is the remaining
   cross-processor links.
