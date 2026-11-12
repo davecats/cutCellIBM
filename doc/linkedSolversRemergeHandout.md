@@ -15,11 +15,14 @@ part are in the Result section of `doc/crossProcessorLinksHandout.md`.
 | ec8affd | G8 also runs cylinderRe1 on 5 slabs along x, which split 6 linked groups (the scotch runs split none) |
 | 43cafca | the wrapper in V5, V12, V15 and the NACA generator (they keep the link constraint: nothing is split there, the wrapper is its base); AMR tutorial: p by PCG + linkedGroup(GAMG) instead of GAMG as the solver; V13: GAMG base |
 | cccd578 | V13: two V-cycles in the GAMG base |
+| b3dcfec | V13 baseline re-accepted from 43cafca (user, 2026-11-12) |
+| 5d9caa5 | V5, V15, NACA: coarsest level of the GAMG preconditioner to relTol 0.01 instead of round-off (user, 2026-11-12) |
 | e1c86bc ... 78e93ce, this file | documentation |
 | merges of 8337bd9 and 935d9b5 | `feature_iddes_from_scalar_secondOrder` merged into the branch, so that it merges back without conflict |
 
-The code (src, applications, tutorials) last changed in 43cafca: that is the key of the suite
-(`common.commit()`), also after the merge.
+The code (src, applications, tutorials) last changed in 5d9caa5 (the NACA generator; src in
+8a40eb8): that is the key of the suite (`common.commit()`), also after the merge. Nothing the
+suite runs differs between 43cafca and 5d9caa5 except the fvSolution of V5 (2D-1) and V15.
 
 ## How to merge
 
@@ -40,10 +43,10 @@ this branch. `fvSolution` entries of the immersed cases now read
 Body-fitted cases must not get the wrapper (it lives in libcutCellIBM). The build was checked
 on v2106 and v2506 at 8a40eb8 (same V13 iteration counts); nothing in src changed afterwards.
 
-## Results at 43cafca (v2412, worktree `~/Codes/openFoam.ibm.docs/xlinks`)
+## Results at 43cafca and 5d9caa5 (v2412, worktree `~/Codes/openFoam.ibm.docs/xlinks`)
 
-JSON in `xlinks/validation/suite/results/43cafca` (and `8a40eb8`), cases in
-`~/runs/suite/43cafca`. The code of the merged branch is the same, so these results are its
+JSON in `xlinks/validation/suite/results/43cafca` (and `8a40eb8`, `5d9caa5`), cases in
+`~/runs/suite/43cafca` and `~/runs/suite/5d9caa5`. The code of the merged branch is the same, so these results are its
 results; copy the JSON files if the report is to be made from the main tree.
 
 | id | result | against 2b1adc3 / the baseline |
@@ -58,6 +61,14 @@ results; copy the JSON files if the report is to be made from the main tree.
 
 `results/43cafca/V13.oneVcycle.json` is the V13 run with one V-cycle (cases in `V13`, not `V13.1`).
 
+At 5d9caa5 (coarsest level to relTol 0.01 in V5 2D-1 and V15), started 2026-11-12 23:00 from
+the xlinks worktree: G1 to G7 PASS when this was written; G8, G9, V1, V15 and V5 were still
+running (logs `~/runs/xlinks/suite_*_5d9caa5.log`, JSON in `xlinks/validation/suite/results/5d9caa5`).
+Checked directly: V5 2D-1 at D/h 80 (scotch, 8 ranks) converges in 5663 SIMPLE iterations with
+6.49 pressure iterations per solve to C_D 5.58089439168e-05 (before: 5664, 6.5,
+5.58089439196e-05; serial 5.5808943921e-05): the converged steady state does not depend on
+the setting. V13 and the gates do not use the changed files.
+
 ### V13 changes in the fifth digit, and the baseline is the less accurate side
 
 With the GAMG base c_d and c_i differ from the baseline (DIC-PCG) by 2e-5 to 5e-5:
@@ -71,7 +82,7 @@ D/h 40 with the pressure solved to tolerance 1e-12 and relTol 1e-4: 2.1411846 (D
 2.1411688 (GAMG). The GAMG value at the normal tolerances is within 6e-6 of both, the DIC value
 2e-5 off: at tolerance 1e-9 and relTol 0.01 DIC-PCG leaves an error of that size, and at
 D/h 160 a quarter of its solves stopped at maxIter 1000 on top of that. The check passes; **the
-baseline has not been re-accepted** (the user decides; the new run would be the better one).
+baseline was re-accepted from this run** with the user's approval (b3dcfec).
 Iterations per solve 19, 24, 28 and 0.20, 0.58, 1.60 s per step at D/h 40, 80, 160
 (istmeridanus, 8 ranks each, the three at once); no solve at the limit.
 
@@ -84,20 +95,19 @@ solve, none at the limit, 0.45 s per step (with a GAMG base and one V-cycle 20.5
 and 0.38 s per step; two V-cycles were not tried there). In the merged state V12 has the wrapper and the link
 constraint, so its solves converge; its D/h 160 numbers should come from a new run. V12
 keeps the DIC base (the user did not ask for more); by the V13 experience a DIC result may
-carry a solver error of order 1e-5.
+carry a solver error of order 1e-5. The rerun is with the feature-branch session (user).
 
-## Findings that were not acted on (candidates, the user decides)
+## Findings and what the user decided (2026-11-12)
 
-1. **Coarsest level of the GAMG preconditioner.** V5, V15 and NACA use `tolerance 0; relTol 0`
-   in the preconditioner dictionary, which solves the coarsest level to round-off in every
-   application. V5 D/h 80, scotch, 8 ranks: `relTol 0.01` gives the same iterations (12.57
-   against 12.56 per solve) at 96 instead of 168 ms per SIMPLE iteration. V13 uses it.
-   Changing the three cases changes their results at solver-tolerance level.
+1. **Coarsest level of the GAMG preconditioner: changed (5d9caa5).** V5, V15 and NACA used
+   `tolerance 0; relTol 0` in the preconditioner dictionary, which solves the coarsest level
+   to round-off in every application. V5 D/h 80, scotch, 8 ranks: `relTol 0.01` gives the same
+   iterations (12.57 against 12.56 per solve) at 96 instead of 168 ms per SIMPLE iteration.
+   V13 has it too. Results change at solver-tolerance level (see the 5d9caa5 runs below).
 2. **One V-cycle is not safe** (`nVcycles 1`): faster per step, but one pressure solve per
    period of V13 at D/h 80 stalled (cccd578). Keep the default of two.
-3. **The link constraint is now redundant** in V5, V12 and NACA: the wrapper handles split
-   groups (V5 D/h 80 with 12 split links: 12.99 iterations per solve, as without any). It was
-   kept because dropping it changes which groups are split and asks for the long reruns.
+3. **The link constraint stays** in V5, V12 and NACA (user). The wrapper would handle split
+   groups there (V5 D/h 80 with 12 split links: 12.99 iterations per solve, as without any).
 4. **smoothSolver and GAMG as the solver cannot use the wrapper.** What smoothSolver leaves
    behind at a split group in a time-accurate run (nuTilda, scalars) is not measured; the AMR
    tutorial still solves U with smoothSolver.
