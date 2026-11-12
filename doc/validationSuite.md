@@ -61,7 +61,7 @@ fill these gaps.
 | G4 | free stream around a translating body | max \|U − u_b\| ≤ 10⁻¹⁰ |
 | G5 | rotation sources (`rotatingCylinder`, `eccentricRotation`) | \|Σ S\| ≤ 10⁻¹² ; max \|S\| ≤ stored × 1.05 |
 | G6 | scalar budgets (`tutorials/scalar`) | closure ≤ 10⁻¹⁰ relative |
-| G7 | regression: forces of every tutorial against the stored baseline | ≤ 10⁻⁶ relative (larger = intended change, baseline updated in the same commit with a reason) |
+| G7 | regression: forces and moments of every tutorial against the stored baseline | ≤ 10⁻⁶ of the body's load scale (larger = intended change, baseline updated in the same commit with a reason) |
 | G8 | decomposition: cylinderRe1 and channelSA (linked, wall law) serial vs 4 and 6 ranks, cylinderRe1 on 5 slabs that split linked groups, converged | ≤ 10⁻⁸ relative in the forces |
 | G9 | stagnation flow onto a plane wall, exact NS solution (Hiemenz 2-D: tan α = 0 at cut fractions 0.1, 0.5, 0.9 and tan α = 1/3, 1; Homann 3-D: tan α = 0, 1/3), §11 | order ≥ 1.8 (L2 of u and p), ≥ 1.5 (tangential wall shear); errors within 1 % of the stored baseline |
 
@@ -582,6 +582,15 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   1.01, 0.73) fitted over all four meshes, ≥ 0.8.
 - **G6**: the budget is judged per step; a step whose scalar solve hits maxIter is reported
   apart (`galilean_zeroFlux`, t = 11.925, the known case of `doc/secondOrderStudy.md`).
+  Regression (2026-11-11, user decision): the budget errors are round-off (10⁻¹²–10⁻¹⁰), so a
+  relative tolerance flags noise (2b1adc3: steady 9.1e-11 -> 4.1e-11 = 9 units at 5 % + 1e-12);
+  tolerance 5 % + a tenth of the metric's gate (10⁻¹⁰ transient, 10⁻⁹ steady).
+- **G7** (2026-11-11, user decision): force and moment per body, |F − F_base| ≤ 10⁻⁶
+  max(|F_base|, |M_base|/L), |M − M_base| ≤ 10⁻⁶ max(|M_base|, L |F_base|), L the largest distance
+  of the body's wall cells from their area centroid. The force-only relative check failed on
+  Taylor–Couette, whose net force is a cancellation (|F| ≈ 4e-8 against a torque of 0.28: 2b1adc3
+  changed it by 5e-13 = 1.3e-5 relative, 3e-12 of the load scale). Baselines from before store no
+  moments: the moment is then reported, and this run's moment sets the force scale.
 - **G8**: cylinder drag (the lift is zero by symmetry, solver noise) and the channel driving
   gradient u_τ², each run required stationary (the gradient changes ≤ 1e-10 over the last 100
   iterations): `residualControl` cannot trigger in this 1-D problem (the Uy and p residuals are
