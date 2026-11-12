@@ -195,6 +195,16 @@ which split 6 links, and requires at least one: drag equal to serial to 1.4e-12.
 the wrapper for p and U, the cylinderRe1 tutorials for p. The code builds and gives the same
 V13 iteration counts on v2106 and v2506.
 
+**V13 and V5 of the suite** (8a40eb8, on istmeridanus): both PASS. V13 with the wrapper
+for p and U: c_d and c_i at D/h = 160 within 4e-7 and 8e-7 of the run of 2b1adc3, regression
+against the baseline at 0.04 of its tolerance. Iterations per solve at D/h = 160 for 1 to 20
+split links: DIC-PCG 545 to 576 (613 to 737 in the run of 2b1adc3; 550 with none),
+PBiCGStab-DILU for Ux 6.4 to 7.6 (13 to 153; 6.3 with none); at D/h = 80 324 to 365 (340
+with none) and 5.5 to 7.0 (4.7). At D/h = 160 the DIC-PCG pressure solve reaches maxIter
+1000 also without any split link (mean 550): the plain DIC preconditioner on that mesh, not
+the links. V5 does not use the wrapper (decomposition constraint): PASS, values within 5e-7
+of the run of 2b1adc3 (the solver settings of 5af1381), regression at 0.008 of its tolerance.
+
 **Not covered.**
 - Solvers without a preconditioner cannot use it: GAMG as the solver (the AMR tutorial) and
   smoothSolver. For the pressure that means slow convergence with split groups. For U with
