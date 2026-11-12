@@ -444,9 +444,11 @@ relaxationFactors
     # which resolves the stiff two-cell systems of linked cells (a point Gauss-Seidel smoother
     # cannot, plain GAMG stalls) and is as fast without links; U and nuTilda need no special
     # solver (linkCells redistributes their group residuals). linkedGroup: the same for linked
-    # groups split over processors (README section 4). Body-fitted: the standard solvers.
+    # groups split over processors (README section 4); relTol 0.01 in the GAMG dictionary is
+    # the tolerance of its coarsest level (to round-off costs 40 % of the time, same iterations).
+    # Body-fitted: the standard solvers.
     p = ('    p { solver PCG; preconditioner { preconditioner linkedGroup; base { preconditioner GAMG;'
-         ' smoother DICGaussSeidel; nCellsInCoarsestLevel 10; tolerance 0; relTol 0; } }'
+         ' smoother DICGaussSeidel; nCellsInCoarsestLevel 10; tolerance 0; relTol 0.01; } }'
          ' tolerance 1e-10; relTol 0.05; }\n'
          if a.kind == "ibm" else
          '    p { solver GAMG; smoother GaussSeidel; tolerance 1e-10; relTol 0.05; }\n')

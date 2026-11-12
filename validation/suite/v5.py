@@ -51,7 +51,7 @@ def setup(d, k, Um, unsteady):
         (d / "system" / "fvSchemes").write_text((CYL / "system" / "fvSchemes").read_text())
         write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", """
 solvers { p { solver PCG; preconditioner { preconditioner linkedGroup; base { preconditioner GAMG;
-                smoother DICGaussSeidel; nCellsInCoarsestLevel 10; tolerance 0; relTol 0; } }
+                smoother DICGaussSeidel; nCellsInCoarsestLevel 10; tolerance 0; relTol 0.01; } }
               tolerance 1e-12; relTol 0.01; maxIter 1000; }
           U { solver smoothSolver; smoother symGaussSeidel; tolerance 1e-12; relTol 0.1; } }
 SIMPLE { nNonOrthogonalCorrectors 0; consistent yes; residualControl { p 1e-9; U 1e-9; } }
@@ -62,7 +62,9 @@ relaxationFactors { equations { U 0.9; } fields { p 1.0; } }
         # incomplete-Cholesky smoother resolves the linked pairs; the default agglomeration does
         # as well as pair agglomeration (D/h = 40: 6.0 against 4.8 iterations, same time).
         # linkedGroup: the same for linked groups split over processors (none here with the
-        # link constraint of the decomposition; without a split group it is its base)
+        # link constraint of the decomposition; without a split group it is its base).
+        # relTol 0.01 is the tolerance of the coarsest level of GAMG: to round-off (relTol 0) it
+        # took 168 instead of 96 ms per SIMPLE iteration at D/h = 80 for the same iterations
         import geometry as g
         g.control_dict(d, "ibmSimpleFoam", endTime=40000, deltaT=1)
         return ncells, hmin, None
