@@ -220,3 +220,7 @@ of the run of 2b1adc3 (the solver settings of 5af1381), regression at 0.008 of i
 - V5, V12, V15 and NACA keep the decomposition constraint and their plain preconditioners
   (nothing is split there). The wrapper would make the constraint unnecessary; that is a
   decision for the user.
+
+**After this result** (2026-11-12: the wrapper in V5, V12, V15, NACA and the AMR tutorial, a
+GAMG base for V13, what the pressure solver does to the V13 and V12 numbers, and how to merge
+the branch): `doc/linkedSolversRemergeHandout.md`.
