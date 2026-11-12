@@ -613,12 +613,15 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   GAMG(DICGaussSeidel) for p and smoothSolver for U and nuTilda, linked or not. A linked group
   split over processors slows every solver (V5 D/h 80, 12 split groups: 46 instead of 6.5
   iterations per solve), so decomposed static cases (V5, V12, NACA) keep each group on one
-  processor: `ibmSetGeometry -linkZone` and `preserveFaceZones` in decomposeParDict. G8 and the
-  moving-body V13 are decomposed without it and wrap their preconditioners in `linkedGroup`
+  processor: `ibmSetGeometry -linkZone` and `preserveFaceZones` in decomposeParDict. All
+  immersed cases with a Krylov solver (V5, V12, V13, V15, the cylinderRe1, AMR and NACA
+  tutorials) wrap their preconditioners in `linkedGroup`, which is its base where no group is
+  split. G8 and the moving-body V13 are decomposed without the constraint and rely on it
   (2026-11-11, README §4), with which split groups no longer cost iterations: V13 D/h = 40,
   DIC-PCG 206 to 207 iterations per solve with 1 to 10 split links (204 with none; 276 to 535
   and the limit of 1000 without the wrapper), PBiCGStab-DILU for U 4.3 to 4.9 (8.5 to 57; 3.1
-  with none).
+  with none). V13 uses GAMG (one V-cycle, coarsest level to relTol 0.01) as the base since
+  2026-11-12: DIC-PCG ran into maxIter 1000 at D/h = 160, split groups or not.
 - **V12, V13**: nested static refinement (h0 = 3.2, 7–9 levels), 8 ranks; V13 at Courant ≤ 0.8.
 - **V15**: the IBM plate gives no C_f(x) yet (no wall-shear output): C_D against body-fitted;
   C_f(0.97) of the body-fitted run against TMR reported. Leading edge half a cell (5e-4)

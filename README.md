@@ -408,7 +408,7 @@ momentumSource
   split groups it is the base preconditioner. For a static body the decomposition can
   instead keep the groups together: `ibmSetGeometry -linkZone` and
   `constraints { links { type preserveFaceZones; zones (ibmLinkFaces); } }` in
-  `decomposeParDict`. Solvers without a preconditioner (`GAMG`, `smoothSolver`) cannot use
+  `decomposeParDict` (the static cases of the validation suite do both). Solvers without a preconditioner (`GAMG`, `smoothSolver`) cannot use
   the wrapper: with split groups GAMG as the pressure solver converges slowly, and a
   Gauss-Seidel sweep hardly moves the mean of a split group (the steady cases do not show
   it; not checked for time-accurate runs, where `PBiCGStab` with the wrapper is the safe

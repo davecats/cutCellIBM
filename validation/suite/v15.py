@@ -167,9 +167,11 @@ def fv_solution(d, ibm):
     """immersed: CG preconditioned by GAMG with the incomplete-Cholesky smoother for the pressure,
     which resolves the stiff two-cell systems of linked cells (a point Gauss-Seidel smoother
     cannot: plain GAMG stalls) and is as fast without links; U and nuTilda need no special solver
-    (linkCells redistributes their group residuals). Body-fitted: the standard solvers."""
-    solvers = ('    p { solver PCG; preconditioner { preconditioner GAMG; smoother DICGaussSeidel; '
-               'nCellsInCoarsestLevel 10; tolerance 0; relTol 0; } tolerance 1e-10; relTol 0.05; }\n'
+    (linkCells redistributes their group residuals). linkedGroup: the same for linked groups
+    split over processors (README section 4). Body-fitted: the standard solvers."""
+    solvers = ('    p { solver PCG; preconditioner { preconditioner linkedGroup; base { preconditioner GAMG; '
+               'smoother DICGaussSeidel; nCellsInCoarsestLevel 10; tolerance 0; relTol 0; } } '
+               'tolerance 1e-10; relTol 0.05; }\n'
                if ibm else
                '    p { solver GAMG; smoother GaussSeidel; tolerance 1e-10; relTol 0.05; }\n') + (
                '    "(U|nuTilda)" { solver smoothSolver; smoother GaussSeidel; nSweeps 2; tolerance 1e-12; relTol 0.1; }\n')

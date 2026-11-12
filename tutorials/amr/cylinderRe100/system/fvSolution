@@ -4,8 +4,15 @@ solvers
 {
     p
     {
-        solver          GAMG;
-        smoother        DICGaussSeidel;
+        // CG preconditioned by GAMG: the linked cut cells need the incomplete-Cholesky
+        // smoother, and GAMG as the solver takes 85 instead of 7 iterations per solve;
+        // linkedGroup for linked groups split over processors (README section 4)
+        solver          PCG;
+        preconditioner
+        {
+            preconditioner  linkedGroup;
+            base            { preconditioner GAMG; smoother DICGaussSeidel; }
+        }
         tolerance       1e-8;
         relTol          0.01;
     }

@@ -41,8 +41,15 @@ def setup(d, levels):
         "p": ("volScalarField", "[0 2 -2 0 0 0 0]", "uniform 0", {"walls": "type slip;"})})
     (d / "system" / "fvSchemes").write_text(
         (CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default Euler;"))
+    # GAMG as the base: DIC-PCG runs into maxIter 1000 at D/h = 160 (575 iterations per solve,
+    # with or without split groups). One V-cycle and the coarsest level to relTol 0.01: 0.17,
+    # 0.45, 1.76 s per step at D/h = 40, 80, 160 against 0.10, 0.42 and 2.04 for DIC (maxIter
+    # 5000 at D/h = 160); 32, 43, 51 iterations per solve. linkedGroup: the body splits 0 to 20
+    # linked groups over the processors as it moves
     write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", """
-solvers { p { solver PCG; preconditioner { preconditioner linkedGroup; base DIC; } tolerance 1e-9; relTol 0.01; }
+solvers { p { solver PCG; preconditioner { preconditioner linkedGroup; base { preconditioner GAMG;
+                smoother DICGaussSeidel; tolerance 0; relTol 0.01; nVcycles 1; } }
+              tolerance 1e-9; relTol 0.01; }
           pFinal { $p; relTol 0; }
           U { solver PBiCGStab; preconditioner { preconditioner linkedGroup; base DILU; } tolerance 1e-11; relTol 0; }
           UFinal { $U; } }
