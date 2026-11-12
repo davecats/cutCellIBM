@@ -175,6 +175,17 @@ def ibm_force(log_text, body=None):
     return {"pressure": vec(p), "viscous": vec(v), "total": vec(t)}
 
 
+def ibm_moment(log_text, body=None):
+    """last 'IBM moment on <body> about <point>' line: dict about, pressure, viscous, total (arrays)"""
+    pat = r"IBM moment on %s about \(([^)]*)\): pressure \(([^)]*)\) viscous \(([^)]*)\) total \(([^)]*)\)" % (
+        re.escape(body) if body else r"\S+")
+    m = re.findall(pat, log_text)
+    if not m:
+        raise ValueError("no IBM moment line")
+    a, p, v, t = m[-1]
+    return {"about": vec(a), "pressure": vec(p), "viscous": vec(v), "total": vec(t)}
+
+
 def order(h, err, last=3):
     """observed order: least-squares slope of log err over log h, the `last` finest points"""
     h, err = np.asarray(h, float), np.asarray(err, float)
@@ -276,7 +287,8 @@ def _plain(v):
 
 def regression(res, baseline, rtol, keys=None, atol=0.0):
     """add a check per stored metric (flat dict of numbers in res.data['metrics']) against the
-    baseline: |value - base| <= rtol |base| + atol; REPORT if there is no baseline"""
+    baseline: |value - base| <= rtol |base| + atol, atol a number or {metric: atol}; REPORT if
+    there is no baseline"""
     m = res.data.get("metrics", {})
     if baseline is None:
         res.report("baseline", len(m), note="no stored baseline: this run can be accepted as one")
@@ -287,12 +299,14 @@ def regression(res, baseline, rtol, keys=None, atol=0.0):
         if k not in b or b[k] is None or m.get(k) is None:
             missing.append(k)
             continue
-        d = abs(m[k] - b[k])/(rtol*abs(b[k]) + atol) if (rtol*abs(b[k]) + atol) > 0 else 0.0
+        a = atol[k] if isinstance(atol, dict) else atol
+        d = abs(m[k] - b[k])/(rtol*abs(b[k]) + a) if (rtol*abs(b[k]) + a) > 0 else 0.0
         if d > worst:
             worst, wname = d, k
     res.add("regression against baseline %s (%d metrics)" % (baseline.get("commit"), len(m)),
             "PASS" if worst <= 1 else "FAIL", worst, None, "<= 1 (in units of the tolerance)",
-            "rtol %g, atol %g; worst %s%s" % (rtol, atol, wname or "-",
+            "rtol %g, atol %s; worst %s%s" % (rtol, "per metric" if isinstance(atol, dict) else "%g" % atol,
+                                              wname or "-",
                                               "; not in baseline: %s" % ", ".join(missing) if missing else ""))
 
 
@@ -315,8 +329,9 @@ def value_points(case, t, C):
 
 # decomposeParDict entry that keeps every linked group (small cut cell and master) on one
 # processor; the faceZone is written by ibmSetGeometry -linkZone before decomposePar. A group split
-# over processors makes the pressure solve converge much more slowly
-# (doc/crossProcessorLinksHandout.md)
+# over processors makes the pressure solve converge much more slowly unless the preconditioner
+# is wrapped in linkedGroup (README section 4, doc/crossProcessorLinksHandout.md), as the
+# moving-body cases do
 LINK_CONSTRAINT = "constraints { links { type preserveFaceZones; zones (ibmLinkFaces); } }\n"
 
 

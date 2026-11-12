@@ -438,6 +438,18 @@ void Foam::cutCellGeometry::groupSum(UList<Type>& f) const
         if (groupSlot_[celli] >= 0) s[groupSlot_[celli]] += f[celli];
     }
 
+    groupSlotSum(s);
+
+    forAll(groupSlot_, celli)
+    {
+        if (groupSlot_[celli] >= 0) f[celli] = s[groupSlot_[celli]];
+    }
+}
+
+
+template<class Type>
+void Foam::cutCellGeometry::groupSlotSum(List<Type>& s) const
+{
     if (Pstream::parRun())
     {
         // Partial sums to the processor of the master, which adds them in
@@ -487,11 +499,6 @@ void Foam::cutCellGeometry::groupSum(UList<Type>& f) const
                 }
             }
         }
-    }
-
-    forAll(groupSlot_, celli)
-    {
-        if (groupSlot_[celli] >= 0) f[celli] = s[groupSlot_[celli]];
     }
 }
 

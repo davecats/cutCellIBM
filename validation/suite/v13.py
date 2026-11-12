@@ -41,9 +41,21 @@ def setup(d, levels):
         "p": ("volScalarField", "[0 2 -2 0 0 0 0]", "uniform 0", {"walls": "type slip;"})})
     (d / "system" / "fvSchemes").write_text(
         (CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default Euler;"))
+    # GAMG as the base: DIC-PCG runs into maxIter 1000 at D/h = 160 (575 iterations per solve,
+    # with or without split groups). Coarsest level to relTol 0.01 (to round-off costs 15 % more
+    # time for the same iterations) and the default two V-cycles: with one, one solve per period
+    # stalls at D/h = 80 (1000 iterations at one position of the body, 54 with two). 19, 24, 29
+    # iterations per solve at D/h = 40, 80, 160. At D/h = 40 c_d is then within 6e-6 of the
+    # runs with tolerance 1e-12 and relTol 1e-4 (DIC and GAMG, 7e-6 apart); with DIC at the
+    # tolerances below it is 2e-5 off. linkedGroup: the body splits 0 to 20 linked groups over
+    # the processors as it moves
     write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", """
-solvers { p { solver PCG; preconditioner DIC; tolerance 1e-9; relTol 0.01; } pFinal { $p; relTol 0; }
-          U { solver PBiCGStab; preconditioner DILU; tolerance 1e-11; relTol 0; } UFinal { $U; } }
+solvers { p { solver PCG; preconditioner { preconditioner linkedGroup; base { preconditioner GAMG;
+                smoother DICGaussSeidel; tolerance 0; relTol 0.01; } }
+              tolerance 1e-9; relTol 0.01; }
+          pFinal { $p; relTol 0; }
+          U { solver PBiCGStab; preconditioner { preconditioner linkedGroup; base DILU; } tolerance 1e-11; relTol 0; }
+          UFinal { $U; } }
 PIMPLE { momentumPredictor yes; nOuterCorrectors 2; nCorrectors 2; nNonOrthogonalCorrectors 0;
          consistent yes; ddtCorr yes; pRefPoint (20 20 0.05); pRefValue 0; }
 """)

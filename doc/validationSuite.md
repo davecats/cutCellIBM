@@ -61,8 +61,8 @@ fill these gaps.
 | G4 | free stream around a translating body | max \|U − u_b\| ≤ 10⁻¹⁰ |
 | G5 | rotation sources (`rotatingCylinder`, `eccentricRotation`) | \|Σ S\| ≤ 10⁻¹² ; max \|S\| ≤ stored × 1.05 |
 | G6 | scalar budgets (`tutorials/scalar`) | closure ≤ 10⁻¹⁰ relative |
-| G7 | regression: forces of every tutorial against the stored baseline | ≤ 10⁻⁶ relative (larger = intended change, baseline updated in the same commit with a reason) |
-| G8 | decomposition: cylinderRe1 and channelSA (linked, wall law) serial vs 4 and 6 ranks, converged | ≤ 10⁻⁸ relative in the forces |
+| G7 | regression: forces and moments of every tutorial against the stored baseline | ≤ 10⁻⁶ of the body's load scale (larger = intended change, baseline updated in the same commit with a reason) |
+| G8 | decomposition: cylinderRe1 and channelSA (linked, wall law) serial vs 4 and 6 ranks, cylinderRe1 on 5 slabs that split linked groups, converged | ≤ 10⁻⁸ relative in the forces |
 | G9 | stagnation flow onto a plane wall, exact NS solution (Hiemenz 2-D: tan α = 0 at cut fractions 0.1, 0.5, 0.9 and tan α = 1/3, 1; Homann 3-D: tan α = 0, 1/3), §11 | order ≥ 1.8 (L2 of u and p), ≥ 1.5 (tangential wall shear); errors within 1 % of the stored baseline |
 
 ## 4. Validation cases
@@ -582,6 +582,18 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   1.01, 0.73) fitted over all four meshes, ≥ 0.8.
 - **G6**: the budget is judged per step; a step whose scalar solve hits maxIter is reported
   apart (`galilean_zeroFlux`, t = 11.925, the known case of `doc/secondOrderStudy.md`).
+  Regression (2026-11-11, user decision): the budget errors are round-off (10⁻¹²–10⁻¹⁰), so a
+  relative tolerance flags noise (2b1adc3: steady 9.1e-11 -> 4.1e-11 = 9 units at 5 % + 1e-12);
+  tolerance 5 % + a tenth of the metric's gate (10⁻¹⁰ transient, 10⁻⁹ steady).
+- **G7** (2026-11-11, user decision): force and moment per body, |F − F_base| ≤ 10⁻⁶
+  max(|F_base|, |M_base|/L), |M − M_base| ≤ 10⁻⁶ max(|M_base|, L |F_base|), L the largest distance
+  of the body's wall cells from their area centroid. The force-only relative check failed on
+  Taylor–Couette, whose net force is a cancellation (|F| ≈ 4e-8 against a torque of 0.28: 2b1adc3
+  changed it by 5e-13 = 1.3e-5 relative, 3e-12 of the load scale). Baselines from before store no
+  moments: the moment is then reported, and this run's moment sets the force scale.
+- **V12** (2026-11-12, user decision): St is regressed only where the wake sheds (α < 1.9, the
+  rule of the St reference check); at α = 2 the lift decays (C_Lrms 0.005) and its dominant
+  frequency jumped 0.364 -> 0.410 between 31d1827 and 2b1adc3 with C_Lrms equal to 4e-5.
 - **G8**: cylinder drag (the lift is zero by symmetry, solver noise) and the channel driving
   gradient u_τ², each run required stationary (the gradient changes ≤ 1e-10 over the last 100
   iterations): `residualControl` cannot trigger in this 1-D problem (the Uy and p residuals are
@@ -613,8 +625,18 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   GAMG(DICGaussSeidel) for p and smoothSolver for U and nuTilda, linked or not. A linked group
   split over processors slows every solver (V5 D/h 80, 12 split groups: 46 instead of 6.5
   iterations per solve), so decomposed static cases (V5, V12, NACA) keep each group on one
-  processor: `ibmSetGeometry -linkZone` and `preserveFaceZones` in decomposeParDict. G8 and the
-  moving-body V13 are decomposed without it.
+  processor: `ibmSetGeometry -linkZone` and `preserveFaceZones` in decomposeParDict. All
+  immersed cases with a Krylov solver (V5, V12, V13, V15, the cylinderRe1, AMR and NACA
+  tutorials) wrap their preconditioners in `linkedGroup`, which is its base where no group is
+  split. G8 and the moving-body V13 are decomposed without the constraint and rely on it
+  (2026-11-11, README §4), with which split groups no longer cost iterations: V13 D/h = 40,
+  DIC-PCG 206 to 207 iterations per solve with 1 to 10 split links (204 with none; 276 to 535
+  and the limit of 1000 without the wrapper), PBiCGStab-DILU for U 4.3 to 4.9 (8.5 to 57; 3.1
+  with none). V13 uses GAMG (coarsest level to relTol 0.01) as the base since
+  2026-11-12: DIC-PCG ran into maxIter 1000 at D/h = 160, split groups or not. Its c_d and c_i
+  move by up to 6e-5 with the base: at these tolerances the pressure solver sets the fifth
+  digit (D/h = 40: DIC 2.14122, GAMG 2.14117, with tolerance 1e-12 and relTol 1e-4 2.14118 and
+  2.14117).
 - **V12, V13**: nested static refinement (h0 = 3.2, 7–9 levels), 8 ranks; V13 at Courant ≤ 0.8.
 - **V15**: the IBM plate gives no C_f(x) yet (no wall-shear output): C_D against body-fitted;
   C_f(0.97) of the body-fitted run against TMR reported. Leading edge half a cell (5e-4)

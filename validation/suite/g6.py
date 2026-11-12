@@ -8,7 +8,8 @@ import common
 ID, KIND, TIER = "G6", "gate", 0
 TITLE = "passive scalar budgets, static and moving"
 STRESSES, RELIES = ["K11"], ["G1", "G4"]
-REGRESSION = (0.05, None, 1e-12)
+REGRESSION = None   # own call below: absolute tolerance a tenth of each metric's gate
+GATE = {"transient": 1e-9, "steady": 1e-8}   # budget error, per step / of the source rate
 
 CASES = ["staticCylinder_zeroFlux", "staticCylinder_fixedValue", "steadyCylinder_fixedValue",
          "oscillating_zeroFlux", "oscillating_fixedValue", "galilean_zeroFlux", "multiScalar"]
@@ -72,9 +73,12 @@ def run(ctx, res):
         # closed to the linear-solver tolerance: transient per step relative to the content,
         # steady relative to the source rate (last iteration)
         res.le("%s: %s budget error (relative%s)" % (n, kind, ", per step" if kind == "transient" else ""),
-               e, 1e-9 if kind == "transient" else 1e-8,
+               e, GATE[kind],
                "%d steps; max |T - Twall| in the solid %.1e" % (nsteps, solid))
         if jumps:
             res.report("%s: steps whose scalar solve hit maxIter %d" % (n, MAXITER), len(jumps),
                        note="budget change there up to %.2e relative (open: doc/secondOrderStudy.md, "
                             "ibmConvection by default)" % max(jumps))
+    # the budget errors are round-off: a change counts when it takes a tenth of the margin to the gate
+    common.regression(res, common.load_baseline(ID), 0.05,
+                      atol={n + "_budget": 0.1*GATE[kind] for n, kind, _, _, _, _ in rows})

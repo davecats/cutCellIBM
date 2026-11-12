@@ -392,6 +392,27 @@ momentumSource
   `ddtCorr yes` (the OpenFOAM default) keeps the Rhie-Chow coupling independent of Δt; switch it off only to compare with the notebooks.
   No under-relaxation of `U` in PIMPLE; `relaxationFactors { equations { U 0.9; } fields
   { p 1; } }` for SIMPLE.
+* Linear solvers with linked cells (`mergeAlpha` > 0, the default). The pressure needs an
+  incomplete-Cholesky preconditioner or smoother (`PCG` with `DIC`, or with `GAMG` and the
+  `DICGaussSeidel` smoother); GAMG with Gauss-Seidel stalls on the linked pairs. In parallel
+  (and with links over cyclic faces) wrap the preconditioner in `linkedGroup`:
+  `preconditioner { preconditioner linkedGroup; base DIC; }`, or
+  `base { preconditioner GAMG; smoother DICGaussSeidel; ... }`, and `base DILU` for `PBiCGStab`.
+  A linked group split over a processor face is a stiff coupling that the preconditioners of
+  OpenFOAM treat explicitly; `linkedGroup` handles the mean and the differences of the split
+  groups itself and gives the base a matrix without that coupling (class header of
+  `linkedGroupPreconditioner`). The iterations then do not depend on how many groups the
+  decomposition or the motion of a body splits (DFG 2D-1, D/h = 80, 12 split groups: 13.0
+  pressure iterations per solve as without split groups, 36 without the wrapper; oscillating
+  cylinder: 206 whatever the number, up to 535 and the iteration limit without). Without
+  split groups it is the base preconditioner. For a static body the decomposition can
+  instead keep the groups together: `ibmSetGeometry -linkZone` and
+  `constraints { links { type preserveFaceZones; zones (ibmLinkFaces); } }` in
+  `decomposeParDict` (the static cases of the validation suite do both). Solvers without a preconditioner (`GAMG`, `smoothSolver`) cannot use
+  the wrapper: with split groups GAMG as the pressure solver converges slowly, and a
+  Gauss-Seidel sweep hardly moves the mean of a split group (the steady cases do not show
+  it; not checked for time-accurate runs, where `PBiCGStab` with the wrapper is the safe
+  choice).
 * The pressure reference cell (`pRefCell`/`pRefPoint`) must be a fluid cell; with moving
   bodies it is replaced by the fluid cell farthest from the bodies whenever a body covers
   it.

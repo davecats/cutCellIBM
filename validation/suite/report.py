@@ -29,7 +29,7 @@ def fmt(v):
 
 def is_regression(c):
     """change detection against the stored baseline (the regression check of every case, the
-    per-tutorial force comparison of G7), as opposed to checks against exact or reference data"""
+    per-tutorial force and moment comparison of G7), as opposed to checks against exact or reference data"""
     return c["name"].startswith("regression against baseline") or "F_base" in c["name"]
 
 
