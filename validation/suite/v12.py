@@ -23,6 +23,7 @@ REGRESSION = (1e-4,)
 L, H0, NU = 102.4, 3.2, 1/200.0
 CENTRE = (0.0123, 0.0071, 0.0)   # off the mesh lines
 END, WINDOW = 150.0, 50.0
+SHEDDING = 1.9   # alpha below which the wake sheds (Mittal & Kumar 2003): St defined
 NP = 8
 CYL = common.TUTORIALS / "cylinderRe1"
 
@@ -86,8 +87,10 @@ def run(ctx, res):
     jobs = ([] if ctx.quick else [(2, 9)]) + jobs      # longest first
     rows = common.pmap(lambda j: one(ctx, *j), jobs, max(1, ctx.jobs // NP))
     res.data["rows"] = rows
+    # no St without shedding: the dominant frequency of a decaying lift is not a quantity to regress
     res.data["metrics"] = {"a%g_Dh%d_%s" % (r["alpha"], r["Dh"], q): r[q] for r in rows
-                           for q in ("C_L", "C_D", "C_Lrms", "St", "C_M") if r.get(q) is not None and np.isfinite(r[q])}
+                           for q in ("C_L", "C_D", "C_Lrms", "St", "C_M") if r.get(q) is not None and np.isfinite(r[q])
+                           and (q != "St" or r["alpha"] < SHEDDING)}
     ref = rot.figure11()
     bf = rot.bodyFitted()
     for a in (0, 1, 2):
@@ -114,7 +117,7 @@ def run(ctx, res):
         for q in ("C_Lrms", "C_Drms"):
             R = ref[q][i]
             res.absolute("alpha %g: %s, D/h = %d" % (a, q, g["Dh"]), g[q], R, max(0.05*abs(R), 0.01), seq(q))
-        if a < 1.9:
+        if a < SHEDDING:
             R = rot.TEXT["alpha=0"]["St"] if a == 0 else ref["St"][i]
             res.rel("alpha %g: St, D/h = %d" % (a, g["Dh"]), g["St"], R, 0.01, seq("St"))
         # torque: body-fitted (OpenFOAM forces, full stress) mesh-converged to 4 digits; figure 11
