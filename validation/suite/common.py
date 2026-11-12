@@ -329,8 +329,9 @@ def value_points(case, t, C):
 
 # decomposeParDict entry that keeps every linked group (small cut cell and master) on one
 # processor; the faceZone is written by ibmSetGeometry -linkZone before decomposePar. A group split
-# over processors makes the pressure solve converge much more slowly
-# (doc/crossProcessorLinksHandout.md)
+# over processors makes the pressure solve converge much more slowly unless the preconditioner
+# is wrapped in linkedGroup (README section 4, doc/crossProcessorLinksHandout.md), as the
+# moving-body cases do
 LINK_CONSTRAINT = "constraints { links { type preserveFaceZones; zones (ibmLinkFaces); } }\n"
 
 

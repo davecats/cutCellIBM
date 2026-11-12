@@ -9,5 +9,6 @@ ibmScalarTransport/ibmScalarTransport.C
 ibmScalarTransport/ibmScalarTransportList.C
 cutCellCorrectedSnGrad/cutCellCorrectedSnGrads.C
 ibmWallDist/ibmLevelSetPatchDistMethod.C
+linkedGroupPreconditioner/linkedGroupPreconditioner.C
 
 LIB = $(FOAM_USER_LIBBIN)/libcutCellIBM

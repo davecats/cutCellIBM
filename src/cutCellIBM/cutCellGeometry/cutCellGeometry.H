@@ -375,6 +375,12 @@ class cutCellGeometry
         labelListList sendSlots_;
         labelListList recvSlots_;
 
+        //- Cells of the split groups, the groups with a link over a
+        //  coupled face (processor, cyclic), and the number of these groups
+        //  on all processors
+        labelList splitGroupCells_;
+        label nSplitGroups_;
+
 
     // Private member functions
 
@@ -969,6 +975,39 @@ public:
             //  master (an internal or a coupled boundary face), -1 if the
             //  cell is not linked
             const labelList& linkFace() const { return linkFace_; }
+
+            //- Group of the cell across every coupled boundary face, -1
+            //  for cells outside a group and on the other boundary faces
+            const labelList& nbrLinkGroup() const { return nbrLinkGroup_; }
+
+            //- Coupled boundary faces that carry a link (from either side)
+            const boolList& boundaryLink() const { return boundaryLink_; }
+
+            //- Local slot of the group of every cell, -1 outside a group
+            const labelList& groupSlot() const { return groupSlot_; }
+
+            //- Number of local slots (groups with a cell on this processor)
+            label nGroupSlots() const { return slotGroup_.size(); }
+
+            //- Cells of the split groups: the groups with a link over a
+            //  coupled face (processor, cyclic), which the smoothers and
+            //  preconditioners treat explicitly
+            const labelList& splitGroupCells() const
+            {
+                return splitGroupCells_;
+            }
+
+            //- Number of split groups on all processors
+            label nSplitGroups() const { return nSplitGroups_; }
+
+            //- Complete the sums over the groups held in the local slots:
+            //  on entry the sum over the local cells of every group, on
+            //  exit the sum over all its cells on every processor
+            template<class Type>
+            void groupSlotSum(List<Type>& s) const;
+
+            //- Link conductance relative to the larger diagonal of the pair
+            scalar mergePenalty() const { return mergePenalty_; }
 
             //- True if small cut cells are linked (mergeAlpha > 0)
             bool linking() const { return mergeAlpha_ > 0; }

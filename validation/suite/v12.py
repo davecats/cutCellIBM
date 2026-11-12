@@ -51,8 +51,10 @@ def setup(d, alpha, levels):
     t = (CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default backward;")
     (d / "system" / "fvSchemes").write_text(t)
     write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", """
-solvers { p { solver PCG; preconditioner DIC; tolerance 1e-8; relTol 0.01; } pFinal { $p; relTol 0; }
-          U { solver PBiCGStab; preconditioner DILU; tolerance 1e-10; relTol 0; } UFinal { $U; } }
+solvers { p { solver PCG; preconditioner { preconditioner linkedGroup; base DIC; } tolerance 1e-8; relTol 0.01; }
+          pFinal { $p; relTol 0; }
+          U { solver PBiCGStab; preconditioner { preconditioner linkedGroup; base DILU; } tolerance 1e-10; relTol 0; }
+          UFinal { $U; } }
 PIMPLE { momentumPredictor yes; nOuterCorrectors 3; nCorrectors 2; nNonOrthogonalCorrectors 0;
          consistent yes; ddtCorr yes; }
 """)
