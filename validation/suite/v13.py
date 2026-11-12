@@ -42,13 +42,16 @@ def setup(d, levels):
     (d / "system" / "fvSchemes").write_text(
         (CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default Euler;"))
     # GAMG as the base: DIC-PCG runs into maxIter 1000 at D/h = 160 (575 iterations per solve,
-    # with or without split groups). One V-cycle and the coarsest level to relTol 0.01: 0.17,
-    # 0.45, 1.76 s per step at D/h = 40, 80, 160 against 0.10, 0.42 and 2.04 for DIC (maxIter
-    # 5000 at D/h = 160); 32, 43, 51 iterations per solve. linkedGroup: the body splits 0 to 20
-    # linked groups over the processors as it moves
+    # with or without split groups). Coarsest level to relTol 0.01 (to round-off costs 15 % more
+    # time for the same iterations) and the default two V-cycles: with one, one solve per period
+    # stalls at D/h = 80 (1000 iterations at one position of the body, 54 with two). 19, 24, 29
+    # iterations per solve at D/h = 40, 80, 160. At D/h = 40 c_d is then within 6e-6 of the
+    # runs with tolerance 1e-12 and relTol 1e-4 (DIC and GAMG, 7e-6 apart); with DIC at the
+    # tolerances below it is 2e-5 off. linkedGroup: the body splits 0 to 20 linked groups over
+    # the processors as it moves
     write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", """
 solvers { p { solver PCG; preconditioner { preconditioner linkedGroup; base { preconditioner GAMG;
-                smoother DICGaussSeidel; tolerance 0; relTol 0.01; nVcycles 1; } }
+                smoother DICGaussSeidel; tolerance 0; relTol 0.01; } }
               tolerance 1e-9; relTol 0.01; }
           pFinal { $p; relTol 0; }
           U { solver PBiCGStab; preconditioner { preconditioner linkedGroup; base DILU; } tolerance 1e-11; relTol 0; }

@@ -629,8 +629,11 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   (2026-11-11, README §4), with which split groups no longer cost iterations: V13 D/h = 40,
   DIC-PCG 206 to 207 iterations per solve with 1 to 10 split links (204 with none; 276 to 535
   and the limit of 1000 without the wrapper), PBiCGStab-DILU for U 4.3 to 4.9 (8.5 to 57; 3.1
-  with none). V13 uses GAMG (one V-cycle, coarsest level to relTol 0.01) as the base since
-  2026-11-12: DIC-PCG ran into maxIter 1000 at D/h = 160, split groups or not.
+  with none). V13 uses GAMG (coarsest level to relTol 0.01) as the base since
+  2026-11-12: DIC-PCG ran into maxIter 1000 at D/h = 160, split groups or not. Its c_d and c_i
+  move by up to 6e-5 with the base: at these tolerances the pressure solver sets the fifth
+  digit (D/h = 40: DIC 2.14122, GAMG 2.14117, with tolerance 1e-12 and relTol 1e-4 2.14118 and
+  2.14117).
 - **V12, V13**: nested static refinement (h0 = 3.2, 7–9 levels), 8 ranks; V13 at Courant ≤ 0.8.
 - **V15**: the IBM plate gives no C_f(x) yet (no wall-shear output): C_D against body-fitted;
   C_f(0.97) of the body-fitted run against TMR reported. Leading edge half a cell (5e-4)
