@@ -836,12 +836,22 @@ public:
             ) const;
 
             //- Transient Rhie-Chow correction (Euler), theta-consistent
-            //  replacement of fvc::ddtCorr(U, phi)
+            //  replacement of interpolate(rAU)*fvc::ddtCorr(U, phi): the
+            //  coefficient of U.oldTime() in ddt(alpha, U) is the old fluid
+            //  fraction (the group mean in a merged control volume), as rho
+            //  in the compressible ddtCorr(rho, U, phi)
             tmp<surfaceScalarField> ddtCorr
             (
+                const volScalarField& rAU,
                 const volVectorField& U,
                 const surfaceScalarField& phi
             ) const;
+
+            //- One value of the flux on each coupled face: the two copies
+            //  (processor, cyclic) set to their antisymmetric mean. Nothing in
+            //  the pressure correction removes a difference between them, and
+            //  the ddt correction carries it to the next time step.
+            void syncCoupledFlux(surfaceScalarField& phi) const;
 
             //- Give the (empty) rows of solid cells a regular diagonal
             void constrainPressure(fvScalarMatrix& pEqn) const;

@@ -12,6 +12,8 @@
 #include "boundBox.H"
 #include "globalIndex.H"
 #include "coupledPolyPatch.H"
+#include "processorPolyPatch.H"
+#include "cyclicPolyPatch.H"
 
 namespace Foam
 {
@@ -2853,6 +2855,7 @@ Foam::tmp<Foam::surfaceScalarField> Foam::cutCellGeometry::thetaInterpolate
 
 Foam::tmp<Foam::surfaceScalarField> Foam::cutCellGeometry::ddtCorr
 (
+    const volScalarField& rAU,
     const volVectorField& U,
     const surfaceScalarField& phi
 ) const
@@ -2912,9 +2915,46 @@ Foam::tmp<Foam::surfaceScalarField> Foam::cutCellGeometry::ddtCorr
         )
     );
 
-    tmp<surfaceScalarField> tcorr(coeff*rDeltaT*(phi0 - phiU0));
+    // HbyA holds rAU alpha0/dt U.oldTime(), alpha0 the coefficient of
+    // U.oldTime() in ddt(alpha, U); mergeH gives a group the volume mean of
+    // its cells. Without it the gain of the old flux is rAU/dt ~ 1/(1.5 alpha)
+    // at small cut cells, above 1: a difference between the two copies of a
+    // coupled face flux then grows from round-off.
+    volScalarField alpha0("alpha0", alpha_.oldTime());
+    groupMean(alpha0);
+
+    tmp<surfaceScalarField> tcorr
+    (
+        fvc::interpolate(rAU*alpha0)*coeff*rDeltaT*(phi0 - phiU0)
+    );
     tcorr.ref().rename("ddtCorr(" + U.name() + ',' + phi.name() + ')');
     return tcorr;
+}
+
+
+void Foam::cutCellGeometry::syncCoupledFlux(surfaceScalarField& phi) const
+{
+    const label nInternal = mesh_.nInternalFaces();
+    scalarField nbr(mesh_.nBoundaryFaces(), Zero);
+    forAll(mesh_.boundary(), patchi)
+    {
+        const polyPatch& pp = mesh_.boundaryMesh()[patchi];
+        if (!isA<processorPolyPatch>(pp) && !isA<cyclicPolyPatch>(pp)) continue;
+        SubList<scalar>(nbr, pp.size(), pp.start() - nInternal) =
+            phi.boundaryField()[patchi];
+    }
+    syncTools::swapBoundaryFaceList(mesh_, nbr);
+    forAll(mesh_.boundary(), patchi)
+    {
+        const polyPatch& pp = mesh_.boundaryMesh()[patchi];
+        if (!isA<processorPolyPatch>(pp) && !isA<cyclicPolyPatch>(pp)) continue;
+        fvsPatchScalarField& php = phi.boundaryFieldRef()[patchi];
+        forAll(php, i)
+        {
+            // The copy across holds the flux out of its own cell: -php[i]
+            php[i] = 0.5*(php[i] - nbr[pp.start() - nInternal + i]);
+        }
+    }
 }
 
 

@@ -16,7 +16,8 @@ Description
     ibm.moving().
 
     The transient Rhie-Chow correction (ddtCorr) is available in its Euler
-    form, theta-consistent. Turbulence models are constructed for their
+    form, theta- and alpha-consistent; the flux of a coupled face is made
+    single-valued after the pressure correction. Turbulence models are constructed for their
     effective viscosity only; simulationType laminar is supported.
 
 \*---------------------------------------------------------------------------*/

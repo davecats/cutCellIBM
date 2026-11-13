@@ -49,6 +49,7 @@
         if (simple.finalNonOrthogonalIter())
         {
             phi = phiHbyA - pEqn.flux();
+            ibm.syncCoupledFlux(phi);
         }
     }
 

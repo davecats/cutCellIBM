@@ -9,7 +9,7 @@ surfaceScalarField phiHbyA("phiHbyA", ibm.flux(HbyA));
 
 if (pimple.ddtCorr())
 {
-    phiHbyA += fvc::interpolate(rAU)*ibm.ddtCorr(U, phi);
+    phiHbyA += ibm.ddtCorr(rAU, U, phi);
 }
 
 if (p.needReference())
@@ -67,6 +67,7 @@ while (pimple.correctNonOrthogonal())
     if (pimple.finalNonOrthogonalIter())
     {
         phi = phiHbyA - pEqn.flux();
+        ibm.syncCoupledFlux(phi);
     }
 }
 
