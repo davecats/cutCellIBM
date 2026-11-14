@@ -783,6 +783,10 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    `ν ω × S_k` (zero sum on a closed body) and its moment `ω tr T − ω·T` exactly from the wall
    pieces. V12 body-fitted C_M (OpenFOAM forces, full stress): 0.2296 / 0.2295 (α = 1),
    0.4635 / 0.4633 (α = 2) at M = 64 / 128; figure 11 ((C_P − C_D)/α) 0.238 and 0.468.
+11. ~~V12 α = 2, D/h = 40 depends on the decomposition (5d9caa5)~~ **resolved (8d416fd)**: the
+   two copies of a processor-face flux drift apart, amplified by ddtCorr without the fluid
+   fraction; ddtCorr with α⁰ and a single-valued coupled-face flux (§12 amendments, "V5, V12,
+   V13 re-accepted from 8d416fd").
 
 ### Decisions (2026-11-07)
 
