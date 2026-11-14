@@ -3,6 +3,7 @@
 #include "fvMesh.H"
 #include "Time.H"
 #include "fvc.H"
+#include "fvmSup.H"
 #include "syncTools.H"
 #include "volPointInterpolation.H"
 #include "pointFields.H"
@@ -123,6 +124,8 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     secondOrder_(getOrDefault<bool>("secondOrder", true)),
     ibmConvection_(getOrDefault<bool>("ibmConvection", secondOrder_)),
     ibmConvectionWallLaw_(getOrDefault<bool>("ibmConvectionWallLaw", false)),
+    zeroShear_(getOrDefault<bool>("zeroShear", false)),
+    zeroShearTangential_(getOrDefault<bool>("zeroShearTangential", true)),
     centroidOffset_
     (
         IOobject("ibmCentroidOffset", mesh.time().timeName(), mesh,
@@ -221,6 +224,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
         << (secondOrder_ ? ", second-order wall treatment" : "")
         << (ibmConvection_ ? ", convective face values from the value points" : "")
         << (ibmConvection_ && ibmConvectionWallLaw_ ? " (wall law in wall-function cells)" : "")
+        << (zeroShear_ ? ", zero-shear free slip" : "")
         << endl;
     if (secondOrder_)
     {
@@ -641,6 +645,10 @@ void Foam::cutCellGeometry::calcGeometry()
         calcValueOffset();
         calcCentroidGeometry();
         calcWallPieces();
+    }
+    if (zeroShear_)
+    {
+        calcZeroShear();
     }
     wallSamplesDone_ = false;
     lsqDone_ = false;
@@ -2229,6 +2237,362 @@ namespace
 }
 
 
+void Foam::cutCellGeometry::calcZeroShear()
+{
+    // Zero tangential stress on a free-slip wall (doc/freeSlipPlan.md). For
+    // the velocity w = u - u_b relative to a rigid body motion u_b = U +
+    // omega x r (whose stress vanishes), w.n = 0 on the wall and the stress
+    // is zero if P dw/dn = H.w_t, H = grad n the curvature tensor of the
+    // wall (n into the fluid; the cylinder: dw_theta/dr = w_theta/R). With
+    // du_b/dn = omega x n, the wall flux of the Laplacian form of the
+    // momentum equation is nu (H.w_t + omega x n) per unit area.
+    //
+    // H from the Hessian of the body's level set at the fluid centroid of
+    // the cell (second differences, step 1e-3 of the cell size), projected
+    // on the tangent plane, K = P grad(grad phi) P/|grad phi|, and moved to
+    // the wall along the normal per principal direction,
+    // kappa_w = kappa/(1 - phi kappa) (exact for a distance function).
+    // The tangential wall value of w follows from the value at the value
+    // point, a distance d = dWall from the wall, by the same condition:
+    // w_t,P = w_t,w + d H_w.w_t,w, so w_t,w = (I + d H_w)^-1 w_t,P. Under-
+    // resolved curvature (|phi kappa| or |d kappa_w| beyond 1/2) is limited
+    // so that the friction stays below the no-slip coefficient Awall/(d V).
+    // The implicit part is the largest |eigenvalue| of the friction tensor:
+    // on a concave wall (negative friction) a fully explicit term grows
+    // slowly in time (Taylor-Couette with a free-slip outer wall), with
+    // +|f| implicit and -2|f| explicit the lagged part is damped.
+    zsIndex_.setSize(mesh_.nCells());
+    zsIndex_ = -1;
+    DynamicList<label> cells;
+    DynamicList<symmTensor> friction;
+    DynamicList<scalar> implicitCoeff;
+    DynamicList<symmTensor> wallMap;
+    DynamicList<vector> offset;
+
+    const scalarField& V = mesh_.V();
+    const vectorField& C = mesh_.cellCentres();
+    const vectorField& offC = centroidOffset_.primitiveField();
+    label nFallback = 0;
+    label nLimited = 0;
+    label nFlat = 0;
+    scalar kMin = GREAT;
+    scalar kMax = -GREAT;
+
+    // second-difference stencil: centre, +-e_i, and +-e_a +-e_b (a < b)
+    const label nSt = 19;
+
+    forAll(bodies_, bodyi)
+    {
+        const ibmBody& body = bodies_[bodyi];
+        if (body.wall() != ibmBody::FREESLIP) continue;
+
+        DynamicList<label> bodyCells;
+        for (const label celli : wallCells_)
+        {
+            if (cellBody_[celli] == bodyi) bodyCells.append(celli);
+        }
+        if (!body.smoothLevelSet())
+        {
+            nFallback += bodyCells.size();
+            continue;
+        }
+
+        pointField pts(nSt*bodyCells.size());
+        scalarField eps(bodyCells.size());
+        forAll(bodyCells, i)
+        {
+            const label celli = bodyCells[i];
+            const point x(C[celli] + offC[celli]);
+            const scalar e = 1e-3*cbrt(V[celli]);
+            eps[i] = e;
+            label m = nSt*i;
+            pts[m++] = x;
+            for (direction d = 0; d < vector::nComponents; ++d)
+            {
+                vector ed(Zero);
+                ed[d] = e;
+                pts[m++] = x + ed;
+                pts[m++] = x - ed;
+            }
+            for (direction a = 0; a < vector::nComponents; ++a)
+            {
+                for (direction b = a + 1; b < vector::nComponents; ++b)
+                {
+                    vector ea(Zero);
+                    vector eb(Zero);
+                    ea[a] = e;
+                    eb[b] = e;
+                    pts[m++] = x + ea + eb;
+                    pts[m++] = x + ea - eb;
+                    pts[m++] = x - ea + eb;
+                    pts[m++] = x - ea - eb;
+                }
+            }
+        }
+        scalarField phi;
+        body.evaluate(pts, phi);
+
+        forAll(bodyCells, i)
+        {
+            const label celli = bodyCells[i];
+            const label m = nSt*i;
+            const scalar e = eps[i];
+            const scalar phi0 = phi[m];
+
+            vector g;
+            tensor hess(Zero);
+            for (direction d = 0; d < vector::nComponents; ++d)
+            {
+                const scalar pp = phi[m + 1 + 2*d];
+                const scalar pm = phi[m + 2 + 2*d];
+                g[d] = (pp - pm)/(2*e);
+                hess(d, d) = (pp + pm - 2*phi0)/sqr(e);
+            }
+            label mm = m + 7;
+            for (direction a = 0; a < vector::nComponents; ++a)
+            {
+                for (direction b = a + 1; b < vector::nComponents; ++b)
+                {
+                    const scalar h =
+                        (phi[mm] - phi[mm + 1] - phi[mm + 2] + phi[mm + 3])
+                       /(4*sqr(e));
+                    hess(a, b) = h;
+                    hess(b, a) = h;
+                    mm += 4;
+                }
+            }
+
+            const scalar magG = mag(g);
+            if (magG < SMALL)
+            {
+                // no normal (a ridge of the distance function): no friction
+                ++nFallback;
+                continue;
+            }
+            const vector n(g/magG);
+
+            // orthonormal tangent basis and the 2x2 curvature matrix in it
+            const direction kMinCmpt =
+                (mag(n.x()) <= mag(n.y()) && mag(n.x()) <= mag(n.z())) ? 0
+              : (mag(n.y()) <= mag(n.z()) ? 1 : 2);
+            vector ek(Zero);
+            ek[kMinCmpt] = 1;
+            vector t1(n ^ ek);
+            t1 /= mag(t1);
+            const vector t2(n ^ t1);
+            const scalar k11 = (t1 & (hess & t1))/magG;
+            const scalar k22 = (t2 & (hess & t2))/magG;
+            const scalar k12 = 0.5*((t1 & (hess & t2)) + (t2 & (hess & t1)))/magG;
+
+            // principal curvatures and directions (Jacobi rotation)
+            const scalar ang = 0.5*atan2(2*k12, k11 - k22);
+            const scalar cs = cos(ang);
+            const scalar sn = sin(ang);
+            const scalar kappa[2] =
+            {
+                k11*sqr(cs) + 2*k12*sn*cs + k22*sqr(sn),
+                k11*sqr(sn) - 2*k12*sn*cs + k22*sqr(cs)
+            };
+            const vector dir[2] = {cs*t1 + sn*t2, -sn*t1 + cs*t2};
+
+            const scalar d = dWall_[celli];
+            const scalar a = Awall_[celli]/V[celli];
+            symmTensor F(Zero);
+            symmTensor W(Zero);
+            scalar cImp = 0;
+            bool limited = false;
+            bool flat = true;
+            for (label j = 0; j < 2; ++j)
+            {
+                scalar r = 1 - phi0*kappa[j];
+                if (r < 0.5)
+                {
+                    r = 0.5;
+                    limited = true;
+                }
+                const scalar kw = kappa[j]/r;
+                scalar s = 1 + d*kw;
+                if (s < 0.5)
+                {
+                    s = 0.5;
+                    limited = true;
+                }
+                F += (a*kw/s)*sqr(dir[j]);
+                W += (1/s)*sqr(dir[j]);
+                cImp = max(cImp, mag(a*kw/s));
+                kMin = min(kMin, kw);
+                kMax = max(kMax, kw);
+                if (mag(kw)*cbrt(V[celli]) > 1e-8) flat = false;
+            }
+            if (limited) ++nLimited;
+            if (flat) ++nFlat;
+
+            // tangential offset of the wall-piece centroid from the value
+            // point (second order: the wall pieces about the value point)
+            vector delta(Zero);
+            if (secondOrder_ && zeroShearTangential_)
+            {
+                const vector& Swc = Sw_[celli];
+                const vector rw
+                (
+                    (wallMoment_[celli] & Swc)/max(magSqr(Swc), VSMALL)
+                );
+                delta = rw - (rw & n)*n;
+            }
+
+            zsIndex_[celli] = cells.size();
+            cells.append(celli);
+            friction.append(F);
+            implicitCoeff.append(cImp);
+            wallMap.append(W);
+            offset.append(delta);
+        }
+    }
+
+    zsCells_.transfer(cells);
+    zsFriction_.transfer(friction);
+    zsImplicit_.transfer(implicitCoeff);
+    zsWallMap_.transfer(wallMap);
+    zsOffset_.transfer(offset);
+
+    if (!zsReported_)
+    {
+        zsReported_ = true;
+        const label nTotal = returnReduce(zsCells_.size(), sumOp<label>());
+        reduce(nFallback, sumOp<label>());
+        reduce(nLimited, sumOp<label>());
+        reduce(nFlat, sumOp<label>());
+        reduce(kMin, minOp<scalar>());
+        reduce(kMax, maxOp<scalar>());
+        Info<< "    zero-shear free slip: " << nTotal << " wall cells";
+        if (nTotal > 0)
+        {
+            Info<< ", wall curvature " << kMin << " .. " << kMax
+                << " (" << nFlat << " flat), " << nLimited
+                << " limited (radius of curvature under twice the distance)";
+        }
+        Info<< endl;
+        if (nFallback > 0)
+        {
+            WarningInFunction
+                << nFallback << " free-slip wall cells of bodies without a "
+                << "smooth level set (triSurfaceMesh, alpha field) keep "
+                << "du/dn = 0: their curvature is not computed" << endl;
+        }
+    }
+}
+
+
+void Foam::cutCellGeometry::zeroShearRelative
+(
+    const volVectorField& U,
+    vectorField& wP,
+    vectorField& ubP
+) const
+{
+    wP.setSize(zsCells_.size());
+    ubP.setSize(zsCells_.size());
+    ubP = Zero;
+    forAll(zsCells_, k)
+    {
+        wP[k] = U[zsCells_[k]];
+    }
+
+    // second order: the velocity at the foot of the wall-piece centroid,
+    // u_P + delta.grad u, from the least-squares gradient over the fluid
+    // (a linked group: one gradient at its centroid)
+    if (secondOrder_ && zeroShearTangential_)
+    {
+        PtrList<volVectorField> g(vector::nComponents);
+        for (direction c = 0; c < vector::nComponents; ++c)
+        {
+            g.set(c, lsqGrad(U.component(c)(), true).ptr());
+        }
+        forAll(zsCells_, k)
+        {
+            const label celli = zsCells_[k];
+            const vector& delta = zsOffset_[k];
+            for (direction c = 0; c < vector::nComponents; ++c)
+            {
+                wP[k][c] += delta & g[c][celli];
+            }
+        }
+    }
+
+    if (!wallVelocity_) return;
+
+    // body velocity at the value points, the point u_P belongs to
+    const vectorField& off =
+        (secondOrder_ ? valueOffset_ : centroidOffset_).primitiveField();
+    pointField x(zsCells_.size());
+    forAll(zsCells_, k)
+    {
+        x[k] = mesh_.cellCentres()[zsCells_[k]] + off[zsCells_[k]];
+    }
+    forAll(bodies_, bodyi)
+    {
+        if (!bodies_[bodyi].hasWallVelocity()) continue;
+        vectorField ub;
+        bodies_[bodyi].velocity(x, ub);
+        forAll(zsCells_, k)
+        {
+            if (cellBody_[zsCells_[k]] == bodyi)
+            {
+                // rigid velocity at the same point as wP
+                ubP[k] = ub[k] + (bodies_[bodyi].omega() ^ zsOffset_[k]);
+            }
+        }
+    }
+    wP -= ubP;
+}
+
+
+Foam::tmp<Foam::fvVectorMatrix> Foam::cutCellGeometry::zeroShearSource
+(
+    const volScalarField& nu,
+    const volVectorField& U
+) const
+{
+    volScalarField::Internal coeff
+    (
+        IOobject("ibmZeroShearCoeff", mesh_.time().timeName(), mesh_,
+                 IOobject::NO_READ, IOobject::NO_WRITE, false),
+        mesh_,
+        dimensionedScalar(nu.dimensions()/dimArea, Zero)
+    );
+    volVectorField::Internal su
+    (
+        IOobject("ibmZeroShearSource", mesh_.time().timeName(), mesh_,
+                 IOobject::NO_READ, IOobject::NO_WRITE, false),
+        mesh_,
+        dimensionedVector(nu.dimensions()*U.dimensions()/dimArea, Zero)
+    );
+
+    vectorField wP;
+    vectorField ubP;
+    zeroShearRelative(U, wP, ubP);
+
+    forAll(zsCells_, k)
+    {
+        const label celli = zsCells_[k];
+        const ibmBody& body = bodies_[cellBody_[celli]];
+        const scalar nuc = nu[celli];
+        vector flux(zsFriction_[k] & wP[k]);
+        if (body.hasWallVelocity())
+        {
+            // omega x n, n = -Sw/Awall into the fluid, times Awall/V
+            flux -= (body.omega() ^ Sw_[celli])/mesh_.V()[celli];
+        }
+        coeff[celli] = nuc*zsImplicit_[k];
+        su[celli] = nuc*(flux - zsImplicit_[k]*U[celli]);
+    }
+
+    tmp<fvVectorMatrix> tm(fvm::Sp(coeff, U));
+    tm.ref() += su;
+    return tm;
+}
+
+
 void Foam::cutCellGeometry::calcLsq() const
 {
     const labelUList& own = mesh_.owner();
@@ -3090,6 +3454,11 @@ void Foam::cutCellGeometry::forces
     tmp<volVectorField> tgp;
     if (secondOrder_) tgp = lsqGrad(p, true);
 
+    // zero-shear free slip: relative velocity at the value points
+    vectorField zsW;
+    vectorField zsUb;
+    if (zeroShear_) zeroShearRelative(U, zsW, zsUb);
+
     for (const label celli : wallCells_)
     {
         const label bodyi = max(cellBody_[celli], 0);
@@ -3125,8 +3494,19 @@ void Foam::cutCellGeometry::forces
         }
 
         // viscous traction, nu (u_P - u_b)/d Awall
+        const label zsk = zeroShear_ ? zsIndex_[celli] : -1;
         vector fv;
-        if (wallVelocity_)
+        if (zsk >= 0)
+        {
+            // zero-shear free slip: the wall flux of the Laplacian form,
+            // nu (H_w.w_t,w + omega x n) Awall (see zeroShearSource)
+            fv = nu[celli]*V[celli]*(zsFriction_[zsk] & zsW[zsk]);
+            if (bodies_[bodyi].hasWallVelocity())
+            {
+                fv -= nu[celli]*(bodies_[bodyi].omega() ^ Sw_[celli]);
+            }
+        }
+        else if (wallVelocity_)
         {
             fv = nu[celli]*noSlipCoeff_[celli]*V[celli]
                 *(U[celli] - UbPtr_()[celli]);
@@ -3151,7 +3531,26 @@ void Foam::cutCellGeometry::forces
         // (-2 pi nu omega R^2 on a rotating circular cylinder):
         // sum_k (x_k - x_b) ^ (omega ^ S_k) = omega tr(T) - omega & T
         const vector& omega = bodies_[bodyi].omega();
-        if (magSqr(omega) > 0)
+        if (zsk >= 0)
+        {
+            // Zero-shear free slip: the tangential stress vanishes, so the
+            // transpose part nu (grad u)^T.n is minus the Laplacian-form
+            // flux above, plus a normal part. Its force sums to zero over
+            // a closed wall (div u = 0); its moment is
+            // nu sum (u_w x n) Awall = nu sum Sw x u_w, with the fluid
+            // velocity on the wall u_w = u_b,w + (I + d H_w)^-1 P w_P and
+            // u_b,w = u_b(x_P) - d omega x n (independent of the origin)
+            vector uw(zsWallMap_[zsk] & zsW[zsk]);
+            if (bodies_[bodyi].hasWallVelocity())
+            {
+                const vector nf(-Sw_[celli]/max(Awall_[celli], VSMALL));
+                uw += zsUb[zsk] - dWall_[celli]*(omega ^ nf);
+            }
+            // (the viscosity of the flux above, not the molecular one: a
+            // free-slip wall has no viscous sublayer)
+            Mv[bodyi] += nu[celli]*(Sw_[celli] ^ uw);
+        }
+        else if (magSqr(omega) > 0)
         {
             const scalar nuMol =
                 nuMolecularPtr ? (*nuMolecularPtr)[celli] : nu[celli];

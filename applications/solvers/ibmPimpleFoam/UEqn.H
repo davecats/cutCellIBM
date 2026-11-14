@@ -72,6 +72,14 @@ if (ibm.wallVelocity())
       : ibm.movingWallSource(nuEff);
 }
 
+if (ibm.zeroShear())
+{
+    // Zero tangential stress on curved free-slip walls: the wall flux
+    // nu (H.(u - u_b)_t + omega x n) of the Laplacian form (without it
+    // du/dn = 0, doc/freeSlipPlan.md)
+    UEqn += ibm.zeroShearSource(nuEff, U);
+}
+
 UEqn.relax();
 
 fvOptions.constrain(UEqn);

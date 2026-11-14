@@ -86,6 +86,9 @@ public:
     searchableSurfaceBody(const word&, const fvMesh&, const dictionary&);
     virtual void levelSet(const pointField&, scalarField&) const;
     virtual point centre() const;
+    //- A triangulated surface (triSurfaceMesh) is not smooth: the distance
+    //  to it has no curvature on the facets and is singular at the edges
+    virtual bool smoothLevelSet() const;
 };
 
 

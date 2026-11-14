@@ -145,6 +145,11 @@ public:
         //- True if the body is described by a level set
         virtual bool hasLevelSet() const { return true; }
 
+        //- True if the level set is smooth at the wall (a distance to a
+        //  smooth surface), so that its Hessian gives the curvature of the
+        //  wall (zero-shear free slip); false for a polyhedral surface
+        virtual bool smoothLevelSet() const { return hasLevelSet(); }
+
         //- Level set (before inversion): positive in the fluid, negative in
         //  the body. Implemented by level-set bodies.
         virtual void levelSet(const pointField& pts, scalarField& phi) const;

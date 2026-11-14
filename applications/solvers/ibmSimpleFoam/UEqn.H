@@ -1,6 +1,7 @@
     // Momentum predictor on the cut mesh:
     //   theta-weighted convection (phi carries the wet face area),
-    //   theta-weighted laplacian (no wall term: zero tangential traction),
+    //   theta-weighted laplacian (no wall term: du/dn = 0 on free-slip walls,
+    //   the curvature friction of zeroShear added below),
     //   the no-slip wall traction nu Awall/dWall on the diagonal,
     //   and a blanking diagonal in the solid cells.
 
@@ -73,6 +74,14 @@
             ibmTurbulent
           ? ibm.movingWallSource(nuWall, nuEff)
           : ibm.movingWallSource(nuEff);
+    }
+
+    if (ibm.zeroShear())
+    {
+        // Zero tangential stress on curved free-slip walls: the wall flux
+        // nu (H.(u - u_b)_t + omega x n) of the Laplacian form (without it
+        // du/dn = 0, doc/freeSlipPlan.md)
+        UEqn += ibm.zeroShearSource(nuEff, U);
     }
 
     UEqn.relax();

@@ -187,6 +187,12 @@ Foam::point Foam::searchableSurfaceBody::centre() const
 }
 
 
+bool Foam::searchableSurfaceBody::smoothLevelSet() const
+{
+    return surfPtr_().type() != "triSurfaceMesh";
+}
+
+
 void Foam::searchableSurfaceBody::levelSet
 (
     const pointField& pts,

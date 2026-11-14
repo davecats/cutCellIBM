@@ -33,6 +33,9 @@ Description
     writeFields   true;   // write ibmAlpha, ibmTheta, ... at start-up
     writeForces   true;   // postProcessing/ibmForces/<time>/forces.dat and
                           // moments.dat (torque about each body's centre)
+    zeroShear     false;  // free-slip walls with zero tangential stress
+                          // (curvature friction, zeroShearSource); false:
+                          // du/dn = 0, not stress-free on a curved wall
 
     bodies
     {
@@ -175,6 +178,20 @@ class cutCellGeometry
         //  doc/secondOrderStudy.md)
         bool ibmConvectionWallLaw_;
 
+        //- Zero tangential stress on the free-slip walls (zeroShear, default
+        //  false; doc/freeSlipPlan.md). Without it a free-slip wall has no
+        //  wall flux in the Laplacian form, i.e. du/dn = 0, which on a curved
+        //  wall is not stress-free: P du/dn = H.(u - u_b)_t + omega x n is
+        //  (H the curvature tensor of the wall, positive on a convex body,
+        //  n into the fluid, omega the angular velocity of the body)
+        bool zeroShear_;
+
+        //- With zeroShear and secondOrder: the tangential velocity at the
+        //  wall-piece centroid, u_P + delta.grad u (delta the tangential
+        //  offset of the wall centroid from the value point, lsqGrad),
+        //  instead of u_P (zeroShearTangential, default true)
+        bool zeroShearTangential_;
+
         //- Fluid centroid minus cell centre
         volVectorField centroidOffset_;
 
@@ -214,6 +231,21 @@ class cutCellGeometry
         //- sum_k (x_k - x_c) ((x_k - x_c) ^ S_k): moment of the linear part
         //  of the wall pressure about the value point (torque)
         tensorField wallTorqueMoment_;
+
+        //- Zero-shear free slip (zeroShear_): the free-slip wall cells of
+        //  bodies with a smooth level set, their index in zsCells_ (-1
+        //  elsewhere), and per such cell the friction tensor
+        //  (Awall/V) H_w (I + d H_w)^-1 [1/m^2], its implicit part (largest
+        //  |eigenvalue|) and the map (I + d H_w)^-1 P from the relative
+        //  velocity at the value point to its tangential wall value
+        //  (d = dWall, H_w the curvature tensor at the wall)
+        labelList zsCells_;
+        labelList zsIndex_;
+        symmTensorField zsFriction_;
+        scalarField zsImplicit_;
+        symmTensorField zsWallMap_;
+        vectorField zsOffset_;
+        bool zsReported_ = false;
 
         //- Work arrays filled by faceFractions/calcFromLevelSet
         mutable vectorField wetOffsetAll_;
@@ -477,6 +509,21 @@ class cutCellGeometry
         //- Wall pieces of every wall cell (wallMoment_, wallPieceSum_)
         void calcWallPieces();
 
+        //- Curvature friction of the zero-shear free-slip walls (zsCells_,
+        //  zsFriction_, zsImplicit_, zsWallMap_, zsOffset_)
+        void calcZeroShear();
+
+        //- Relative velocity u - u_b and body velocity u_b of zsCells_ at
+        //  the value point, moved by zsOffset_ along the wall (second order
+        //  with zeroShearTangential: u_P + delta.grad u); u_b zero for
+        //  static bodies
+        void zeroShearRelative
+        (
+            const volVectorField& U,
+            vectorField& wP,
+            vectorField& ubP
+        ) const;
+
         //- Masters and link faces of the small cut cells (mergeAlpha > 0)
         void calcLinks();
 
@@ -735,6 +782,23 @@ public:
             ) const;
 
             bool ibmConvection() const { return ibmConvection_; }
+
+            //- Zero tangential stress on the free-slip walls (zeroShear)
+            bool zeroShear() const { return zeroShear_; }
+
+            //- Wall flux of the zero-shear free-slip walls in the Laplacian
+            //  form, nu (Awall/V) (H_w.(u_w - u_b,w)_t + omega x n), with the
+            //  tangential wall value from the value point by the Robin factor
+            //  (I + d H_w)^-1 (exact for a rigidly rotating flow): implicit
+            //  with the largest |eigenvalue| of the friction tensor, the rest
+            //  explicit. Add to the momentum matrix when zeroShear() is true.
+            //  Bodies without a smooth level set (triSurfaceMesh, alpha
+            //  field) keep du/dn = 0.
+            tmp<fvVectorMatrix> zeroShearSource
+            (
+                const volScalarField& nu,
+                const volVectorField& U
+            ) const;
 
             //- Explicit correction of a convection term on the faces of cut
             //  and linked cells: phi (v_f - vSchemeFace) with v_f the value
