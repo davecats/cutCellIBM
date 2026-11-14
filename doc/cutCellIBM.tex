@@ -696,7 +696,16 @@ c_f=1-\min\!\Big(\frac{|\phi^n_f-\theta_f\bar\uu^n_f\cdot\Sf|}{|\phi^n_f|+\epsil
 \label{eq:ddtcorr}
 \end{equation}
 the Euler form of OpenFOAM's \code{ddtCorr} with $\theta$-weighted interpolation. It is added
-to \eqref{eq:phiH} with the coefficient $(r_A)_f$.
+to \eqref{eq:phiH} with the coefficient $(r_A\alpha^n)_f$, the interpolate of the cell product,
+where $\alpha^n$ is the old fluid fraction (in a linked group the cell-volume mean
+$\Sigma_G[\alpha^nV]/\Sigma_G[V]$, as in the merged $A_G$ of Section~\ref{sec:linking}). The
+factor is the coefficient of $\uu^n$ in the unsteady term $\alpha V\partial_t\uu$: $\bm H$
+contains $\alpha^nV\uu^n/\dt$, and the correction replaces the interpolate of exactly that part
+by the old flux, as the density does in OpenFOAM's compressible
+\code{ddtCorr}$(\rho,\uu,\phi)$. Where $\alpha=1$ it is the incompressible form, bit for bit.
+Without it the gain of the old flux is $(r_A)_f/\dt$, of order $1/\alpha$ in a small cut cell
+and above one: a perturbation of the old flux is returned amplified, which a decomposition
+exposed (Section~\ref{sec:decomp}).
 For a moving body the old flux lives on the old wet faces and is first rescaled to the new
 ones, $\phi^n_f\to\phi^n_f\,\theta^{n+1}_f/\theta^n_f$ where $\theta^n_f>0$, and replaced by
 $\theta^{n+1}_f\bar\uu^n_f\cdot\Sf$ (no correction) on faces that have just opened. For a rigid
@@ -762,7 +771,7 @@ The lines marked $\triangleright$ exist only when a body moves
     solve $\sum_f\theta_f(r_{At})_f|\Sf|\partial_np_f=\sum_f\phi_{H,f}$ %
     $\;+\,S_P$ ($\triangleright$) %
     with regular solid rows and the reference\;
-    $\phi:=\phi_H-\theta r_{At}|\Sf|\partial_np$; correct $\uu$ with $\gradV p$; update the flow-rate forcing\;
+    $\phi:=\phi_H-\theta r_{At}|\Sf|\partial_np$, single-valued on coupled faces (Section~\ref{sec:decomp}); correct $\uu$ with $\gradV p$; update the flow-rate forcing\;
   }
 }
 solve the passive scalars with the final $\phi$ (Section~\ref{sec:scalar})\;
@@ -913,6 +922,7 @@ linear solver nor on $c$. The pressure keeps the plain penalty: its link flux ma
 not only the group, divergence free, and the pressure equation is solved to convergence.
 
 \subsection{Decomposition independence}
+\label{sec:decomp}
 
 With links across coupled faces, global group indices and the group sums, the groups, the
 merged coefficients and the fields of a parallel run equal those of the serial run to solver
@@ -928,6 +938,25 @@ pressure $10^{-10}$; the oscillating cylinder with and without linking, $10^{-12
 scalar, wall flux $10^{-11}$; an inclined wall-function channel with a link over the cyclic and
 all its wall-law samples on other processors, $2\times10^{-9}$ (residual control); the
 wall-law samples of a NACA~0012 identical on 1, 4 and 8 ranks.
+
+\emph{Single-valued flux on coupled faces.} The flux of a processor or cyclic face is stored on
+both sides, each computed from its own copy of the interpolated fields; the two agree only to
+round-off. The pressure correction cannot remove a difference between them: each cell satisfies
+continuity with its own copy. The difference is harmless while nothing amplifies it, but the
+transient Rhie--Chow correction feeds the old flux back, and with the coefficient $(r_A)_f$
+alone its gain exceeded one in a merged small-$\alpha$ group (Section~\ref{sec:simplec}). The
+rotating cylinder at Re~200, $\omega R/U=2$, $D/h=40$, with a decomposition that put a
+processor face between two group masters, showed it: the two copies of that face's flux drifted
+apart by about 10\,\% per step from $t\approx3.4$ ($1.5\times10^{-13}$ at $t=3.46$,
+$1.2\times10^{-4}$ at $t=4.1$) and the run left the serial solution (rms lift 0.020 against
+0.148 with another decomposition); with \code{ddtCorr} off the difference stayed zero. A restart
+hides the effect, since \code{reconstructPar} keeps one side and the old flux is not written.
+Two changes remove it: the factor $\alpha^n$ in \eqref{eq:ddtcorr}, which is the consistent
+coefficient, and \code{syncCoupledFlux}, which after every pressure correction sets the two
+copies of each processor and cyclic face flux to their antisymmetric mean, so the flux is
+single-valued by construction (both solvers). The same case, run to $t=150$, then gives the
+same mean drag 0.31028, mean lift $-5.14907$ and rms lift 0.04917 serial, on the old
+decomposition and on the link-constrained one (force histories within $10^{-7}$).
 
 Steady runs reach the same solution only as far as they are converged, and a link across a
 processor face converges slowly in parallel: its penalty is a stiff coupling that the
@@ -1820,7 +1849,8 @@ uses the old-time value of the weight in its source, so the swept fraction $\alp
       \ and its \code{bodyMotion} (Table~\ref{tab:motions})%
       .
 \item[\code{cutCellGeometry}] the fractions and derived fields of Section~\ref{sec:geom}, the
-      cut-cell operators (gradient, flux, $\theta$-interpolation, \code{ddtCorr}), the
+      cut-cell operators (gradient, flux, $\theta$-interpolation, \code{ddtCorr}, the
+      coupled-face flux synchronisation \code{syncCoupledFlux}), the
       solid-row regularisation, the forces%
       , and \code{update()}, which returns immediately unless a body moves. The
       moving-only fields (body velocity, mass source, old face fractions) are allocated
