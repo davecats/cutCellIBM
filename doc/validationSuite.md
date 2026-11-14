@@ -594,6 +594,23 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
 - **V12** (2026-11-12, user decision): St is regressed only where the wake sheds (α < 1.9, the
   rule of the St reference check); at α = 2 the lift decays (C_Lrms 0.005) and its dominant
   frequency jumped 0.364 -> 0.410 between 31d1827 and 2b1adc3 with C_Lrms equal to 4e-5.
+- **V5, V12, V13 re-accepted from 8d416fd** (2026-11-14, user decision). At 5d9caa5, V12 α = 2
+  D/h = 40 depended on the decomposition (C_Lrms 0.148 with the old one, 0.020 with the link
+  constraint). The flux of a processor face between two linked-group masters is stored on both
+  ranks; the projection cannot remove a difference between the two copies, and
+  `cutCellGeometry::ddtCorr` fed it back with gain interpolate(rAU)/Δt > 1 (rAU ≈ Δt/(1.5 ᾱ) in a
+  merged small-α group), so it grew from round-off by ~10 % per step. 8d416fd puts the old fluid
+  fraction (group mean) in ddtCorr, the coefficient of U⁰ in ddt(α, U) as ρ in the compressible
+  ddtCorr(ρ, U, φ), and makes the flux of processor and cyclic faces single-valued after the
+  pressure correction (`syncCoupledFlux`, ibmPimpleFoam and ibmSimpleFoam). α = 2 D/h = 40 to
+  t = 150: serial, old and constrained decomposition agree (C_D 0.31028, C_L −5.14907, C_Lrms
+  0.04917). All transient results change at the discretisation level, every coarse-mesh value
+  towards the reference: V5 2D-2 D/h = 40 C_Lmax 0.9946 -> 0.9904 (0.9866); V12 α = 1 D/h = 40
+  C_D 1.140 -> 1.123 (1.084), α = 2 D/h = 40 C_D 0.355 -> 0.311, D/h = 80 0.2934 -> 0.2924 (0.29);
+  V13 D/h = 40 c_d 2.141 -> 2.121 (2.09). Exception: V12 α = 1 D/h = 40 St 0.1923 -> 0.1928
+  (0.1921). Changes are 1–2 % at D/h = 40 and below 1 % on the finer meshes; every check against
+  the references passes. Gates, V1–V4, V7 and V15 pass against their baselines (steady and
+  G7 tutorial results unchanged within 10⁻⁸).
 - **G8**: cylinder drag (the lift is zero by symmetry, solver noise) and the channel driving
   gradient u_τ², each run required stationary (the gradient changes ≤ 1e-10 over the last 100
   iterations): `residualControl` cannot trigger in this 1-D problem (the Uy and p residuals are
