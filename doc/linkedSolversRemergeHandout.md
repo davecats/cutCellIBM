@@ -97,6 +97,13 @@ constraint, so its solves converge; its D/h 160 numbers should come from a new r
 keeps the DIC base (the user did not ask for more); by the V13 experience a DIC result may
 carry a solver error of order 1e-5. The rerun is with the feature-branch session (user).
 
+**Done on the feature branch (2026-11-14, key 8d416fd).** Rerun with the wrapper and the link
+constraint: none of the 1 008 000 pressure solves at maxIter (mean 158, largest 978 iterations);
+alpha 2, D/h 160: C_L -5.359, C_D 0.2915, C_M 0.4645, all checks PASS. The run of 5d9caa5
+exposed a decomposition dependence at D/h 40 (processor-face flux amplified by ddtCorr), fixed
+in 8d416fd; V5, V12, V13 and G7 re-accepted from 8d416fd by the user (doc/validationSuite.md
+section 12).
+
 ## Findings and what the user decided (2026-11-12)
 
 1. **Coarsest level of the GAMG preconditioner: changed (5d9caa5).** V5, V15 and NACA used
