@@ -40,10 +40,11 @@ and runs in `~/runs/c2` (`scripts/c2_tc.py`, `c2_pipe.py`, `c2_sphcouette.py`, `
 (exact torque) accepts the rotating part of C2 instead of the periodic-box MIG-G2, which stays a
 V6 gate for C3. Side check, not adopted: the wall point of u_b is clipped to the cell's bounding
 box, also for linked cells whose value point (group centroid) lies outside the cell (734 of 6018
-wall cells at d/h = 16); removing the clip in second order (branch `wallpoint_fix`, worktree
-`~/Codes/openFoam.ibm.docs/wallpoint`) changes TC only at N = 160 (4th digit) and makes the
-sphere errors 1–3 % larger, so the code stays. Worktrees `c2run` (= 8108c14, used for the
-D/h = 160 run on istmhydra) and `wallpoint` can go once the user agrees.
+wall cells at d/h = 16); removing the clip in second order (branch `wallpoint_fix`, commit fff0589)
+changes TC only at N = 160 (4th digit) and makes the sphere errors 1–3 % larger, so the code
+stays. The worktrees `c2run` and `wallpoint` were removed (user, 2026-11-14). The consolidated
+report `validation/suite/results/8d416fd/report/report.{tex,pdf}` has a C2 section (§19) and
+the C2 entries in its summary.
 Still open for V6/V12 tier 2: MIG-G1 into the suite (C3), V12 α = 2.5, 3, 4 steady.
 
 The text below is the plan as written before the implementation.
@@ -108,6 +109,10 @@ fraction, tilt, wall function), V15 complete (cut-fraction sweep, wall function)
 - No baseline accepted or re-accepted without the user. Keep the link constraint; body-fitted cases
   never get the linkedGroup wrapper; nVcycles stays 2.
 - Ask the user decisions one at a time, with context.
+- At the end of every session, update the validation documents if anything changed: the
+  consolidated report (`validation/suite/results/<key>/report/report.tex`, hand-written sections
+  and the summary of findings, decisions, open items and next; rebuild the PDF) and
+  `doc/validationSuite.md` (user, 2026-11-14).
 - Machines istmio2, istmhydra, istmeridanus, istmcetus (shared, keep load moderate), istmdraco;
   shared NFS. One build per worktree (`~/Codes/tools/buildtree_of.sh <tree> v2412`); never rebuild a
   tree whose binaries a running job uses; remote jobs detached (`ssh host 'cd ... || exit 1;
