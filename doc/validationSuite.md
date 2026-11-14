@@ -591,6 +591,8 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   Taylor–Couette, whose net force is a cancellation (|F| ≈ 4e-8 against a torque of 0.28: 2b1adc3
   changed it by 5e-13 = 1.3e-5 relative, 3e-12 of the load scale). Baselines from before store no
   moments: the moment is then reported, and this run's moment sets the force scale.
+  G7 re-accepted from 8d416fd (2026-11-14, user decision) to store the moments; its forces equal
+  the e7d742a baseline within 1e-8 of the load scale.
 - **V12** (2026-11-12, user decision): St is regressed only where the wake sheds (α < 1.9, the
   rule of the St reference check); at α = 2 the lift decays (C_Lrms 0.005) and its dominant
   frequency jumped 0.364 -> 0.410 between 31d1827 and 2b1adc3 with C_Lrms equal to 4e-5.

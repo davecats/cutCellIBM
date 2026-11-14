@@ -1,6 +1,6 @@
 {
  "id": "G7",
- "TITLE": "regression: forces of every tutorial",
+ "TITLE": "regression: forces and moments of every tutorial",
  "STRESSES": [
   "K1",
   "K3",
@@ -13,212 +13,439 @@
  "RELIES": [],
  "KIND": "gate",
  "TIER": 0,
- "commit": "e7d742a",
- "suite": "e7d742a",
- "status": "FAIL",
- "started": "2026-11-10 01:46:37",
- "seconds": 141.5,
- "cases": "/home/ws/xt8786/runs/suite/e7d742a/G7",
+ "commit": "8d416fd",
+ "suite": "8d416fd",
+ "status": "PASS",
+ "started": "2026-11-13 14:43:55",
+ "seconds": 123.0,
+ "cases": "/home/ws/xt8786/runs/suite/8d416fd/G7",
  "checks": [
   {
-   "name": "cylinderRe1/cylinder: max |F - F_base|/|F_base|",
+   "name": "cylinderRe1/cylinder: max |F - F_base| / max(|F_base|, |M_base|/L)",
    "status": "PASS",
-   "value": 0.0,
+   "value": 1.3926061348313466e-12,
    "ref": null,
    "tol": "<= 1e-06",
-   "note": "baseline d05799c"
+   "note": "baseline e7d742a, L 1.062"
   },
   {
-   "name": "cylinderRe1_stl/cylinder: max |F - F_base|/|F_base|",
+   "name": "cylinderRe1/cylinder: moment not in the baseline",
+   "status": "REPORT",
+   "value": null,
+   "ref": null,
+   "tol": null,
+   "note": ""
+  },
+  {
+   "name": "cylinderRe1_stl/cylinder: max |F - F_base| / max(|F_base|, |M_base|/L)",
    "status": "PASS",
-   "value": 0.0,
+   "value": 1.3924519921685524e-12,
    "ref": null,
    "tol": "<= 1e-06",
-   "note": "baseline d05799c"
+   "note": "baseline e7d742a, L 1.062"
   },
   {
-   "name": "cylinderRe1_alphaField/cylinder: max |F - F_base|/|F_base|",
+   "name": "cylinderRe1_stl/cylinder: moment not in the baseline",
+   "status": "REPORT",
+   "value": null,
+   "ref": null,
+   "tol": null,
+   "note": ""
+  },
+  {
+   "name": "cylinderRe1_alphaField/cylinder: max |F - F_base| / max(|F_base|, |M_base|/L)",
    "status": "PASS",
-   "value": 0.0,
+   "value": 1.7918289709275193e-12,
    "ref": null,
    "tol": "<= 1e-06",
-   "note": "baseline d05799c"
+   "note": "baseline e7d742a, L 1.062"
   },
   {
-   "name": "cylinderRe1_pimple/cylinder: max |F - F_base|/|F_base|",
+   "name": "cylinderRe1_alphaField/cylinder: moment not in the baseline",
+   "status": "REPORT",
+   "value": null,
+   "ref": null,
+   "tol": null,
+   "note": ""
+  },
+  {
+   "name": "cylinderRe1_pimple/cylinder: max |F - F_base| / max(|F_base|, |M_base|/L)",
    "status": "PASS",
-   "value": 0.0,
+   "value": 1.570326388815819e-13,
    "ref": null,
    "tol": "<= 1e-06",
-   "note": "baseline d05799c"
+   "note": "baseline e7d742a, L 1.062"
   },
   {
-   "name": "cylinderRe1_pimple_freeSlip/cylinder: max |F - F_base|/|F_base|",
+   "name": "cylinderRe1_pimple/cylinder: moment not in the baseline",
+   "status": "REPORT",
+   "value": null,
+   "ref": null,
+   "tol": null,
+   "note": ""
+  },
+  {
+   "name": "cylinderRe1_pimple_freeSlip/cylinder: max |F - F_base| / max(|F_base|, |M_base|/L)",
    "status": "PASS",
-   "value": 0.0,
+   "value": 9.158680190266659e-12,
    "ref": null,
    "tol": "<= 1e-06",
-   "note": "baseline d05799c"
+   "note": "baseline e7d742a, L 1.062"
   },
   {
-   "name": "twoCylinders/bigNoSlip: max |F - F_base|/|F_base|",
+   "name": "cylinderRe1_pimple_freeSlip/cylinder: moment not in the baseline",
+   "status": "REPORT",
+   "value": null,
+   "ref": null,
+   "tol": null,
+   "note": ""
+  },
+  {
+   "name": "twoCylinders/bigNoSlip: max |F - F_base| / max(|F_base|, |M_base|/L)",
    "status": "PASS",
-   "value": 0.0,
+   "value": 5.913961848994147e-13,
    "ref": null,
    "tol": "<= 1e-06",
-   "note": "baseline d05799c"
+   "note": "baseline e7d742a, L 1.085"
   },
   {
-   "name": "twoCylinders/smallFreeSlip: max |F - F_base|/|F_base|",
+   "name": "twoCylinders/bigNoSlip: moment not in the baseline",
+   "status": "REPORT",
+   "value": null,
+   "ref": null,
+   "tol": null,
+   "note": ""
+  },
+  {
+   "name": "twoCylinders/smallFreeSlip: max |F - F_base| / max(|F_base|, |M_base|/L)",
    "status": "PASS",
-   "value": 0.0,
+   "value": 5.627175216846316e-12,
    "ref": null,
    "tol": "<= 1e-06",
-   "note": "baseline d05799c"
+   "note": "baseline e7d742a, L 0.783"
   },
   {
-   "name": "oscillatingCylinder/cylinder: max |F - F_base|/|F_base|",
-   "status": "FAIL",
-   "value": 2.0045117393395517e-05,
+   "name": "twoCylinders/smallFreeSlip: moment not in the baseline",
+   "status": "REPORT",
+   "value": null,
    "ref": null,
-   "tol": "<= 1e-06",
-   "note": "baseline d05799c"
+   "tol": null,
+   "note": ""
   },
   {
-   "name": "galileanTranslating/cylinder: max |F - F_base|/|F_base|",
-   "status": "FAIL",
-   "value": 0.0005820490907061606,
-   "ref": null,
-   "tol": "<= 1e-06",
-   "note": "baseline d05799c"
-  },
-  {
-   "name": "order/taylorCouette/inner: max |F - F_base|/|F_base|",
+   "name": "oscillatingCylinder/cylinder: max |F - F_base| / max(|F_base|, |M_base|/L)",
    "status": "PASS",
-   "value": 0.0,
+   "value": 4.170721724914718e-12,
    "ref": null,
    "tol": "<= 1e-06",
-   "note": "baseline d05799c"
+   "note": "baseline e7d742a, L 1.062"
   },
   {
-   "name": "order/taylorCouette/outer: max |F - F_base|/|F_base|",
+   "name": "oscillatingCylinder/cylinder: moment not in the baseline",
+   "status": "REPORT",
+   "value": null,
+   "ref": null,
+   "tol": null,
+   "note": ""
+  },
+  {
+   "name": "galileanTranslating/cylinder: max |F - F_base| / max(|F_base|, |M_base|/L)",
    "status": "PASS",
-   "value": 0.0,
+   "value": 3.170706197594489e-12,
    "ref": null,
    "tol": "<= 1e-06",
-   "note": "baseline d05799c"
+   "note": "baseline e7d742a, L 1.062"
+  },
+  {
+   "name": "galileanTranslating/cylinder: moment not in the baseline",
+   "status": "REPORT",
+   "value": null,
+   "ref": null,
+   "tol": null,
+   "note": ""
+  },
+  {
+   "name": "order/taylorCouette/inner: max |F - F_base| / max(|F_base|, |M_base|/L)",
+   "status": "PASS",
+   "value": 3.4829886666895072e-09,
+   "ref": null,
+   "tol": "<= 1e-06",
+   "note": "baseline e7d742a, L 0.5337"
+  },
+  {
+   "name": "order/taylorCouette/inner: moment not in the baseline",
+   "status": "REPORT",
+   "value": null,
+   "ref": null,
+   "tol": null,
+   "note": ""
+  },
+  {
+   "name": "order/taylorCouette/outer: max |F - F_base| / max(|F_base|, |M_base|/L)",
+   "status": "PASS",
+   "value": 1.0057351029518593e-08,
+   "ref": null,
+   "tol": "<= 1e-06",
+   "note": "baseline e7d742a, L 1.544"
+  },
+  {
+   "name": "order/taylorCouette/outer: moment not in the baseline",
+   "status": "REPORT",
+   "value": null,
+   "ref": null,
+   "tol": null,
+   "note": ""
   }
  ],
  "data": {
   "forces": {
    "cylinderRe1": {
     "cylinder": [
-     0.71814196101,
-     3.66169881623e-08,
+     0.718141961009,
+     3.66166441929e-08,
      2.14984979243e-32
     ]
    },
    "cylinderRe1_stl": {
     "cylinder": [
-     0.718141726899,
-     3.66168912514e-08,
-     2.51744446829e-32
+     0.7181417269,
+     3.66166457758e-08,
+     2.51744446822e-32
     ]
    },
    "cylinderRe1_alphaField": {
     "cylinder": [
-     0.715278757513,
-     3.64946411096e-08,
-     1.0927021408e-18
+     0.715278757514,
+     3.64933594524e-08,
+     1.09270214075e-18
     ]
    },
    "cylinderRe1_pimple": {
     "cylinder": [
      0.718114968284,
-     1.18789038935e-13,
-     2.02330943831e-32
+     2.31556527425e-13,
+     2.02330943829e-32
     ]
    },
    "cylinderRe1_pimple_freeSlip": {
     "cylinder": [
      0.359336714603,
-     -1.72619937008e-12,
-     2.36914510331e-31
+     1.56485067959e-12,
+     2.36914510327e-31
     ]
    },
    "twoCylinders": {
     "bigNoSlip": [
      0.642537465636,
-     -0.00350240343501,
-     -1.6065991299e-32
+     -0.00350240343539,
+     -1.60659912986e-32
     ],
     "smallFreeSlip": [
-     0.19722597641,
-     0.00350244006808,
-     7.1339437645e-32
+     0.197225976409,
+     0.00350244006919,
+     7.13394376457e-32
     ]
    },
    "oscillatingCylinder": {
     "cylinder": [
-     0.479536013099,
-     1.82993634894e-13,
-     1.73200191554e-32
+     0.479536013101,
+     -5.07318362666e-13,
+     1.73200191549e-32
     ]
    },
    "galileanTranslating": {
     "cylinder": [
-     -0.719662524959,
-     -5.36115287364e-13,
-     5.08404726149e-32
+     -0.719662524958,
+     1.7457231407e-12,
+     5.08404726153e-32
     ]
    },
    "order/taylorCouette": {
     "inner": [
-     -2.0563824426e-08,
-     -3.7538994288e-08,
-     1.10177167119e-33
+     -2.06141904054e-08,
+     -3.93706313123e-08,
+     1.13405947789e-33
     ],
     "outer": [
-     2.05639358209e-08,
-     3.75383299477e-08,
-     -3.7193413816e-35
+     2.06155926898e-08,
+     3.93701136133e-08,
+     -3.64174833868e-35
     ]
    }
   },
+  "moments": {
+   "cylinderRe1": {
+    "cylinder": [
+     -2.26028667972e-09,
+     0.0443297506794,
+     3.19199076425e-10
+    ]
+   },
+   "cylinderRe1_stl": {
+    "cylinder": [
+     -2.26028677508e-09,
+     0.0443297362282,
+     3.19187437115e-10
+    ]
+   },
+   "cylinderRe1_alphaField": {
+    "cylinder": [
+     -9.32425811911e-19,
+     1.91650052684e-18,
+     3.18234694076e-10
+    ]
+   },
+   "cylinderRe1_pimple": {
+    "cylinder": [
+     -1.42950430139e-14,
+     0.0443280844618,
+     7.1061961247e-14
+    ]
+   },
+   "cylinderRe1_pimple_freeSlip": {
+    "cylinder": [
+     -9.65929810096e-14,
+     0.0221812786791,
+     -3.35472480958e-16
+    ]
+   },
+   "twoCylinders": {
+    "bigNoSlip": [
+     0.000216197742925,
+     0.0396628065206,
+     -0.0106228450229
+    ],
+    "smallFreeSlip": [
+     -0.00021620000427,
+     0.0121744429882,
+     -1.47871474649e-05
+    ]
+   },
+   "oscillatingCylinder": {
+    "cylinder": [
+     3.13151875308e-14,
+     0.0296009884629,
+     1.94460268878e-13
+    ]
+   },
+   "galileanTranslating": {
+    "cylinder": [
+     -1.07760141413e-13,
+     -0.0444236126516,
+     -8.55012099261e-14
+    ]
+   },
+   "order/taylorCouette": {
+    "inner": [
+     1.57482525271e-09,
+     -8.24567616028e-10,
+     -0.280645023044
+    ],
+    "outer": [
+     -1.57480454458e-09,
+     8.24623706693e-10,
+     0.281218378036
+    ]
+   }
+  },
+  "sizes": {
+   "cylinderRe1": {
+    "cylinder": 1.0620154650746914
+   },
+   "cylinderRe1_stl": {
+    "cylinder": 1.062015465074695
+   },
+   "cylinderRe1_alphaField": {
+    "cylinder": 1.0620154650747144
+   },
+   "cylinderRe1_pimple": {
+    "cylinder": 1.0620154650746914
+   },
+   "cylinderRe1_pimple_freeSlip": {
+    "cylinder": 1.0620154650746914
+   },
+   "twoCylinders": {
+    "bigNoSlip": 1.084957339135847,
+    "smallFreeSlip": 0.783026379712451
+   },
+   "oscillatingCylinder": {
+    "cylinder": 1.0620154650746914
+   },
+   "galileanTranslating": {
+    "cylinder": 1.0620154650746914
+   },
+   "order/taylorCouette": {
+    "inner": 0.5336665625650538,
+    "outer": 1.5440207252495035
+   }
+  },
   "metrics": {
-   "cylinderRe1/cylinder_Fx": 0.71814196101,
-   "cylinderRe1/cylinder_Fy": 3.66169881623e-08,
+   "cylinderRe1/cylinder_Fx": 0.718141961009,
+   "cylinderRe1/cylinder_Fy": 3.66166441929e-08,
    "cylinderRe1/cylinder_Fz": 2.14984979243e-32,
-   "cylinderRe1_stl/cylinder_Fx": 0.718141726899,
-   "cylinderRe1_stl/cylinder_Fy": 3.66168912514e-08,
-   "cylinderRe1_stl/cylinder_Fz": 2.51744446829e-32,
-   "cylinderRe1_alphaField/cylinder_Fx": 0.715278757513,
-   "cylinderRe1_alphaField/cylinder_Fy": 3.64946411096e-08,
-   "cylinderRe1_alphaField/cylinder_Fz": 1.0927021408e-18,
+   "cylinderRe1/cylinder_Mx": -2.26028667972e-09,
+   "cylinderRe1/cylinder_My": 0.0443297506794,
+   "cylinderRe1/cylinder_Mz": 3.19199076425e-10,
+   "cylinderRe1_stl/cylinder_Fx": 0.7181417269,
+   "cylinderRe1_stl/cylinder_Fy": 3.66166457758e-08,
+   "cylinderRe1_stl/cylinder_Fz": 2.51744446822e-32,
+   "cylinderRe1_stl/cylinder_Mx": -2.26028677508e-09,
+   "cylinderRe1_stl/cylinder_My": 0.0443297362282,
+   "cylinderRe1_stl/cylinder_Mz": 3.19187437115e-10,
+   "cylinderRe1_alphaField/cylinder_Fx": 0.715278757514,
+   "cylinderRe1_alphaField/cylinder_Fy": 3.64933594524e-08,
+   "cylinderRe1_alphaField/cylinder_Fz": 1.09270214075e-18,
+   "cylinderRe1_alphaField/cylinder_Mx": -9.32425811911e-19,
+   "cylinderRe1_alphaField/cylinder_My": 1.91650052684e-18,
+   "cylinderRe1_alphaField/cylinder_Mz": 3.18234694076e-10,
    "cylinderRe1_pimple/cylinder_Fx": 0.718114968284,
-   "cylinderRe1_pimple/cylinder_Fy": 1.18789038935e-13,
-   "cylinderRe1_pimple/cylinder_Fz": 2.02330943831e-32,
+   "cylinderRe1_pimple/cylinder_Fy": 2.31556527425e-13,
+   "cylinderRe1_pimple/cylinder_Fz": 2.02330943829e-32,
+   "cylinderRe1_pimple/cylinder_Mx": -1.42950430139e-14,
+   "cylinderRe1_pimple/cylinder_My": 0.0443280844618,
+   "cylinderRe1_pimple/cylinder_Mz": 7.1061961247e-14,
    "cylinderRe1_pimple_freeSlip/cylinder_Fx": 0.359336714603,
-   "cylinderRe1_pimple_freeSlip/cylinder_Fy": -1.72619937008e-12,
-   "cylinderRe1_pimple_freeSlip/cylinder_Fz": 2.36914510331e-31,
+   "cylinderRe1_pimple_freeSlip/cylinder_Fy": 1.56485067959e-12,
+   "cylinderRe1_pimple_freeSlip/cylinder_Fz": 2.36914510327e-31,
+   "cylinderRe1_pimple_freeSlip/cylinder_Mx": -9.65929810096e-14,
+   "cylinderRe1_pimple_freeSlip/cylinder_My": 0.0221812786791,
+   "cylinderRe1_pimple_freeSlip/cylinder_Mz": -3.35472480958e-16,
    "twoCylinders/bigNoSlip_Fx": 0.642537465636,
-   "twoCylinders/bigNoSlip_Fy": -0.00350240343501,
-   "twoCylinders/bigNoSlip_Fz": -1.6065991299e-32,
-   "twoCylinders/smallFreeSlip_Fx": 0.19722597641,
-   "twoCylinders/smallFreeSlip_Fy": 0.00350244006808,
-   "twoCylinders/smallFreeSlip_Fz": 7.1339437645e-32,
-   "oscillatingCylinder/cylinder_Fx": 0.479536013099,
-   "oscillatingCylinder/cylinder_Fy": 1.82993634894e-13,
-   "oscillatingCylinder/cylinder_Fz": 1.73200191554e-32,
-   "galileanTranslating/cylinder_Fx": -0.719662524959,
-   "galileanTranslating/cylinder_Fy": -5.36115287364e-13,
-   "galileanTranslating/cylinder_Fz": 5.08404726149e-32,
-   "order/taylorCouette/inner_Fx": -2.0563824426e-08,
-   "order/taylorCouette/inner_Fy": -3.7538994288e-08,
-   "order/taylorCouette/inner_Fz": 1.10177167119e-33,
-   "order/taylorCouette/outer_Fx": 2.05639358209e-08,
-   "order/taylorCouette/outer_Fy": 3.75383299477e-08,
-   "order/taylorCouette/outer_Fz": -3.7193413816e-35
+   "twoCylinders/bigNoSlip_Fy": -0.00350240343539,
+   "twoCylinders/bigNoSlip_Fz": -1.60659912986e-32,
+   "twoCylinders/smallFreeSlip_Fx": 0.197225976409,
+   "twoCylinders/smallFreeSlip_Fy": 0.00350244006919,
+   "twoCylinders/smallFreeSlip_Fz": 7.13394376457e-32,
+   "twoCylinders/bigNoSlip_Mx": 0.000216197742925,
+   "twoCylinders/bigNoSlip_My": 0.0396628065206,
+   "twoCylinders/bigNoSlip_Mz": -0.0106228450229,
+   "twoCylinders/smallFreeSlip_Mx": -0.00021620000427,
+   "twoCylinders/smallFreeSlip_My": 0.0121744429882,
+   "twoCylinders/smallFreeSlip_Mz": -1.47871474649e-05,
+   "oscillatingCylinder/cylinder_Fx": 0.479536013101,
+   "oscillatingCylinder/cylinder_Fy": -5.07318362666e-13,
+   "oscillatingCylinder/cylinder_Fz": 1.73200191549e-32,
+   "oscillatingCylinder/cylinder_Mx": 3.13151875308e-14,
+   "oscillatingCylinder/cylinder_My": 0.0296009884629,
+   "oscillatingCylinder/cylinder_Mz": 1.94460268878e-13,
+   "galileanTranslating/cylinder_Fx": -0.719662524958,
+   "galileanTranslating/cylinder_Fy": 1.7457231407e-12,
+   "galileanTranslating/cylinder_Fz": 5.08404726153e-32,
+   "galileanTranslating/cylinder_Mx": -1.07760141413e-13,
+   "galileanTranslating/cylinder_My": -0.0444236126516,
+   "galileanTranslating/cylinder_Mz": -8.55012099261e-14,
+   "order/taylorCouette/inner_Fx": -2.06141904054e-08,
+   "order/taylorCouette/inner_Fy": -3.93706313123e-08,
+   "order/taylorCouette/inner_Fz": 1.13405947789e-33,
+   "order/taylorCouette/outer_Fx": 2.06155926898e-08,
+   "order/taylorCouette/outer_Fy": 3.93701136133e-08,
+   "order/taylorCouette/outer_Fz": -3.64174833868e-35,
+   "order/taylorCouette/inner_Mx": 1.57482525271e-09,
+   "order/taylorCouette/inner_My": -8.24567616028e-10,
+   "order/taylorCouette/inner_Mz": -0.280645023044,
+   "order/taylorCouette/outer_Mx": -1.57480454458e-09,
+   "order/taylorCouette/outer_My": 8.24623706693e-10,
+   "order/taylorCouette/outer_Mz": 0.281218378036
   }
  },
  "figures": []
