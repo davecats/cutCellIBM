@@ -516,12 +516,15 @@ class cutCellGeometry
         //- Relative velocity u - u_b and body velocity u_b of zsCells_ at
         //  the value point, moved by zsOffset_ along the wall (second order
         //  with zeroShearTangential: u_P + delta.grad u); u_b zero for
-        //  static bodies
+        //  static bodies. Second order: also dunP, the normal derivative of
+        //  the normal velocity from continuity, -tr(P grad(u) P) (lsqGrad;
+        //  zero at first order)
         void zeroShearRelative
         (
             const volVectorField& U,
             vectorField& wP,
-            vectorField& ubP
+            vectorField& ubP,
+            scalarField& dunP
         ) const;
 
         //- Masters and link faces of the small cut cells (mergeAlpha > 0)
@@ -787,7 +790,10 @@ public:
             bool zeroShear() const { return zeroShear_; }
 
             //- Wall flux of the zero-shear free-slip walls in the Laplacian
-            //  form, nu (Awall/V) (H_w.(u_w - u_b,w)_t + omega x n), with the
+            //  form, nu (Awall/V) (H_w.(u_w - u_b,w)_t + omega x n
+            //  + (du_n/dn) n), the normal part explicit from lsqGrad and
+            //  continuity, du_n/dn = -tr(P grad(u) P) (second order only),
+            //  with the
             //  tangential wall value from the value point by the Robin factor
             //  (I + d H_w)^-1 (exact for a rigidly rotating flow): implicit
             //  with the largest |eigenvalue| of the friction tensor, the rest

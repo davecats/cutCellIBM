@@ -2487,21 +2487,30 @@ void Foam::cutCellGeometry::zeroShearRelative
 (
     const volVectorField& U,
     vectorField& wP,
-    vectorField& ubP
+    vectorField& ubP,
+    scalarField& dunP
 ) const
 {
     wP.setSize(zsCells_.size());
     ubP.setSize(zsCells_.size());
+    dunP.setSize(zsCells_.size());
     ubP = Zero;
+    dunP = Zero;
     forAll(zsCells_, k)
     {
         wP[k] = U[zsCells_[k]];
     }
 
-    // second order: the velocity at the foot of the wall-piece centroid,
-    // u_P + delta.grad u, from the least-squares gradient over the fluid
-    // (a linked group: one gradient at its centroid)
-    if (secondOrder_ && zeroShearTangential_)
+    // Second order, from the least-squares gradient over the fluid (a
+    // linked group: one gradient at its centroid), G_ij = d_i u_j:
+    // - the normal derivative of the normal velocity from continuity,
+    //   du_n/dn = -tr(P G P) = n.G.n - tr(G) (n into the fluid). Equal to
+    //   n.G.n for a solenoidal field, but n.G.n depends on the cell's own
+    //   normal velocity through a negative self-coefficient, which made
+    //   the explicit flux unstable (SIMPLE without linking, PIMPLE with
+    //   it); the tangential divergence hardly does.
+    // - the velocity at the foot of the wall-piece centroid, u_P + delta.G
+    if (secondOrder_)
     {
         PtrList<volVectorField> g(vector::nComponents);
         for (direction c = 0; c < vector::nComponents; ++c)
@@ -2511,10 +2520,15 @@ void Foam::cutCellGeometry::zeroShearRelative
         forAll(zsCells_, k)
         {
             const label celli = zsCells_[k];
+            const vector nf(-Sw_[celli]/max(Awall_[celli], VSMALL));
             const vector& delta = zsOffset_[k];
             for (direction c = 0; c < vector::nComponents; ++c)
             {
-                wP[k][c] += delta & g[c][celli];
+                dunP[k] += nf[c]*(nf & g[c][celli]) - g[c][celli][c];
+                if (zeroShearTangential_)
+                {
+                    wP[k][c] += delta & g[c][celli];
+                }
             }
         }
     }
@@ -2570,14 +2584,20 @@ Foam::tmp<Foam::fvVectorMatrix> Foam::cutCellGeometry::zeroShearSource
 
     vectorField wP;
     vectorField ubP;
-    zeroShearRelative(U, wP, ubP);
+    scalarField dunP;
+    zeroShearRelative(U, wP, ubP, dunP);
 
     forAll(zsCells_, k)
     {
         const label celli = zsCells_[k];
         const ibmBody& body = bodies_[cellBody_[celli]];
         const scalar nuc = nu[celli];
+        // tangential: the curvature friction; normal: d u_n/dn (explicit),
+        // the normal viscous flux, which without it is carried by the
+        // cut-cell pressure as an O(1) layer that does not converge and
+        // leaves the velocity first order (doc/freeSlipPlan.md)
         vector flux(zsFriction_[k] & wP[k]);
+        flux -= dunP[k]*Sw_[celli]/mesh_.V()[celli];
         if (body.hasWallVelocity())
         {
             // omega x n, n = -Sw/Awall into the fluid, times Awall/V
@@ -3457,7 +3477,8 @@ void Foam::cutCellGeometry::forces
     // zero-shear free slip: relative velocity at the value points
     vectorField zsW;
     vectorField zsUb;
-    if (zeroShear_) zeroShearRelative(U, zsW, zsUb);
+    scalarField zsDun;
+    if (zeroShear_) zeroShearRelative(U, zsW, zsUb, zsDun);
 
     for (const label celli : wallCells_)
     {
@@ -3499,8 +3520,10 @@ void Foam::cutCellGeometry::forces
         if (zsk >= 0)
         {
             // zero-shear free slip: the wall flux of the Laplacian form,
-            // nu (H_w.w_t,w + omega x n) Awall (see zeroShearSource)
-            fv = nu[celli]*V[celli]*(zsFriction_[zsk] & zsW[zsk]);
+            // nu (H_w.w_t,w + omega x n + (n.grad(u).n) n) Awall (see
+            // zeroShearSource)
+            fv = nu[celli]*V[celli]*(zsFriction_[zsk] & zsW[zsk])
+               - nu[celli]*zsDun[zsk]*Sw_[celli];
             if (bodies_[bodyi].hasWallVelocity())
             {
                 fv -= nu[celli]*(bodies_[bodyi].omega() ^ Sw_[celli]);
