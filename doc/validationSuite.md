@@ -218,6 +218,23 @@ Not involved: turbulence, wall functions, moving geometry, scalars.
   no-slip traction. Today such a body counts as moving and ibmSimpleFoam refuses it. The
   invariance is checked at start-up (level set at the cut points after a virtual small motion),
   fatal otherwise. Used here for the rotating sphere and the sliding pipe.
+  **Done (8108c14, 2026-11-14):** opt-in key `invariant yes` in the motion dictionary (user
+  decision), any motion type; checked at start-up (virtual motion moving the wall by one cell)
+  and at every step (actual state), |Δφ|/h at the edge crossings ≤ `invarianceTolerance` (1e-6);
+  fatal for alpha-field bodies. G1–G9 bit-identical to 8d416fd. Acceptance (scripts and runs in
+  `~/runs/c2`): Taylor-Couette invariant = moving to 4–5 digits (ibmPimpleFoam), ibmSimpleFoam
+  torque equal to 1e-6; sliding pipe (MIG-G1 prototype, Re 2, V = 0.7) = static pipe shifted by
+  −V to round-off, u L2 and G order 2.0 (G −1.18, −0.28, −0.070 % at h = 1/16, 1/32, 1/64: G
+  misses 0.2 % at the base h = 1/32, refine at the pipe wall); spherical Couette (user decision
+  2026-11-14, in place of the periodic-box MIG-G2 for C2: R = 0.5 in Ro = 1, Stokes, exact
+  torque 8πμΩR³Ro³/(Ro³ − R³)) torque −1.27, −0.30, −0.13 % at d/h = 16, 32, 48, order 2.07, u L2
+  order 2.05; V12 α = 2 steady (ibmSimpleFoam, U relaxed 0.7; 0.9 cycles at D/h = 40, where the
+  steady state is only weakly damped) C_L −5.124, −5.315, −5.360, C_D 0.3040, 0.2924, 0.2897,
+  C_M 0.4922, 0.4709, 0.4646 at D/h = 40, 80, 160 against the transient means at t = 100–150
+  −5.146, −5.321, −5.359; 0.3106, 0.2924, 0.2915; 0.4871, 0.4688, 0.4645 (body-fitted −5.375,
+  0.2887, 0.4633). Non-invariant motions (sideways, tilted by 1e-3, rotation about a non-axis, a
+  prescribed motion turning sideways later) are fatal. The periodic-box MIG-G2 (translating,
+  stress-free and rotating sphere) stays a V6 gate, run with C3.
 - **C3 driver:** `validation/suite/mig/` setup, outer (V, Ω) iteration, extraction, report.
 
 ### Gates
@@ -360,7 +377,7 @@ for α < 1.91, unsteady again for 4.34 < α < 4.70. Torque from C_M = (C_P − C
   paper. D/h = 40, 80, 160 in the finest box.
 - α = 0, 0.5, 1, 1.5, 1.9 unsteady (ibmPimpleFoam, rotating cylinder as today, Δt such that
   CFL ≤ 0.5, 40 periods, statistics over the last 20); α = 2, 2.5, 3, 4 steady (ibmSimpleFoam
-  with C2, or ibmPimpleFoam to the steady state until C2 exists).
+  with C2, `invariant yes`; SIMPLEC with U relaxed 0.7: 0.9 cycles at D/h = 40).
 - Quantities: time-averaged C_L, C_D, C_M (needs C1), r.m.s. of C_L and C_D, St; the shedding
   threshold (C_L,rms at α = 1.9 vs 2).
 - Tolerances: C_L and C_D means within 2 % or 0.02 absolute; St within 1 %; r.m.s. within 5 %;

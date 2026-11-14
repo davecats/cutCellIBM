@@ -32,7 +32,21 @@ Order fixed by the plan: the prerequisites C2 and the zero-shear free-slip wall 
 by its gates; then V14 before V10, V10 and V11 before V6, the V7 sweeps, V15 complete and V16
 before V8, V9, V12 complete. Decision D5 (junction pressure before V14–V16) is done (finding 2).
 
-### 1. C2: tangential wall velocity on a static geometry (started, no code yet)
+### 1. C2: tangential wall velocity on a static geometry — DONE (8108c14, 2026-11-14)
+
+Implemented and accepted as below; results in `doc/validationSuite.md` §8 (C2 entry), scripts
+and runs in `~/runs/c2` (`scripts/c2_tc.py`, `c2_pipe.py`, `c2_sphcouette.py`, `c2_v12.py`; set
+`IBM_TREE` to run them on another worktree). User decision 2026-11-14: spherical Couette
+(exact torque) accepts the rotating part of C2 instead of the periodic-box MIG-G2, which stays a
+V6 gate for C3. Side check, not adopted: the wall point of u_b is clipped to the cell's bounding
+box, also for linked cells whose value point (group centroid) lies outside the cell (734 of 6018
+wall cells at d/h = 16); removing the clip in second order (branch `wallpoint_fix`, worktree
+`~/Codes/openFoam.ibm.docs/wallpoint`) changes TC only at N = 160 (4th digit) and makes the
+sphere errors 1–3 % larger, so the code stays. Worktrees `c2run` (= 8108c14, used for the
+D/h = 160 run on istmhydra) and `wallpoint` can go once the user agrees.
+Still open for V6/V12 tier 2: MIG-G1 into the suite (C3), V12 α = 2.5, 3, 4 steady.
+
+The text below is the plan as written before the implementation.
 
 Spec: `doc/validationSuite.md` §8, "Prerequisite code changes". A body whose motion leaves it
 invariant (cylinder or sphere rotating about its axis, body of revolution about its axis, cylinder
