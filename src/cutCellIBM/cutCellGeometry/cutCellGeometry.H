@@ -846,6 +846,12 @@ public:
                 return convectionSource(phi, vf, &nu);
             }
 
+            //- True for a component of Type in an empty direction of the
+            //  mesh (fvMesh::validComponents, the third direction of a 2-D
+            //  case): mergeH keeps it zero, as fvMatrix::H() does
+            template<class Type>
+            bool emptyComponent(const direction cmpt) const;
+
             template<class Type>
             tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
             snGradCorrection

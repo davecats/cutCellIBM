@@ -21,6 +21,20 @@ void Foam::cutCellGeometry::zeroSolid
 
 
 template<class Type>
+bool Foam::cutCellGeometry::emptyComponent(const direction cmpt) const
+{
+    if constexpr (pTraits<Type>::rank == 0)
+    {
+        return false;
+    }
+    else
+    {
+        return component(mesh_.template validComponents<Type>(), cmpt) == -1;
+    }
+}
+
+
+template<class Type>
 Foam::tmp<Foam::GeometricField<Type, Foam::fvsPatchField, Foam::surfaceMesh>>
 Foam::cutCellGeometry::snGradCorrection
 (
@@ -892,6 +906,21 @@ void Foam::cutCellGeometry::mergeH
         if (linkGroup_[celli] >= 0)
         {
             HI[celli] = sum[celli]/vol[celli];
+        }
+    }
+
+    // fvMatrix::H() sets the components in the empty directions of a 2-D
+    // case to zero (they are not solved for); the link-face terms above
+    // must not bring them back: they would replace the zero H of a group
+    // by its internal coupling, upper psi_nei + lower psi_own, which in a
+    // group of a small cut cell without a wall coefficient (free slip)
+    // made H/A exceed psi and amplified round-off of the pressure gradient
+    // in that component without bound
+    for (direction cmpt = 0; cmpt < pTraits<Type>::nComponents; ++cmpt)
+    {
+        if (emptyComponent<Type>(cmpt))
+        {
+            HI.replace(cmpt, scalar(0));
         }
     }
     H.correctBoundaryConditions();
