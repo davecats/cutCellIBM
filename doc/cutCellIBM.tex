@@ -1331,6 +1331,25 @@ a body may cross a periodic boundary. The same transform gives $\ub(\xx)=\bm U+\
 \mathrm{mi}(\xx-\bm c(t))$. The \code{external} motion is the hook for a body driven by its
 own equation of motion; a body given as a fraction field and flagged as moving has its field
 re-read every step and its velocity taken from a supplied velocity field or a uniform value.
+
+\paragraph{Invariant motions.} A rigid motion that maps the body onto itself (a cylinder or a
+body of revolution turning about its axis, a sphere turning about its centre, a cylinder
+sliding along its axis) leaves the geometry unchanged, and the wall velocity is tangential to
+the exact wall, $\ub\cdot\bm n=0$. Declared with \code{invariant yes} in the motion
+dictionary, such a body is treated as static: the fractions are built once, with the body at
+rest, the wall flux is $S=0$ (the discrete $\ub\cdot\bm S_w$ would only be the error of the
+chord normal), $\alpha^n=\alpha^{n+1}$, and the motion supplies only $\ub(\xx)=\bm U(t)+\bm\omega
+\times\mathrm{mi}(\xx-\bm c(t))$ at the wall points, re-evaluated every step, to the no-slip
+traction, the blanking, the viscous force and torque and the wall functions. A steady solver can
+therefore run it. The declaration is checked: with $\phi$ the level set of the body (a
+distance) and $\xx_k$ the edge crossings of its cut, $\max_k|\phi(\xx_k;\text{moved})-
+\phi(\xx_k;\text{rest})|/h_k$ ($h_k$ the edge length) must not exceed a tolerance ($10^{-6}$),
+at start-up for the motion state advanced over a virtual time in which the fastest wall point
+travels one edge length, and at every step for the actual state; a motion that is not
+invariant shows up as the normal part of the wall displacement (a sliding direction tilted by
+$10^{-3}$ gives $10^{-3}$). In Taylor--Couette flow the invariant inner cylinder reproduces the
+moving one to four or five digits, and a pipe wall sliding at $-V$ reproduces the static pipe
+shifted by $-V$ to round-off.
 \section{Passive scalar transport}
 \label{sec:scalar}
 

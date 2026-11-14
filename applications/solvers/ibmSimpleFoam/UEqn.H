@@ -52,7 +52,7 @@
             ibm.fluidGrad
             (
                 U,
-                ibm.moving()
+                ibm.wallVelocity()
               ? vectorField(ibm.Ub().primitiveField())
               : vectorField(mesh.nCells(), Zero)
             )
@@ -62,6 +62,17 @@
             ibm.thetaInterpolate(nuEff)
            *(mesh.Sf() & fvc::interpolate(dev2(T(gradU))))
         );
+    }
+
+    if (ibm.wallVelocity())
+    {
+        // Invariant bodies (static geometry, wall velocity u_b): the u_b
+        // half of the no-slip wall traction nu (u_b - u_P) Awall/d, and the
+        // blanking source driving the solid interior to u_b
+        UEqn -=
+            ibmTurbulent
+          ? ibm.movingWallSource(nuWall, nuEff)
+          : ibm.movingWallSource(nuEff);
     }
 
     UEqn.relax();

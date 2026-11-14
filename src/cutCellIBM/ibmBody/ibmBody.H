@@ -24,6 +24,9 @@ Description
     body is evaluated by transforming the query points into the body frame:
     minimum-image wrap in the periodic directions about the current centre,
     then the inverse translation and rotation. Static bodies skip all of it.
+    A body whose motion is declared invariant ("invariant yes" in the
+    motion) is not moving in this sense: its level set is the one at rest,
+    and the motion only supplies the wall velocity.
 
     Dictionary entries common to all bodies:
     \verbatim
@@ -157,8 +160,23 @@ public:
 
     // Motion
 
-        //- True if the body moves
-        virtual bool moving() const { return motion_->moving(); }
+        //- True if the geometry of the body changes in time: it moves and
+        //  its motion is not declared invariant
+        virtual bool moving() const
+        {
+            return motion_->moving() && !motion_->invariant();
+        }
+
+        //- True if the body moves but its motion leaves it unchanged as a
+        //  set (declared with "invariant yes"): static geometry, no wall
+        //  flux, wall velocity u_b
+        bool invariant() const
+        {
+            return motion_->moving() && motion_->invariant();
+        }
+
+        //- True if the wall has a velocity: moving or invariant
+        bool hasWallVelocity() const { return moving() || invariant(); }
 
         bodyMotion& motion() { return motion_(); }
         const bodyMotion& motion() const { return motion_(); }
@@ -204,11 +222,38 @@ public:
         //- Body velocity at the given points (rigid: U + omega x r)
         virtual void velocity(const pointField& pts, vectorField& U) const;
 
-        //- Query points transformed into the body frame at rest
+        //- Query points transformed into the body frame at rest, from the
+        //  current position of the geometry (at rest for an invariant body)
         void toBodyFrame(const pointField& pts, pointField& out) const;
 
         //- True if the points must be transformed before evaluation
         bool needsTransform() const;
+
+        //- Change of the level set (including invert) at the given points
+        //  between the body at rest and the body in its current motion
+        //  state advanced by the rigid motion over a time tau (tau = 0:
+        //  the current state). Zero to round-off for an invariant body
+        //  with a distance level set.
+        void levelSetChange
+        (
+            const pointField& pts,
+            const scalar tau,
+            scalarField& dphi
+        ) const;
+
+
+private:
+
+        //- Points transformed into the body frame for a body displaced by
+        //  disp and turned by angle about axis through the reference point
+        void toBodyFrame
+        (
+            const pointField& pts,
+            const vector& disp,
+            const scalar angle,
+            const vector& axis,
+            pointField& out
+        ) const;
 };
 
 } // End namespace Foam

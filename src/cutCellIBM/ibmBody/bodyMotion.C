@@ -23,6 +23,7 @@ Foam::bodyMotion::bodyMotion(const dictionary& dict)
 :
     dict_(dict),
     omega_(dict.getOrDefault<vector>("angularVelocity", Zero)),
+    invariant_(dict.getOrDefault<bool>("invariant", false)),
     hasCentreOfRotation_(dict.found("centreOfRotation")),
     centreOfRotation_(dict.getOrDefault<point>("centreOfRotation", Zero))
 {}

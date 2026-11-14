@@ -176,6 +176,8 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     forcesFilePtr_(nullptr),
     momentsFilePtr_(nullptr),
     moving_(false),
+    wallVelocity_(false),
+    invarianceTolerance_(getOrDefault<scalar>("invarianceTolerance", 1e-6)),
     periodicLengths_(getOrDefault<vector>("periodicLengths", Zero)),
     cellLevelSet_(),
     UbPtr_(nullptr),
@@ -263,10 +265,20 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     // Periodicity of the domain, for bodies crossing cyclic boundaries
     forAll(bodies_, bodyi)
     {
+        const ibmBody& b = bodies_[bodyi];
         bodies_[bodyi].setPeriodicLengths(periodicLengths_);
-        if (bodies_[bodyi].moving()) moving_ = true;
+        if (b.motion().invariant() && !b.hasLevelSet())
+        {
+            FatalErrorInFunction
+                << "Body " << b.name() << ": an invariant motion needs a "
+                << "level set, to check the invariance; an alpha-field body "
+                << "has none" << exit(FatalError);
+        }
+        if (b.moving()) moving_ = true;
+        if (b.hasWallVelocity()) wallVelocity_ = true;
     }
     reduce(moving_, orOp<bool>());
+    reduce(wallVelocity_, orOp<bool>());
 
     if (moving_)
     {
@@ -274,6 +286,16 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
             << (cmptMax(periodicLengths_) > 0
                 ? ", periodic lengths " + Foam::name(periodicLengths_) : "")
             << endl;
+    }
+    else if (wallVelocity_)
+    {
+        Info<< "    invariant bodies only: static geometry, wall velocity "
+            << "updated every time step, invariance tolerance "
+            << invarianceTolerance_ << endl;
+    }
+
+    if (wallVelocity_)
+    {
         forAll(bodies_, bodyi)
         {
             bodies_[bodyi].moveTo(mesh_.time().value());
@@ -287,6 +309,10 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
                 mesh, dimensionedVector(dimVelocity, Zero), "zeroGradient"
             )
         );
+    }
+
+    if (moving_)
+    {
         massSourcePtr_.reset
         (
             new volScalarField
@@ -306,9 +332,25 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     calcGeometry();
     report();
 
+    if (wallVelocity_)
+    {
+        // Invariant bodies: under a virtual motion that moves the wall by
+        // one cell, then in the actual state at the start time
+        const scalar tau = invarianceTime();
+        if (tau > 0)
+        {
+            checkInvariance(tau);
+            checkInvariance(0);
+        }
+    }
+
     if (moving_)
     {
         calcMovingTerms();
+    }
+    else if (wallVelocity_)
+    {
+        calcWallVelocity();
     }
 
     if (writeFields_)
@@ -3084,7 +3126,7 @@ void Foam::cutCellGeometry::forces
 
         // viscous traction, nu (u_P - u_b)/d Awall
         vector fv;
-        if (moving_)
+        if (wallVelocity_)
         {
             fv = nu[celli]*noSlipCoeff_[celli]*V[celli]
                 *(U[celli] - UbPtr_()[celli]);

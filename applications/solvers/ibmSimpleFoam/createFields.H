@@ -32,7 +32,10 @@ cutCellGeometry ibm(mesh);
 if (ibm.moving())
 {
     FatalErrorInFunction
-        << "ibmSimpleFoam is a steady solver: moving bodies need ibmPimpleFoam"
+        << "ibmSimpleFoam is a steady solver: bodies whose geometry moves "
+        << "need ibmPimpleFoam. A motion that leaves the body unchanged "
+        << "(rotation about its axis, sliding along it) can be declared "
+        << "with \"invariant yes\" in the motion dictionary."
         << exit(FatalError);
 }
 

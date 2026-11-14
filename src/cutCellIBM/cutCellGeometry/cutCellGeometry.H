@@ -64,6 +64,20 @@ Description
     automatically. For static bodies update() returns at once and none of
     the moving-body fields exist.
 
+    Invariant bodies (motion with "invariant yes", see bodyMotion): a body
+    whose motion leaves it unchanged as a set (a cylinder turning about or
+    sliding along its axis, a sphere turning about its centre) is not
+    moving. Its geometry is built once, there is no wall flux, and only
+    ibmUb exists: update() moves the bodies to the current time and
+    re-evaluates u_b, which enters the no-slip traction, the blanking, the
+    forces and the wall functions exactly as for a moving body. The
+    invariance is checked at construction, by moving the body over a
+    virtual time in which its wall points travel one cell size, and at
+    every update for the actual motion state: the level set at the edge
+    crossings of the cut must not change by more than
+    invarianceTolerance (default 1e-6) times the edge length. Alpha-field
+    bodies cannot be invariant (no level set).
+
     The operators are used by the solvers as
     \verbatim
         fvm::ddt(ibm.alpha(), U)
@@ -224,8 +238,16 @@ class cutCellGeometry
 
     // Moving bodies only
 
-        //- True if any body moves
+        //- True if any body moves (the geometry changes)
         bool moving_;
+
+        //- True if any wall has a velocity (moving or invariant bodies):
+        //  ibmUb exists
+        bool wallVelocity_;
+
+        //- Largest change of the level set of an invariant body at the
+        //  edge crossings, relative to the edge length
+        scalar invarianceTolerance_;
 
         //- Periodic lengths of the domain (0: not periodic)
         vector periodicLengths_;
@@ -578,6 +600,18 @@ class cutCellGeometry
         //- Mass source, swept old volume and body velocity (moving only)
         void calcMovingTerms();
 
+        //- Body velocity u_b at the wall points of the cells a body with a
+        //  wall velocity owns, zero elsewhere (ibmUb)
+        void calcWallVelocity();
+
+        //- Check that the invariant bodies keep their shape under their
+        //  motion state advanced over a time tau (fatal otherwise)
+        void checkInvariance(const scalar tau) const;
+
+        //- Virtual time over which the fastest wall point of an invariant
+        //  body travels one edge length of the cut (start-up check)
+        scalar invarianceTime() const;
+
         //- Distance from x0 along n to the boundary of the bounding box of
         //  cell celli (solved directions only)
         scalar cellExitDistance
@@ -758,11 +792,16 @@ public:
 
         // Moving bodies
 
-            //- True if any body moves
+            //- True if any body moves (the geometry changes)
             bool moving() const { return moving_; }
 
+            //- True if any wall has a velocity: moving or invariant bodies.
+            //  Ub() and movingWallSource() exist exactly then.
+            bool wallVelocity() const { return wallVelocity_; }
+
             //- Move the bodies to the current time and rebuild the
-            //  geometry and the moving-wall terms. No-op for static bodies.
+            //  geometry and the moving-wall terms; for invariant bodies
+            //  only the wall velocity. No-op for static bodies.
             void update();
 
             //- Whether the geometry belongs to the current mesh: false

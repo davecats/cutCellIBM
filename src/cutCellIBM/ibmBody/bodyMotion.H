@@ -25,6 +25,15 @@ Description
     body rotates about and is translated with (default: the body centre).
     The level set is periodic about this point.
 
+    "invariant yes" (any type, default no) declares that the motion leaves
+    the body unchanged as a set: a cylinder or a body of revolution turning
+    about its axis, a sphere turning about its centre, a cylinder sliding
+    along its axis, a plane sliding in itself. The geometry is then built
+    once, with the body as defined, and the motion only supplies the wall
+    velocity u_b = u + omega ^ (x - c) of the no-slip wall; there is no wall
+    flux, and a steady solver can run it. cutCellGeometry checks the
+    invariance at start-up and at every update (fatal otherwise).
+
     The "external" type is the hook for bodies driven by the solver itself,
     e.g. a point particle integrated with the flow: the driver calls
     setState(displacement, velocity) before cutCellGeometry::update().
@@ -49,6 +58,9 @@ protected:
 
     const dictionary dict_;
     vector omega_;
+
+    //- The motion leaves the body unchanged as a set
+    bool invariant_;
 
     //- Initial centre of rotation, if given
     bool hasCentreOfRotation_;
@@ -76,6 +88,9 @@ public:
 
     //- True if the body moves at all
     virtual bool moving() const { return true; }
+
+    //- True if the motion is declared to leave the body unchanged
+    bool invariant() const { return invariant_; }
 
     //- Displacement of the body centre from its initial position
     virtual vector displacement(const scalar t) const = 0;

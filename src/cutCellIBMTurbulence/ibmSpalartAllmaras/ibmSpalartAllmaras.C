@@ -66,7 +66,7 @@ template<class BasicTurbulenceModel>
 tmp<vectorField>
 ibmSpalartAllmaras<BasicTurbulenceModel>::wallVelocity() const
 {
-    if (ibm_.moving())
+    if (ibm_.wallVelocity())
     {
         return tmp<vectorField>(new vectorField(ibm_.Ub().primitiveField()));
     }

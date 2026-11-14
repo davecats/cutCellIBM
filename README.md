@@ -59,6 +59,9 @@ main ── movingBody ── scalar ── scalar_secondOrder ── fouling
 - Moving-wall traction and blanking sources, flux re-interpolation onto the new wet faces,
   rescaled `ddtCorr`, pressure reference relocated when swallowed, step-restriction diagnostics.
 - Motions `none | translating | oscillating | prescribed | external` plus `angularVelocity`;
+  `invariant yes` for a motion that leaves the body unchanged (rotation about an axis of
+  symmetry, sliding along one): static geometry, no wall flux, only the wall velocity, so
+  ibmSimpleFoam can run it (checked at start-up and every step);
   `periodicLengths` for bodies crossing periodic boundaries; `alphaField` bodies with
   `moving true` are re-read each step (hook for a deposit or particle model).
 - `ibmMeanVelocityForce` standalone, `flowDir` allows a zero target.
@@ -359,7 +362,15 @@ the surface), `motion { ... }`. Motion types: `none` (default), `translating`
 velocity must be the exact derivative of the displacement), `external` (state set from
 code, section 5). Any type accepts `angularVelocity` (constant, about the body centre; the
 level set is evaluated in the rotated frame, so it works for non-axisymmetric bodies and
-STLs). `alphaField` bodies take the fluid fraction from a registered field or the time
+STLs). `invariant yes` (any type) declares that the motion maps the body onto itself — a
+cylinder or body of revolution turning about its axis, a sphere about its centre, a cylinder
+sliding along its axis: the geometry is built once at rest, there is no wall flux, and the
+motion only supplies the wall velocity u_b = U + ω×(x − c) to the no-slip traction, the
+blanking, the forces and the wall functions; ibmSimpleFoam accepts such bodies. The invariance
+is checked on the level set at the edge crossings of the cut, at start-up under a virtual motion
+that moves the wall by one cell and at every step for the actual motion state (fatal if it
+changes by more than `invarianceTolerance`, default 1e-6, times the edge length; not for
+`alphaField` bodies). `alphaField` bodies take the fluid fraction from a registered field or the time
 directory, reconstruct θ from the 0.5 iso-surface of its point interpolation, and with
 `moving true` re-fetch it every step (their velocity is uniform or a field).
 

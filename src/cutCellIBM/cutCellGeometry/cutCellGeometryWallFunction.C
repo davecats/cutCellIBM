@@ -73,7 +73,7 @@ Foam::scalar Foam::cutCellGeometry::wallFunctionUTau
     // Tangential slip of the sample along the wall of the cell
     const vector n(Sw_[celli]/max(Awall_[celli], VSMALL));
     vector slip(Us);
-    if (moving_)
+    if (wallVelocity_)
     {
         slip -= UbPtr_()[celli];
     }
@@ -569,7 +569,7 @@ void Foam::cutCellGeometry::wallProfile
             "zeroGradient"
         )
     );
-    if (moving_)
+    if (wallVelocity_)
     {
         d.Ub->primitiveFieldRef() = UbPtr_().primitiveField();
     }
@@ -633,7 +633,7 @@ Foam::tmp<Foam::volScalarField> Foam::cutCellGeometry::wallViscosity
         // (u+ >= ln(1 + kappa d+)/kappa), which caps it with d at least the
         // cell size
         vector slip(U[celli]);
-        if (moving_)
+        if (wallVelocity_)
         {
             slip -= UbPtr_()[celli];
         }
@@ -670,7 +670,7 @@ Foam::tmp<Foam::volScalarField> Foam::cutCellGeometry::wallViscosity
         for (const label celli : wallCells_)
         {
             vector slip(U[celli]);
-            if (moving_)
+            if (wallVelocity_)
             {
                 slip -= UbPtr_()[celli];
             }

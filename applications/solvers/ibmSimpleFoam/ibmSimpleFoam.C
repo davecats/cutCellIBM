@@ -66,6 +66,10 @@ int main(int argc, char *argv[])
             ibm.checkRefCell(pRefCell);
         }
 
+        // Invariant bodies: the wall velocity at the current (pseudo-)time,
+        // the geometry is static. No-op without them.
+        ibm.update();
+
         // --- Pressure-velocity SIMPLE corrector
         {
             #include "UEqn.H"

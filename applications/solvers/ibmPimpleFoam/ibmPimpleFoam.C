@@ -13,7 +13,9 @@ Description
     flux as a source, the unsteady term uses the swept old fluid volume, and
     the no-slip wall and the blanking are driven to the body velocity. The
     static path is untouched: every moving-body operation sits behind
-    ibm.moving().
+    ibm.moving(). A body whose motion leaves it invariant (rotation about
+    its axis, sliding along it) keeps a static geometry and only supplies
+    the wall velocity (ibm.wallVelocity()).
 
     The transient Rhie-Chow correction (ddtCorr) is available in its Euler
     form, theta- and alpha-consistent; the flux of a coupled face is made
@@ -104,6 +106,12 @@ int main(int argc, char *argv[])
             // Cells just uncovered carry the solid pressure (zero), a jump
             // of the size of the pressure level for the momentum predictor
             ibm.fillUncovered(p);
+        }
+        else
+        {
+            // Invariant bodies (motion with "invariant yes"): the wall
+            // velocity at the new time, static geometry. No-op without them.
+            ibm.update();
         }
 
         // --- Pressure-velocity PIMPLE corrector loop

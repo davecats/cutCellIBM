@@ -3,23 +3,40 @@
 
     Nothing here is executed for static bodies: update() returns at once
     when no body moves, and the moving-only fields are never allocated.
+    Invariant bodies (static geometry with a wall velocity) only use
+    calcWallVelocity and the invariance check.
 \*---------------------------------------------------------------------------*/
 
 #include "cutCellGeometry.H"
 #include "fvMesh.H"
 #include "Time.H"
 #include "boundBox.H"
+#include "OStringStream.H"
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
 void Foam::cutCellGeometry::update()
 {
-    if (!moving_)
+    if (!wallVelocity_)
     {
         return;
     }
 
     const scalar t = mesh_.time().value();
+
+    if (!moving_)
+    {
+        // Invariant bodies only: the geometry stays, the wall velocity
+        // follows the motion
+        forAll(bodies_, bodyi)
+        {
+            bodies_[bodyi].moveTo(t);
+        }
+        checkInvariance(0);
+        calcWallVelocity();
+        return;
+    }
+
     Info<< "Cut-cell immersed boundary: moving the bodies to t = " << t << endl;
 
     forAll(bodies_, bodyi)
@@ -50,6 +67,7 @@ void Foam::cutCellGeometry::update()
     // the wall flux (calcMovingTerms), which is what makes the discrete
     // geometric conservation law exact.
     calcGeometry();
+    checkInvariance(0);
     calcMovingTerms();
 
     Info<< "    cells: "
@@ -97,9 +115,15 @@ void Foam::cutCellGeometry::updateMesh()
 
     // Static bodies: the old time levels of alpha are the current one (a
     // refined cut cell inherited the fraction of its parent). Moving
-    // bodies get theirs from the next update().
+    // bodies get theirs from the next update(). Invariant bodies need the
+    // wall velocity on the changed cells now.
     if (!moving_)
     {
+        if (wallVelocity_)
+        {
+            calcWallVelocity();
+        }
+
         volScalarField* a0 = &alpha_;
         while (a0->nOldTimes())
         {
@@ -111,10 +135,8 @@ void Foam::cutCellGeometry::updateMesh()
 }
 
 
-void Foam::cutCellGeometry::calcMovingTerms()
+void Foam::cutCellGeometry::calcWallVelocity()
 {
-    const scalar dt = mesh_.time().deltaTValue();
-    const scalarField& V = mesh_.V();
     const vectorField& Sw = Sw_.primitiveField();
 
     // Body velocity for the cells a body owns (cut, solid and wall cells),
@@ -163,7 +185,7 @@ void Foam::cutCellGeometry::calcMovingTerms()
     List<vectorField> bodyU(bodies_.size());
     forAll(bodies_, bodyi)
     {
-        if (bodies_[bodyi].moving())
+        if (bodies_[bodyi].hasWallVelocity())
         {
             bodies_[bodyi].velocity(wallPoints, bodyU[bodyi]);
         }
@@ -171,7 +193,7 @@ void Foam::cutCellGeometry::calcMovingTerms()
     forAll(cellBody_, celli)
     {
         const label bodyi = cellBody_[celli];
-        if (bodyi >= 0 && bodies_[bodyi].moving())
+        if (bodyi >= 0 && bodies_[bodyi].hasWallVelocity())
         {
             Ub[celli] = bodyU[bodyi][celli];
         }
@@ -183,6 +205,17 @@ void Foam::cutCellGeometry::calcMovingTerms()
         Info<< "    wall velocity: evaluation point limited to the cell in "
             << nClipped << " wall cells (tiny wall segments)" << endl;
     }
+}
+
+
+void Foam::cutCellGeometry::calcMovingTerms()
+{
+    const scalar dt = mesh_.time().deltaTValue();
+    const scalarField& V = mesh_.V();
+    const vectorField& Sw = Sw_.primitiveField();
+
+    calcWallVelocity();
+    const vectorField& Ub = UbPtr_().primitiveField();
 
     // Wall flux S (Sw points from the fluid into the body): the volume the
     // wall sweeps per unit time, taken as PRIMARY. Continuity becomes
@@ -199,7 +232,9 @@ void Foam::cutCellGeometry::calcMovingTerms()
     // through the wall faces, S_rot (rotationalWallFlux). It vanishes for a
     // body of revolution turning about its axis away from removed cells,
     // and sums to zero over the domain for any rigid motion. Bodies without
-    // rotation, and alpha-field bodies, keep S = u_b . Sw.
+    // rotation, and alpha-field bodies, keep S = u_b . Sw. Invariant bodies
+    // have no wall flux (S = 0): their wall velocity is tangential to the
+    // exact wall, and u_b . Sw of the discrete wall would only be its error.
     scalarField Srot;
     bool anyRotating = false;
     forAll(bodies_, bodyi)
@@ -225,7 +260,11 @@ void Foam::cutCellGeometry::calcMovingTerms()
     {
         const label bodyi = cellBody_[celli];
         scalar Sint;
-        if (anyRotating && bodyi >= 0 && bodies_[bodyi].rotating())
+        if (bodyi >= 0 && bodies_[bodyi].invariant())
+        {
+            Sint = 0;
+        }
+        else if (anyRotating && bodyi >= 0 && bodies_[bodyi].rotating())
         {
             Sint =
                 (bodies_[bodyi].velocityOfCentre() & Sw[celli])
@@ -388,12 +427,157 @@ void Foam::cutCellGeometry::rotationalWallFlux(scalarField& Srot) const
 }
 
 
+namespace
+{
+    // Edge crossings of the cut that belong to body bodyi: those at which
+    // its level set is the smallest in magnitude among the level-set
+    // bodies, with the edge lengths
+    void bodyCrossings
+    (
+        const Foam::fvMesh& mesh,
+        const Foam::PtrList<Foam::ibmBody>& bodies,
+        const Foam::pointField& edgeCross,
+        const Foam::label bodyi,
+        Foam::pointField& pts,
+        Foam::scalarField& h
+    )
+    {
+        using namespace Foam;
+        DynamicList<point> x;
+        DynamicList<scalar> l;
+        const edgeList& edges = mesh.edges();
+        forAll(edgeCross, edgei)
+        {
+            if (edgeCross[edgei] == point::max) continue;
+            x.append(edgeCross[edgei]);
+            l.append(edges[edgei].mag(mesh.points()));
+        }
+        pointField xc(std::move(x));
+        scalarField lc(std::move(l));
+
+        scalarField phiMin(xc.size(), GREAT);
+        scalarField phiOwn(xc.size(), GREAT);
+        scalarField phib;
+        forAll(bodies, bj)
+        {
+            if (!bodies[bj].hasLevelSet()) continue;
+            bodies[bj].evaluate(xc, phib);
+            phiMin = min(phiMin, mag(phib));
+            if (bj == bodyi) phiOwn = mag(phib);
+        }
+
+        DynamicList<point> xo;
+        DynamicList<scalar> lo;
+        forAll(xc, i)
+        {
+            if (phiOwn[i] <= phiMin[i])
+            {
+                xo.append(xc[i]);
+                lo.append(lc[i]);
+            }
+        }
+        pts = std::move(xo);
+        h = std::move(lo);
+    }
+}
+
+
+Foam::scalar Foam::cutCellGeometry::invarianceTime() const
+{
+    // tau = (smallest edge length at the cut) / (largest wall speed), over
+    // the invariant bodies: the virtual motion moves the fastest wall point
+    // by one cell, so a body that is not invariant changes its level set
+    // by a fraction of the edge length of the order of the normal part of
+    // its velocity relative to the largest one
+    scalar hMin = GREAT;
+    scalar uMax = 0;
+    forAll(bodies_, bodyi)
+    {
+        if (!bodies_[bodyi].invariant()) continue;
+        pointField pts;
+        scalarField h;
+        bodyCrossings(mesh_, bodies_, edgeCrossGeo_, bodyi, pts, h);
+        vectorField u;
+        bodies_[bodyi].velocity(pts, u);
+        if (h.size())
+        {
+            hMin = min(hMin, min(h));
+            uMax = max(uMax, max(mag(u)));
+        }
+    }
+    reduce(hMin, minOp<scalar>());
+    reduce(uMax, maxOp<scalar>());
+    return (uMax > 0 && hMin < GREAT) ? hMin/uMax : 0;
+}
+
+
+void Foam::cutCellGeometry::checkInvariance(const scalar tau) const
+{
+    // The level set of an invariant body at the edge crossings of its cut,
+    // with the body at rest (the geometry) and in its motion state advanced
+    // by tau, must agree: |d phi| <= invarianceTolerance h (h the edge
+    // length; the level sets are distances, so d phi is the normal
+    // displacement of the wall)
+    forAll(bodies_, bodyi)
+    {
+        const ibmBody& b = bodies_[bodyi];
+        if (!b.invariant()) continue;
+
+        pointField pts;
+        scalarField h;
+        bodyCrossings(mesh_, bodies_, edgeCrossGeo_, bodyi, pts, h);
+
+        scalar err = 0;
+        label nPts = pts.size();
+        if (pts.size())
+        {
+            scalarField dphi;
+            b.levelSetChange(pts, tau, dphi);
+            err = max(mag(dphi)/max(h, VSMALL));
+        }
+        reduce(err, maxOp<scalar>());
+        reduce(nPts, sumOp<label>());
+
+        if (tau > 0)
+        {
+            Info<< "    body " << b.name() << ": invariance under a virtual "
+                << "motion over " << tau << " s (wall moved by one cell): "
+                << "max |d phi|/h " << err << " at " << nPts
+                << " edge crossings" << endl;
+        }
+        if (err > invarianceTolerance_)
+        {
+            OStringStream when;
+            if (tau > 0)
+            {
+                when<< "under a virtual motion over " << tau << " s";
+            }
+            else
+            {
+                when<< "at t = " << mesh_.time().value();
+            }
+            FatalErrorInFunction
+                << "Body " << b.name() << " is declared invariant, but its "
+                << "motion changes its shape: the level set at the cut moves "
+                << "by " << err << " edge lengths (invarianceTolerance "
+                << invarianceTolerance_ << ") "
+                << when.str().c_str()
+                << ". Only a motion that maps the body onto itself (rotation "
+                << "about an axis of symmetry, sliding along a direction of "
+                << "translational symmetry) can be invariant."
+                << exit(FatalError);
+        }
+    }
+}
+
+
 const Foam::volVectorField& Foam::cutCellGeometry::Ub() const
 {
     if (!UbPtr_)
     {
         FatalErrorInFunction
-            << "No moving body: the body velocity field does not exist"
+            << "No moving or invariant body: the body velocity field does "
+            << "not exist"
             << exit(FatalError);
     }
     return UbPtr_();

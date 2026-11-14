@@ -50,7 +50,7 @@ if (ibmTurbulent)
         ibm.fluidGrad
         (
             U,
-            ibm.moving()
+            ibm.wallVelocity()
           ? vectorField(ibm.Ub().primitiveField())
           : vectorField(mesh.nCells(), Zero)
         )
@@ -62,7 +62,7 @@ if (ibmTurbulent)
     );
 }
 
-if (ibm.moving())
+if (ibm.wallVelocity())
 {
     // u_b half of the no-slip wall traction nu (u_b - u_P) Awall/d, and
     // the blanking source driving the solid interior to u_b

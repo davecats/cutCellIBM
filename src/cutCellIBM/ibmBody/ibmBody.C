@@ -56,6 +56,12 @@ Foam::ibmBody::ibmBody
         Info<< "    body " << name << ": moving, motion type "
             << motion_->type() << endl;
     }
+    else if (invariant())
+    {
+        Info<< "    body " << name << ": invariant motion of type "
+            << motion_->type() << ", angular velocity " << motion_->omega()
+            << ": static geometry with a wall velocity" << endl;
+    }
 }
 
 
@@ -152,6 +158,10 @@ void Foam::ibmBody::moveTo(const scalar t)
 
 bool Foam::ibmBody::needsTransform() const
 {
+    if (invariant())
+    {
+        return cmptMax(periodicLengths_) > 0;
+    }
     return
         mag(displacement_) > 0
      || angle_ != 0
@@ -165,7 +175,56 @@ void Foam::ibmBody::toBodyFrame
     pointField& out
 ) const
 {
-    const point c(currentCentre());
+    if (invariant())
+    {
+        toBodyFrame(pts, Zero, 0, Zero, out);
+    }
+    else
+    {
+        toBodyFrame(pts, displacement_, angle_, axis_, out);
+    }
+}
+
+
+void Foam::ibmBody::levelSetChange
+(
+    const pointField& pts,
+    const scalar tau,
+    scalarField& dphi
+) const
+{
+    const vector& omega = motion_->omega();
+    const vector disp(displacement_ + tau*velocity_);
+    const scalar angle = angle_ + tau*mag(omega);
+    const vector axis(mag(omega) > 0 ? omega/mag(omega) : vector::zero);
+
+    pointField bodyPts;
+    toBodyFrame(pts, Zero, 0, Zero, bodyPts);
+    scalarField phi0(pts.size());
+    levelSet(bodyPts, phi0);
+
+    toBodyFrame(pts, disp, (mag(omega) > 0 ? angle : 0), axis, bodyPts);
+    dphi.setSize(pts.size());
+    levelSet(bodyPts, dphi);
+
+    dphi -= phi0;
+    if (invert_)
+    {
+        dphi = -dphi;
+    }
+}
+
+
+void Foam::ibmBody::toBodyFrame
+(
+    const pointField& pts,
+    const vector& disp,
+    const scalar angle,
+    const vector& axis,
+    pointField& out
+) const
+{
+    const point c(referencePoint() + disp);
     out.setSize(pts.size());
 
     // Minimum image about the current centre in the periodic directions
@@ -184,15 +243,15 @@ void Foam::ibmBody::toBodyFrame
     }
 
     // Undo the translation
-    if (mag(displacement_) > 0)
+    if (mag(disp) > 0)
     {
-        out -= displacement_;
+        out -= disp;
     }
 
     // Undo the rotation about the initial centre
-    if (angle_ != 0)
+    if (angle != 0)
     {
-        const quaternion q(axis_, -angle_);
+        const quaternion q(axis, -angle);
         const point c0(referencePoint());
         forAll(out, i)
         {

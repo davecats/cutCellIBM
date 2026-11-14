@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
         const scalar dpdr = ut*ut/r;
         gpEx[i] = vector(dpdr*X/r, dpdr*Y/r, 0);
         if (alpha[i] > 0) U[i] = vector(-ut*Y/r, ut*X/r, 0);
-        else U[i] = ibm.moving() ? ibm.Ub()[i] : vector::zero;
+        else U[i] = ibm.wallVelocity() ? ibm.Ub()[i] : vector::zero;
     }
     U.correctBoundaryConditions();
     p.correctBoundaryConditions();
@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
       + fvm::Sp(nuv*ibm.noSlipCoeff(), U)
       + fvm::Sp(nuv*ibm.blankCoeff(), U)
     );
-    if (ibm.moving()) visc -= ibm.movingWallSource(nuv);
+    if (ibm.wallVelocity()) visc -= ibm.movingWallSource(nuv);
     fvVectorMatrix conv(fvm::div(phi, U));
 
     volVectorField rc(conv & U);
