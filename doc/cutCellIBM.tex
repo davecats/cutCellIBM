@@ -461,7 +461,7 @@ term & wall contribution & discrete operator\\
 \midrule
 unsteady & --- & $\alpha_PV_P\,(\uu_P^{n+1}-\uu_P^{n})/\dt$\\[3pt]
 convective & zero ($\uu\cdot\nn_w=0$) & $\sum_f\phi_f\,\bar\uu_f$, \quad $\phi_f=\theta_f\,\bar\uu_f\cdot\Sf$\\[3pt]
-viscous, free slip & zero (no tangential traction) & $\sum_f\theta_f\,\Gamma_f\,\delta_f|\Sf|\,(\uu_N-\uu_P)$\\[3pt]
+viscous, free slip & $\nu\Aw\big(\mathsf H_w\cdot\uu_{t,w}+\partial_nu_n\,\nn\big)$ (Section~\ref{sec:zeroshear}) & $\sum_f\theta_f\,\Gamma_f\,\delta_f|\Sf|\,(\uu_N-\uu_P)$\\[3pt]
 viscous, no slip & $\nu\,(\bm 0-\uu_P)\Aw/\dw$ & same, plus $-\nu\,\cns V_P\,\uu_P$\\[3pt]
 pressure & $p_P\Sw$, absorbed by closure & $\sum_f\theta_f\,(p_f-p_P)\,\Sf$\\[3pt]
 continuity & zero & $\sum_f\phi_f=0$\\
@@ -489,8 +489,14 @@ and multiplied by $\theta_f$,
 (+\text{ the usual non-orthogonal correction on non-orthogonal meshes}).
 \label{eq:viscface}
 \end{equation}
-On the wall segment, free slip means zero tangential traction and, since $\uu\cdot\nn_w=0$,
-no normal viscous flux either, so the wall contributes nothing. For no slip the wall shear is
+On the wall segment, free slip means zero tangential \emph{stress}. In the Laplacian form the wall
+flux is $\nu\,\partial\uu/\partial n$, not the stress, and on a curved wall the two differ:
+the stress-free wall has $\mathsf P\,\partial\uu/\partial n=\mathsf H\cdot\uu_t$ ($\mathsf H$ the
+curvature tensor) and $\partial u_n/\partial n=-\nabla_{\!s}\cdot\uu_t\ne0$. Leaving the wall out,
+$\partial\uu/\partial n=\bm 0$, is OpenFOAM's \code{slip} condition, not a stress-free wall; it was the
+free slip of this method until 2026-11 (\code{zeroShear false}), and on the periodic cylinder it
+gives a drag 25\,\% below the stress-free one. Section~\ref{sec:zeroshear} gives the wall flux of the
+stress-free wall. For no slip the wall shear is
 approximated by a two-point difference between the cell value and the wall value $\bm 0$ over
 the distance \eqref{eq:dwall},
 \begin{equation}
@@ -553,9 +559,9 @@ inside the cell, since only the area vector $\Sw$ enters.
 
 Proposition~\ref{prop:nopen} is the structural point of the method: the no-penetration
 condition is never written down, it is a consequence of enforcing mass conservation on the cut
-cell with fluxes and wall segment taken from the same fractions. The free-slip condition
-appears only as the \emph{absence} of a wall term in the viscous operator, and the no-slip
-condition as the presence of the single diagonal term $\nu\cns V_P$.
+cell with fluxes and wall segment taken from the same fractions. The no-slip condition appears
+as the single diagonal term $\nu\cns V_P$, the free-slip condition as the wall flux of the
+stress-free wall (Section~\ref{sec:zeroshear}), neither of which touches continuity.
 
 \begin{proposition}[Small cells strengthen the diagonal]
 \label{prop:smallcell}
@@ -1010,7 +1016,7 @@ term & body at rest & body moving\\
 continuity & $\sum_f\phi_f=0$ & $\sum_f\phi_f=-S_P$, $\;S_P=\bm U\cdot\Sw+S^{\rm rot}_P$\\
 convective & no wall term & no wall term\\
 pressure & $p_P\Sw$, absorbed by closure & same\\
-viscous, free slip & no wall term & no wall term\\
+viscous, free slip & stress-free flux (Sec.~\ref{sec:zeroshear}) & same with $\uu-\ub$, plus $\nu\Aw\,\bm\omega\times\nn$\\
 viscous, no slip & $\nu(\bm 0-\uu_P)\Aw/\dw$ & $\nu(\ub-\uu_P)\Aw/\dw$\\
 unsteady & $\alpha_PV_P(\uu^{n+1}-\uu^n)/\dt$ & $(\alpha^{n+1}_P\uu^{n+1}-\alpha^n_P\uu^n)V_P/\dt$\\
 \bottomrule
@@ -1027,7 +1033,8 @@ wrong: the absolute mass flux through the wall is not zero, but the momentum bal
 with $\bm w$ the velocity of the boundary: on the wall $\bm w=\ub$ and $(\uu-\ub)\cdot\nn=0$, on
 the fixed faces $\bm w=\bm 0$ and the flux is the absolute one. So the convective operator is
 untouched, provided the unsteady term is the two-level one of Table~\ref{tab:moving} with the
-volume inside the difference. For free slip nothing else is added: repeating the argument of
+volume inside the difference. For free slip the stress-free flux is taken for the velocity relative
+to the rigid motion (Section~\ref{sec:zeroshear}); for the no-penetration part, repeating the argument of
 Proposition~\ref{prop:nopen} with \eqref{eq:continuity} forces $\bm U\cdot\nn_w=\ub\cdot\nn_w$
 for a locally uniform field --- \emph{the mass source is the boundary condition}. For no slip
 the wall traction $\nu(\ub-\uu_P)\Aw/\dw$ keeps its diagonal half unchanged and acquires the
@@ -1693,6 +1700,46 @@ enters the viscous force%
 \ and the evaluation point \eqref{eq:ubpoint} of the wall velocity%
 .
 
+\subsection{The stress-free wall}
+\label{sec:zeroshear}
+
+For a rigid body motion $\ub=\bm U+\bm\omega\times\bm r$, whose stress vanishes, the relative velocity
+$\bm w=\uu-\ub$ has $\bm w\cdot\nn=0$ on the wall, and the wall is stress-free if
+$\mathsf P\,\partial\bm w/\partial n=\mathsf H\cdot\bm w_t$, with $\mathsf P=\mathsf I-\nn\nn$,
+$\nn$ into the fluid and $\mathsf H=\nabla\nn$ the curvature tensor (positive on a convex body; the
+cylinder: $\partial w_\theta/\partial r=w_\theta/R$). With $\partial\ub/\partial n=\bm\omega\times\nn$
+the wall flux of the Laplacian form is
+\begin{equation}
+\int_{\rm wall}\nu\,\frac{\partial\uu}{\partial n}\dd S\simeq\nu\Aw\Big(\mathsf H_w\cdot\bm w_{t,w}
++\bm\omega\times\nn+\frac{\partial u_n}{\partial n}\,\nn\Big),
+\qquad \frac{\partial u_n}{\partial n}=-\mathrm{tr}\big(\mathsf P\,\nabla\uu\,\mathsf P\big),
+\label{eq:zeroshear}
+\end{equation}
+the last from continuity (the rigid motion contributes nothing to it). The pieces:
+\begin{itemize}\itemsep1pt
+\item $\mathsf H_w$ from the finite-difference Hessian of the body's level set at the fluid centroid
+(step $10^{-3}V^{1/3}$), $\mathsf K=\mathsf P\nabla\nabla\varphi\,\mathsf P/|\nabla\varphi|$, moved to the
+wall per principal direction, $\kappa_w=\kappa/(1-\varphi\kappa)$ (exact for a distance function),
+limited where the radius of curvature is under twice the distance. Triangulated surfaces and
+fraction-field bodies have no usable Hessian and keep $\partial\uu/\partial n=\bm 0$, with a warning.
+\item The tangential wall value from the value point by the condition itself,
+$\bm w_{t,w}=(\mathsf I+d_c\mathsf H_w)^{-1}\bm w_{t,P}$ (exact for a rigid rotation), with $\bm w_P$ moved
+along the wall to the foot of the wall-piece centroid by the least-squares gradient.
+\item The friction $\nu(\Aw/V)\mathsf H_w(\mathsf I+d_c\mathsf H_w)^{-1}$ implicit with its largest
+$|$eigenvalue$|$, the rest explicit (a concave wall has a negative friction).
+\item The normal part explicit from the least-squares gradient. In the form $\nn\cdot\nabla\uu\cdot\nn$,
+equal for a solenoidal field, it depends on the cell's own normal velocity with a negative coefficient
+and the explicit term diverges; the tangential divergence hardly depends on it. Without the normal part
+the normal viscous stress ends up in the cut-cell pressure as an $O(1)$ layer that does not converge,
+and the velocity is first order (Section~\ref{sec:verif_zs}).
+\end{itemize}
+The flux \eqref{eq:zeroshear} enters the viscous force; the force then equals the driving force times the
+fluid volume. For the moment the transpose part of the stress is added as
+$\nu\sum S_w\times\uu_w$, which follows from $\oint\bm r\times(\nabla\uu)^{\!\top}\cdot\nn\dd S=\oint\uu\times\nn\dd S$
+for a solenoidal $\uu$ (it replaces the rigid-rotation term $\nu\,\bm\omega\times\bm S_k$ of the no-slip
+wall). The condition is on by default (\code{zeroShear true}); it needs the second-order treatment for
+the normal part and the tangential offset.
+
 \subsection{Pressure gradient and forces}
 \label{sec:grad2}
 
@@ -1959,7 +2006,8 @@ cut cells. The body given as an STL (a 3600-gon) or as a fraction field gives th
 its geometry route. With two bodies of mixed wall conditions (a no-slip cylinder of radius $1$
 and a free-slip one of radius $0.7$) the forces sum to the driving force times the fluid volume
 to all printed digits, $0.625915+0.202512=0.828427$, the check of
-Proposition~\ref{prop:conservation}; the free-slip body carries no viscous force. A four-rank
+Proposition~\ref{prop:conservation}; with $\partial\uu/\partial n=\bm 0$ (the condition of these runs) the
+free-slip body carries no viscous force. A four-rank
 parallel run reproduces the serial drag to all printed digits.
 
 \begin{table}[htbp]\centering\footnotesize
@@ -2272,8 +2320,9 @@ drag much closer to its limit (the first-order value at $N=161$ is still $1.3\%$
 second-order value at $N=321$) and the total converges at an apparent order of $1.6$--$1.9$;
 but the components show that this is largely cancellation: the pressure drag
 ($2.783$, $2.846$, $2.882$, $2.902$) increases at order $0.8$, the viscous drag ($3.002$,
-$2.975$, $2.951$, $2.933$) decreases at order $0.2$--$0.4$. The free-slip drag, a pure pressure
-force, converges at order $0.5$--$0.7$ with both treatments. The linearly exact gradient moves
+$2.975$, $2.951$, $2.933$) decreases at order $0.2$--$0.4$. The free-slip drag (here
+$\partial\uu/\partial n=\bm 0$, a pure pressure force) converges at order $0.5$--$0.7$ with both
+treatments; the stress-free wall is in Section~\ref{sec:verif_zs}. The linearly exact gradient moves
 the components by up to $0.7\%$ against the previous second-order form but leaves the no-slip
 total unchanged to $2\times10^{-4}$ and the orders as they were. The forces are thus limited by the
 cut-cell pressure and by the $O(\alpha_{\min}h)$ boundary displacement of sliver absorption, not
@@ -2289,6 +2338,27 @@ second order before the two fixes).
 free-slip cylinder relative to the second-order value at $N=321$.}
 \label{fig:order_coupled}
 \end{figure}
+\subsection{Stress-free wall}
+\label{sec:verif_zs}
+
+Exact rigid rotations have zero stress and test the curvature friction, the rigid-motion term and
+the moment: in the Taylor--Couette geometry ($R=0.5$, $1.5$) a concave stress-free outer wall with
+the inner cylinder turning, a stress-free inner cylinder turning in fluid at rest, a static stress-free
+inner cylinder with the outer one turning; in 3-D a stress-free sphere in a spherical shell. The
+$\uu$ errors converge at second order ($9.1\cdot10^{-4}$, $1.5\cdot10^{-4}$, $2.7\cdot10^{-5}$ for the
+concave wall at $N=40,80,160$; $4.0\cdot10^{-4}$, $8.7\cdot10^{-5}$, $2.3\cdot10^{-5}$ for the turning sphere
+at $d/h=8,16,32$), the spurious torques vanish at second order; with $\partial\uu/\partial n=\bm 0$
+the errors do not converge (0.81, 0.15, 0.12). A manufactured solution with a slip velocity varying along
+the wall and $\partial u_r/\partial r\ne0$ (stream function $(r-R_1)(r-R_2)^2(1-6r)\sin2\theta$, inner
+wall stress-free, $p=0$, forcing by a coded source) gives $2.2\cdot10^{-2}$, $5.5\cdot10^{-3}$,
+$1.4\cdot10^{-3}$, $3.4\cdot10^{-4}$ at $N=40\dots320$; without the normal part of
+\eqref{eq:zeroshear} $5.1\cdot10^{-2}$, $1.8\cdot10^{-2}$, $9.2\cdot10^{-3}$, $4.0\cdot10^{-3}$, with a
+wall-cell pressure error that grows (5.1 to 6.9). The periodic cylinder at $Re_D=1$ (linked) gives
+3.9641, 3.9895, 3.9974, 3.9990 at $N=41\dots321$ against the body-fitted stress-free drag
+$4.0234\dots4.0032$ ($M=32\dots256$, limit $\approx3.999$); with $\partial\uu/\partial n=\bm 0$ it converged
+to the body-fitted slip drag, 3.048. Unlinked runs with $\alpha_{\min}=0.02$ overshoot (4.0119 at $N=321$):
+the absorbed slivers close faces across the slip flow; with $\alpha_{\min}=10^{-9}$ they give 3.9991.
+
 \section{Limitations}
 \label{sec:limits}
 
@@ -2313,7 +2383,9 @@ free-slip cylinder relative to the second-order value at $N=321$.}
       $O(\alpha_{\min}h)$ and removes the fluid volume of the absorbed cell%
       ; a cell crossing the threshold hands over no momentum%
       \ or scalar content%
-      . Mass conservation of the flow is unaffected. Cell merging is the clean remedy%
+      . Mass conservation of the flow is unaffected. On a stress-free wall the closed faces are steps
+      across the slip flow that drag on it (periodic cylinder, unlinked: 4.0119 at $N=321$ instead of
+      3.999; Section~\ref{sec:verif_zs}); with linking ($\alpha_{\min}=0$) this does not arise. Cell merging is the clean remedy%
       \ and would also relax the step restriction%
       . A cut cell whose faces all close (thin features, or after coupled-face
       synchronisation) while its $\alpha$ stays above $\alpha_{\min}$ is not guarded against.

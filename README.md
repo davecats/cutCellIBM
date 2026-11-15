@@ -42,8 +42,10 @@ main ── movingBody ── scalar ── scalar_secondOrder ── fouling
   fractions α by sub-sampling, slivers (α < `alphaMin`) absorbed with all faces closed,
   coupled faces synchronised with the minimum after absorption.
 - Wall segment defined by closure, `Sw = −Σ θ_f S_f`: no ghost cells, the wall pressure force is
-  absorbed into the gradient, no-penetration follows from continuity, free slip vs no slip is one
-  diagonal term `ν A_wall/d_wall`.
+  absorbed into the gradient, no-penetration follows from continuity, no slip is one diagonal
+  term `ν A_wall/d_wall`; free slip is the stress-free wall flux of `zeroShear` (curvature
+  friction and normal viscous flux, default since 2026-11-15; `zeroShear false`: ∂u/∂n = 0,
+  `doc/freeSlipPlan.md`).
 - Bodies: `cylinder`, `sphere`, `box`, `plane`, any closed `searchableSurface` (STL), `alphaField`;
   several bodies with mixed wall types.
 - `ibmSimpleFoam`, `ibmPimpleFoam` (SIMPLEC, θ-weighted Rhie–Chow and pressure Laplacian,
@@ -245,7 +247,7 @@ gives
 | continuity | Σ_f θ_f φ_f = 0 | Σ_f θ_f φ_f = -S, with S = U · Sw + S_rot (Sw into the body; S_rot the flux of the rotation through the open wet faces) |
 | convective | no wall term | no wall term (relative flux through the wall is zero) |
 | pressure | p_P Sw absorbed by closure | same |
-| viscous, free slip | no wall term | no wall term |
+| viscous, free slip | ν(A_w/V)(H·w_t + ∂u_n/∂n n), H the wall curvature (`zeroShear`, default; false: no wall term) | same with w = u − u_b, plus ν(A_w/V) ω × n |
 | viscous, no slip | ν(0 - u_P) A_wall/d on the diagonal | ν(u_b - u_P) A_wall/d: same diagonal, new source |
 | unsteady | αV(u^{n+1} - u^n)/Δt | (α^{n+1} u^{n+1} - α^n u^n) V/Δt |
 
@@ -355,6 +357,7 @@ bodies
 }
 ```
 
+Top-level `zeroShear true|false` (default true): free-slip walls stress-free, or ∂u/∂n = 0.
 Common entries: `wallType noSlip|freeSlip` (default noSlip), `invert true` (fluid inside
 the surface), `motion { ... }`. Motion types: `none` (default), `translating`
 (`velocity`), `oscillating` (`amplitude`, `frequency`, optional `phase`; d = A sin(2πft+φ)),
@@ -477,7 +480,10 @@ ibmPimpleFoam with the notebook's final pseudo-time step (Δt = 65h²/ν, Euler,
 SIMPLEC, no ddtCorr) is the same discrete fixed point as the notebook; ibmSimpleFoam differs
 through the relaxation dependence of the Rhie–Chow term. A 4-rank run reproduces the serial
 drag to all printed digits, and in `twoCylinders` (no-slip R = 1 plus free-slip R = 0.7) the
-forces on the two bodies sum to the driving force times the fluid volume exactly.
+forces on the two bodies sum to the driving force times the fluid volume exactly. The notebook's
+free slip is ∂u/∂n = 0: the free-slip column (and `run_all.sh`) runs the tutorial with
+`zeroShear false`; with the default stress-free wall the same tutorial gives a drag of 3.9888
+(body-fitted stress-free 4.003, `doc/freeSlipPlan.md`).
 
 ### 6.2 Moving bodies (Δt = 0.025, 3 outer iterations, no slip, bulk velocity pinned to 0)
 
@@ -669,7 +675,7 @@ tests, α_min = 0.02):
 | Taylor–Couette (exact NS), L2(U), N = 40/80/160 | 6.5e-3, 4.5e-3 (0.5), 2.1e-3 (1.1) | 1.2e-3, 3.4e-4 (1.8), 1.3e-4 (1.4) |
 | Taylor–Couette, bulk cells, U rms, N = 80→160 | order 1.0 | order 1.7 |
 | cylinder drag, no slip, Richardson N = 41/81/161 | 5.5431, 5.6604, 5.7577 (p = 0.3) | 5.7834, 5.8205, 5.8322 (p = 1.7) |
-| cylinder drag, free slip | 2.8377, 2.9421, 3.0004 (p = 0.8) | 2.9161, 2.9848, 3.0237 (p = 0.8) |
+| cylinder drag, free slip (∂u/∂n = 0, before `zeroShear`) | 2.8377, 2.9421, 3.0004 (p = 0.8) | 2.9161, 2.9848, 3.0237 (p = 0.8) |
 
 The operators are second order for both wall conditions. In the coupled Navier–Stokes problem
 the velocity is second order in the bulk and 5–16 times more accurate everywhere, but the

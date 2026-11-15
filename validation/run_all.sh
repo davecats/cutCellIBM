@@ -37,6 +37,13 @@ run cylinderRe1_pimple         ibmPimpleFoam
 run cylinderRe1_stl            ibmSimpleFoam
 run cylinderRe1_alphaField     ibmSimpleFoam
 run cylinderRe1_pimple_freeSlip ibmPimpleFoam
+# the notebook's free slip is du/dn = 0, the former IBM condition: compare a copy run with
+# zeroShear false (the tutorial itself has the stress-free wall, the default)
+DUDN0=cylinderRe1_pimple_freeSlip_dudn0.$(date +%Y%m%d%H%M%S)   # a fresh directory per run
+mkdir -p work/$DUDN0
+cp -r $T/cylinderRe1_pimple_freeSlip/{0,constant,system,Allclean} work/$DUDN0/
+foamDictionary work/$DUDN0/constant/ibmProperties -entry zeroShear -set false > /dev/null
+( T=work; run $DUDN0 ibmPimpleFoam )
 run twoCylinders               ibmSimpleFoam
 run cylinderRe1_parallel       ibmSimpleFoam 4
 run oscillatingCylinder        ibmPimpleFoam
@@ -49,7 +56,7 @@ $PY compare.py $T/cylinderRe1_pimple          --fig fig_pimple_vs_notebook.png
 $PY compare.py $T/cylinderRe1_stl
 $PY compare.py $T/cylinderRe1_alphaField
 $PY compare.py $T/cylinderRe1_parallel
-$PY compare.py $T/cylinderRe1_pimple_freeSlip --ref ref_nx81_freeSlip.npz --fig fig_pimple_freeSlip_vs_notebook.png
+$PY compare.py work/$DUDN0 --ref ref_nx81_freeSlip.npz --fig fig_pimple_freeSlip_vs_notebook.png
 echo; echo "== moving bodies"
 $PY compare_moving.py $T/oscillatingCylinder  --ref ref_osc.npz --fig fig_oscillating_vs_notebook.png
 $PY compare_moving.py $T/galileanTranslating  --ref ref_gal_seamFix.npz --tail 400 --fig fig_galilean_vs_notebook.png
