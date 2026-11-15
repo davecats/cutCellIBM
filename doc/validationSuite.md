@@ -15,7 +15,7 @@ fix the case will accept).
 | K1 | geometry: cut fractions, wall area and normal, sub-sampling, closure Σ S_k = S_w; 2-D, 3-D; analytic, STL, alpha-field bodies; invert; several bodies | `cutCellGeometry.C`, `ibmBody` |
 | K2 | linking: groups, shared value point, mergeAlpha | `cutCellGeometry.C` |
 | K3 | no-slip wall traction ν(u − u_b)/d, second-order wall gradient | wall coefficients |
-| K4 | free-slip wall (zero shear still missing, `doc/freeSlipPlan.md`) | wall coefficients |
+| K4 | free-slip wall; zero shear (curvature friction, normal viscous flux) behind `zeroShear`, default off (`doc/freeSlipPlan.md`) | wall coefficients, `zeroShearSource` |
 | K5 | pressure gradient in cut cells (linearly exact form) | `grad()` |
 | K6 | continuity: cut-face fluxes, second-order continuity flux, p–U coupling (SIMPLEC, PIMPLE) | solvers, `cutCellGeometry` |
 | K7 | convection at the wall (`ibmConvection`) | `cutCellGeometryTemplates.C` |
@@ -117,7 +117,8 @@ only in G2 and V1 until first order is removed. nSubSamples (8, 32) only in G1.
 2. Merge `feature_amr`; accepted when the gates pass and tier 1 agrees with the baseline.
 3. C1, C2 and the free-slip zero-shear fix, each accepted by its gates; then tier 2 (V10 SPH and
    V11 BUB before V6 MIG, V14 before V10, V7 sweeps, V15 complete and V16 before V8, V9, V12
-   complete).
+   complete). C1, C2 done; zero shear implemented behind `zeroShear` (default off, 2026-11-14,
+   §8 prerequisites), not yet the default.
 
 ## 8. Case MIG (V6): inertial migration of a sphere in a pipe (Rivero-Rodriguez & Scheid 2018)
 
@@ -235,6 +236,16 @@ Not involved: turbulence, wall functions, moving geometry, scalars.
   0.2887, 0.4633). Non-invariant motions (sideways, tilted by 1e-3, rotation about a non-axis, a
   prescribed motion turning sideways later) are fatal. The periodic-box MIG-G2 (translating,
   stress-free and rotating sphere) stays a V6 gate, run with C3.
+- **Zero-shear free slip** (`doc/freeSlipPlan.md`): **implemented behind `zeroShear`, default
+  false (f4f2366, 361c23c and the normal-flux commit, 2026-11-14)**. Wall flux of the Laplacian
+  form ν (A_w/V)(H_w·w_t,w + ω × n + (∂u_n/∂n) n) on free-slip walls of smooth level-set bodies:
+  curvature tensor from the level-set Hessian, Robin factor (I + d H_w)⁻¹ for the wall value,
+  ∂u_n/∂n = −tr(P∇uP) explicit. G1–G9 bit-identical with the switch off. Exact rigid rotations
+  (Taylor–Couette convex/concave, transient and steady; 3-D spherical shell) and a manufactured
+  solution with a varying slip and a normal velocity gradient converge at second order; V2 free
+  slip linked 3.9641, 3.9895, 3.9974, 3.9990 (N = 41 … 321) against the body-fitted stress-free
+  limit ≈ 3.999 (−24.8 % before). Open: default on (G7, V2 baselines), unlinked with
+  alphaMin > 0 (finding 13), triSurface and alpha-field bodies, V11.
 - **C3 driver:** `validation/suite/mig/` setup, outer (V, Ω) iteration, extraction, report.
 
 ### Gates
@@ -804,6 +815,25 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    two copies of a processor-face flux drift apart, amplified by ddtCorr without the fluid
    fraction; ddtCorr with α⁰ and a single-valued coupled-face flux (§12 amendments, "V5, V12,
    V13 re-accepted from 8d416fd").
+12. ~~2-D transient runs with a linked free-slip wall: U_z grows without bound~~ **resolved
+   (361c23c)**. `fvMatrix::H()` sets the components in empty directions to zero; `mergeH`
+   added the link-face terms back for every component, so the merged H_z of a group became its
+   internal coupling. In a group of a small cut cell without a wall coefficient (free slip;
+   α = 0.004 slave under a full master) H/A exceeded U_z by 1.28 per corrector sweep: round-off
+   of grad(p)_z (1e-32) grew to U_z = 1e31 in 6 time units (Taylor-Couette, N = 160,
+   ibmPimpleFoam, old and zero-shear free slip alike); it crashed a concave free-slip case at
+   t = 22. No-slip walls hid it (A_w/(d V) in the merged A); the in-plane solution never
+   depended on U_z. Found by elimination (convection, ddtCorr, ibmConvection, consistent,
+   friction lag ruled out by fresh runs) and by printing H, A, the face coefficients of the
+   growing group (`~/runs/zeroshear/root`). G7: 11 out-of-plane round-off metrics (Fz, Mx, My
+   ≤ 1e-18) changed, everything else bit-identical.
+13. **Open: unlinked free slip with alphaMin > 0** (2026-11-14). Absorbing slivers (α < 0.02)
+   into the body closes faces across the slip flow: steps that drag on it. Concave
+   Taylor-Couette with a zero-shear outer wall, unlinked: u L2 0.082 (N = 40), 0.059 (N = 80)
+   with alphaMin 0.02, 4.3e-4 with alphaMin 1e-9; V2 zero shear unlinked 3.9747, 3.9936, 4.0032,
+   4.0119 (N = 41 … 321), rising past the reference; with alphaMin 1e-9 3.9748, 3.9936, 3.9980,
+   3.9991, as linked. The old free slip has the same defect.
+   Linked runs (alphaMin 0) are not affected.
 
 ### Decisions (2026-11-07)
 

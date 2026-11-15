@@ -28,8 +28,8 @@ touching src, applications or tutorials, so it is the suite key). Nothing is run
 
 ## Next: tier 2 (`doc/validationSuite.md` §7 step 3)
 
-Order fixed by the plan: the prerequisites C2 and the zero-shear free-slip wall first, each accepted
-by its gates; then V14 before V10, V10 and V11 before V6, the V7 sweeps, V15 complete and V16
+Order fixed by the plan: the prerequisites C2 and the zero-shear free-slip wall first (both done; zero
+shear not yet the default), each accepted by its gates; then V14 before V10, V10 and V11 before V6, the V7 sweeps, V15 complete and V16
 before V8, V9, V12 complete. Decision D5 (junction pressure before V14–V16) is done (finding 2).
 
 ### 1. C2: tangential wall velocity on a static geometry — DONE (8108c14, 2026-11-14)
@@ -85,12 +85,36 @@ the ibmPimpleFoam result at t = 150 (α = 2: C_L −5.359, C_D 0.2915, C_M 0.464
 body-fitted values. Also: an invariant body run with ibmPimpleFoam must equal the moving-body run of
 the same case to discretisation level, and G1–G9 must stay bit-identical (no case opts in).
 
-### 2. Zero-shear free slip on curved walls
+### 2. Zero-shear free slip on curved walls — IMPLEMENTED behind `zeroShear` (2026-11-14/15)
 
-Plan: `doc/freeSlipPlan.md` (diagnosis, reference experiment in `~/runs/ibmSA_study/freeslip_fix`,
-fixes 1–10). Behind a switch first: it changes every free-slip result by about 30 %. Acceptance:
-V2 free slip against the body-fitted stress-free wall (4.003 at M = 128; now −24.8 %), then V11
-BUB in 3-D. G7 and V2 baselines will change (user approval).
+Commits f4f2366 (switch), 361c23c (mergeH, finding 12), 8d60565 (normal viscous flux). Status,
+decisions and numbers: `doc/freeSlipPlan.md` "Status"; `doc/validationSuite.md` §8 prerequisites,
+findings 12 and 13; report `validation/suite/results/8d416fd/report` §ZS. Runs and scripts:
+`~/runs/zeroshear` (`scripts/v2zs.py`, `tc_zs.py`, `sph_zs.py`, `mms_zs.py`, `cmp_metrics.py`).
+Gates at f4f2366, 361c23c, 8d60565: PASS; all in-plane metrics bit-identical to 8d416fd.
+
+User decisions (2026-11-14): global key `zeroShear` (default false); curvature from the level-set
+Hessian (triSurface/alpha-field fall back with a warning); Robin factor (I + d H)⁻¹ for the wall
+value, kept after the V2 study ("keep Robin, investigate V2": the V2 error was the missing normal
+viscous flux); U_z growth fixed at the source (mergeH), not by zeroing U_z.
+
+Results: exact rigid rotations (Taylor–Couette convex and concave, transient and steady; 3-D
+spherical shell) and a manufactured solution with a varying slip converge at second order; V2
+free slip linked 3.9641, 3.9895, 3.9974, 3.9990 (N = 41 … 321) against the body-fitted
+stress-free limit ≈ 3.999 (−24.8 % before).
+
+Next:
+- Ask the user: make `zeroShear` the default (changes the G7 free-slip tutorials and V2; new
+  baselines need the user), V2 then checks free slip against the body-fitted stress-free drag
+  (tolerance like no slip). Fix 9 of the plan with it (tutorial, notebook comparison,
+  `cutCellIBM.tex` free-slip paragraph).
+- Finding 13 (unlinked free slip with alphaMin > 0: absorbed slivers block the slip flow).
+- V11 BUB needs the V10 SPH setup (tier-2 order: V10 first); MIG-G2 stress-free sphere in V6.
+- Worktrees made this session (ask before removing): `openFoam.ibm.docs/zsdiag` (branch
+  zeroshear_diag, diagnostic keys zsRobin, zsNormalFlux), `zsdiag2` (zeroshear_diag2,
+  zsImplicit, zsLagTime), `zsroot` (detached, 361c23c + zeroShearNormalFlux/Mode). N = 641 V2
+  runs: `~/runs/zeroshear/n641` (Robin 3.9932, no Robin 3.9980 at 40000 iterations, without
+  the normal flux).
 
 ### 3. Tier-2 cases (§4, specs in §8, §10, §11)
 

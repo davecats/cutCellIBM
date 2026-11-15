@@ -1,4 +1,68 @@
-# Handout: zero-shear free slip on curved walls (written 2026-11-03, not started)
+# Handout: zero-shear free slip on curved walls (written 2026-11-03; implemented 2026-11-14)
+
+## Status (2026-11-14): implemented behind `zeroShear` (default false)
+
+Commits f4f2366 (switch), 361c23c (mergeH, finding 12 of `doc/validationSuite.md`), and the
+normal viscous flux (commit after 361c23c). Runs and scripts: `~/runs/zeroshear` (`scripts/`:
+`v2zs.py`, `tc_zs.py`, `sph_zs.py`, `mms_zs.py`). G1–G9 bit-identical with the switch off.
+
+What the switch does (`cutCellGeometry::calcZeroShear`, `zeroShearSource`; user decisions
+2026-11-14 in brackets):
+- [global key `zeroShear` in ibmProperties] every freeSlip wall cell of a body with a smooth
+  level set gets the wall flux of the Laplacian form ν (A_w/V)(H_w·w_t,w + ω × n + (∂u_n/∂n) n),
+  w = u − u_b, n into the fluid (fixes 1, 2, 5, 6, 8, 10).
+- [curvature from the level set] H_w: finite-difference Hessian of the body's level set at the
+  fluid centroid (step 1e-3 of the cell size), projected on the tangent plane, moved to the wall
+  per principal direction κ_w = κ/(1 − φκ); limited where the radius of curvature is under twice
+  the distance (the friction then stays below the no-slip coefficient). triSurfaceMesh and
+  alpha-field bodies keep ∂u/∂n = 0 with a warning (fix 7; normal fit for them: open).
+- [Robin factor] tangential wall value from the value point, w_t,w = (I + d H_w)⁻¹ w_t,P (exact
+  for a rigid rotation), plus the tangential offset of the wall-piece centroid u_P + δ·∇u at
+  second order (`zeroShearTangential`, default true; changes V2 by < 1e-3) (fix 3).
+- normal part ∂u_n/∂n = −tr(P ∇u P) from continuity and the least-squares gradient, explicit.
+  n·∇u·n, equal for a solenoidal field, depends on the cell's own normal velocity with a
+  negative self-coefficient and made SIMPLE without linking and PIMPLE with it diverge.
+- implicit part: the largest |eigenvalue| of the friction tensor (concave walls: negative
+  friction, +|f| implicit, −2|f| explicit).
+- forces: the flux in the viscous force (force = driving force × fluid volume in V2); moment:
+  the transpose part ν Σ S_w × u_w replaces the rigid-rotation term for these cells (fix 4).
+
+Results (zeroShear true, second order):
+- Exact rigid rotations (Taylor–Couette geometry, ibmPimpleFoam to steady state; 3-D spherical
+  shell R = 0.5 in 1, ibmSimpleFoam), u L2 at N = 40, 80, 160 (d/h = 8, 16, 32), torques → 0 at
+  order 2: concave free-slip outer wall, inner turning (A) 9.1e-4, 1.5e-4, 2.7e-5; stress-free
+  inner cylinder turning, fluid at rest (Bi) 9.3e-5, 2.6e-5, 8.8e-6; static stress-free inner,
+  outer turning (C) 2.3e-4, 6.5e-5, 1.2e-5; sphere turning in fluid at rest (SB) 4.0e-4,
+  8.7e-5, 2.3e-5; static sphere, outer shell turning (SC) 1.6e-3, 6.1e-4, 2.1e-4 (order 1.4–1.5).
+  Old free slip: A 0.81, C 0.15, SC 0.12, not converging.
+- Manufactured solution (`mms_zs.py`: TC geometry, inner wall stress-free, outer no slip,
+  ψ = (r − R1)(r − R2)²(1 − 6r) sin 2θ, slip 2 sin 2θ and ∂u_r/∂r = −8 cos 2θ at the wall,
+  p = 0): u L2 0.0222, 0.0055, 0.0014, 3.4e-4 (N = 40 … 320, order 2.0), p L2 0.10, 0.050, 0.017. Without the
+  normal flux u L2 0.051, 0.018, 0.0092, 0.0040 (order ≤ 1.2) and the wall-cell pressure an O(1)
+  layer that grows (L∞ 5.1 … 6.9): the "normal viscous stress carried by the cut-cell pressure"
+  of the diagnosis is not consistent, it costs one order. No-slip control: 3.5e-3, 9.0e-4,
+  2.3e-4.
+- V2 (periodic cylinder Re_D = 1, drag from the driving force, = the reported force), linked:
+  3.9641, 3.9895, 3.9974, 3.9990 at N = 41, 81, 161, 321 (orders 1.7, 2.4; limit ≈ 3.9993);
+  body-fitted zero shear 4.0234, 4.0132, 4.0068, 4.0032 at M = 32 … 256 (order ≈ 0.8, limit
+  ≈ 3.998–4.000). Without the normal flux the series converged at order ≈ 0.9 (3.8933 …
+  3.9932 at N = 641); without the Robin factor (the experiment) more regular in V2 (3.9622 …
+  3.9980 at N = 641) but first order in the exact tests (error cancellation).
+- Unlinked (alphaMin 0.02): 3.9747, 3.9936, 4.0032, 4.0119, above the reference and rising:
+  the absorbed slivers (α < 0.02, made solid) leave steps of closed faces across which the slip
+  velocity cannot pass (finding 13). Same with the old free slip; the concave Taylor–Couette
+  case A unlinked: u L2 0.082 (N = 40) with alphaMin 0.02, 4.3e-4 with alphaMin 1e-9; V2
+  unlinked with alphaMin 1e-9: 3.9748, 3.9936, 3.9980, 3.9991, as the linked series.
+
+Open:
+- Default on: changes every free-slip result (G7 free-slip tutorials, V2); baselines need the
+  user. Then fix 9 (free-slip pimple tutorial, notebook comparison, `cutCellIBM.tex`).
+- Unlinked free slip with alphaMin > 0 (finding 13).
+- triSurfaceMesh and alpha-field bodies (curvature from the wall normals).
+- V11 BUB (3-D, needs the V10 SPH setup); MIG-G2 stress-free sphere (V6).
+- Turbulent free slip: the force uses the solver's wall viscosity (molecular for the
+  turbulent solvers), the momentum nuEff.
+- First order (secondOrder false): no normal flux and no tangential correction.
 
 Branch `feature_iddes_from_scalar_secondOrder`. Diagnosis and data:
 `doc/secondOrderStudy.md`, "Free slip on curved walls: the missing curvature shear";
