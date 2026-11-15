@@ -124,7 +124,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     secondOrder_(getOrDefault<bool>("secondOrder", true)),
     ibmConvection_(getOrDefault<bool>("ibmConvection", secondOrder_)),
     ibmConvectionWallLaw_(getOrDefault<bool>("ibmConvectionWallLaw", false)),
-    zeroShear_(getOrDefault<bool>("zeroShear", false)),
+    zeroShear_(getOrDefault<bool>("zeroShear", true)),
     zeroShearTangential_(getOrDefault<bool>("zeroShearTangential", true)),
     centroidOffset_
     (

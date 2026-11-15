@@ -33,9 +33,10 @@ Description
     writeFields   true;   // write ibmAlpha, ibmTheta, ... at start-up
     writeForces   true;   // postProcessing/ibmForces/<time>/forces.dat and
                           // moments.dat (torque about each body's centre)
-    zeroShear     false;  // free-slip walls with zero tangential stress
-                          // (curvature friction, zeroShearSource); false:
-                          // du/dn = 0, not stress-free on a curved wall
+    zeroShear     true;   // free-slip walls with zero tangential stress
+                          // (curvature friction and normal viscous flux,
+                          // zeroShearSource); false: du/dn = 0 (the former
+                          // default), not stress-free on a curved wall
 
     bodies
     {
@@ -179,7 +180,7 @@ class cutCellGeometry
         bool ibmConvectionWallLaw_;
 
         //- Zero tangential stress on the free-slip walls (zeroShear, default
-        //  false; doc/freeSlipPlan.md). Without it a free-slip wall has no
+        //  true since 2026-11-15; doc/freeSlipPlan.md). Without it a free-slip wall has no
         //  wall flux in the Laplacian form, i.e. du/dn = 0, which on a curved
         //  wall is not stress-free: P du/dn = H.(u - u_b)_t + omega x n is
         //  (H the curvature tensor of the wall, positive on a convex body,

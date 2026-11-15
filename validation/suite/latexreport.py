@@ -323,7 +323,7 @@ def v2(out, r):
         a.set_ylabel("drag")
         a.legend(loc="lower right")
     ax[0].set_title("no slip")
-    ax[1].set_title("free slip (zero shear missing: freeSlipPlan.md)")
+    ax[1].set_title("free slip (stress-free wall, zeroShear)")
     out.save(fig, "V2_cylinderRe1")
 
 

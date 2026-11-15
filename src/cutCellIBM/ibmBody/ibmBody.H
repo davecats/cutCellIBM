@@ -16,9 +16,9 @@ Description
     - alpha-field bodies (see alphaFieldBody): the fluid volume fraction is
       read from a field and the face fractions are reconstructed from it.
 
-    Each body carries a wall condition, noSlip (default) or freeSlip, which
-    selects whether the viscous traction of the wall segment is added to the
-    momentum diagonal (see cutCellGeometry).
+    Each body carries a wall condition, noSlip (default) or freeSlip: the
+    no-slip traction on the momentum diagonal, or the stress-free wall flux
+    of cutCellGeometry::zeroShearSource (zeroShear, default true).
 
     A body may move rigidly (see bodyMotion). The level set of a moving
     body is evaluated by transforming the query points into the body frame:

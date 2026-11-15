@@ -1,8 +1,8 @@
 """V2 periodic cylinder Re_D = 1 (tutorials/cylinderRe1), drag per unit depth on N = 41...321
 against body-fitted O-grids (validation/data/secondOrder/freeSlip_zeroShear.txt): no slip, and
-free slip. The IBM free slip imposes du_t/dn = 0 (the OpenFOAM `slip` condition) where the
-stress-free wall needs du_t/dn = kappa u_t (doc/freeSlipPlan.md): it is compared with both and
-reported, the zero-shear reference becoming the tolerance once the fix exists."""
+free slip, a stress-free wall (zeroShear, the default since 2026-11-15, doc/freeSlipPlan.md),
+against the body-fitted zero-shear drag. The former IBM free slip (du/dn = 0, the OpenFOAM
+`slip` condition) converged to the body-fitted slip drag, 24.8 % low."""
 import common
 
 ID, KIND, TIER = "V2", "case", 1
@@ -50,9 +50,6 @@ def run(ctx, res):
                     RTOL, seq)
             res.report("drag Richardson extrapolation, " + lab, Fe, BF["noSlip"][256], "observed order %.2f" % p)
         else:
-            res.report("drag N = %d, %s, vs body-fitted zero shear (the stress-free wall)" % (s[-1]["N"], lab),
-                       s[-1]["F"], BF["zeroShear"][256],
-                       "%s; deviation %+.1f %% (open: doc/freeSlipPlan.md)" % (seq, 100*(s[-1]["F"]/BF["zeroShear"][256] - 1)))
-            res.report("drag N = %d, %s, vs body-fitted slip (the same du_t/dn = 0 condition)" % (s[-1]["N"], lab),
-                       s[-1]["F"], BF["slip"][256],
-                       "deviation %+.2f %%; Richardson %.4f (order %.2f)" % (100*(s[-1]["F"]/BF["slip"][256] - 1), Fe, p))
+            res.rel("drag N = %d, %s, vs body-fitted zero shear M = 256 (stress-free wall)" % (s[-1]["N"], lab),
+                    s[-1]["F"], BF["zeroShear"][256], RTOL, seq)
+            res.report("drag Richardson extrapolation, " + lab, Fe, BF["zeroShear"][256], "observed order %.2f" % p)
