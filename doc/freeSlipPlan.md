@@ -1,9 +1,11 @@
 # Handout: zero-shear free slip on curved walls (written 2026-11-03; implemented 2026-11-14)
 
-## Status (2026-11-14): implemented behind `zeroShear` (default false)
+## Status (2026-11-15): implemented, `zeroShear` default true since 2190505
 
-Commits f4f2366 (switch), 361c23c (mergeH, finding 12 of `doc/validationSuite.md`), and the
-normal viscous flux (commit after 361c23c). Runs and scripts: `~/runs/zeroshear` (`scripts/`:
+Commits f4f2366 (switch), 361c23c (mergeH, finding 12 of `doc/validationSuite.md`), 8d60565
+(normal viscous flux), 2190505 (default on, user 2026-11-15), 5272abf (fix 9: tutorial,
+notebook comparison, `cutCellIBM.tex` §9.5 and §11.6), 2194276 (G7 and V2 baselines re-accepted
+from 2190505, user 2026-11-15). `zeroShear false` restores ∂u/∂n = 0. Runs and scripts: `~/runs/zeroshear` (`scripts/`:
 `v2zs.py`, `tc_zs.py`, `sph_zs.py`, `mms_zs.py`). G1–G9 bit-identical with the switch off.
 
 What the switch does (`cutCellGeometry::calcZeroShear`, `zeroShearSource`; user decisions
@@ -54,9 +56,14 @@ Results (zeroShear true, second order):
   case A unlinked: u L2 0.082 (N = 40) with alphaMin 0.02, 4.3e-4 with alphaMin 1e-9; V2
   unlinked with alphaMin 1e-9: 3.9748, 3.9936, 3.9980, 3.9991, as the linked series.
 
+Default on (2190505): G1–G6, G8, G9 bit-identical; G7 changes only through the free-slip bodies
+(`cylinderRe1_pimple_freeSlip` Fx +37 %, 3.9888 in V2 units; `twoCylinders/smallFreeSlip` +39 %,
+its no-slip neighbour −2.8 %, momentum balance holds) and V2 only in free slip (3.9990 at
+N = 321, −0.105 % against 4.00318, PASS within 0.3 %). Fix 9: the pimple tutorial is on by
+default; `validation/run_all.sh` compares with the notebook (∂u_t/∂n = 0) on a copy with
+`zeroShear false` (2.9106 vs 2.9355).
+
 Open:
-- Default on: changes every free-slip result (G7 free-slip tutorials, V2); baselines need the
-  user. Then fix 9 (free-slip pimple tutorial, notebook comparison, `cutCellIBM.tex`).
 - Unlinked free slip with alphaMin > 0 (finding 13).
 - triSurfaceMesh and alpha-field bodies (curvature from the wall normals).
 - V11 BUB (3-D, needs the V10 SPH setup); MIG-G2 stress-free sphere (V6).

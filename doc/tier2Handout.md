@@ -1,17 +1,19 @@
 # Handout: from the tier-1 baseline at 8d416fd to tier 2 (written 2026-11-14)
 
 Branch `feature_iddes_from_scalar_secondOrder`, pushed to origin at 690bd53 (this handout comes
-after). Main tree `~/Codes/openFoam.ibm`, built with OpenFOAM v2412 at 8d416fd (the last commit
-touching src, applications or tutorials, so it is the suite key). Nothing is running.
+after). Main tree `~/Codes/openFoam.ibm`, built with OpenFOAM v2412 at 2190505 (2026-11-15; the last
+commit touching src, applications or tutorials, so it is the suite key). Nothing is running.
 
 ## Where things stand
 
 - **Tier 1 passes at 8d416fd.** Every check against exact or reference data passes, and every case
-  agrees with its stored baseline. Baselines: V5, V12, V13, G7 from 8d416fd (user, 2026-11-14,
-  `baa77b4`, `0b5a787`), all others from e7d742a. Results in `validation/suite/results/8d416fd/`
+  agrees with its stored baseline. Baselines: V5, V12, V13 from 8d416fd (user, 2026-11-14,
+  `baa77b4`, `0b5a787`), G7 and V2 from 2190505 (zero shear on, user 2026-11-15, `2194276`), all
+  others from e7d742a. Results in `validation/suite/results/8d416fd/`
   (untracked), cases in `~/runs/suite/8d416fd/<ID>`.
-- **Consolidated report:** `validation/suite/results/8d416fd/report/report.{tex,pdf}` (32 pages;
-  figures and tables by `latexreport.py 8d416fd`). The method document `doc/cutCellIBM.{tex,pdf}`
+- **Consolidated report:** `validation/suite/results/8d416fd/report/report.{tex,pdf}` (35 pages;
+  figures and tables by `latexreport.py 8d416fd`; the V2 figures and table and the G7 force table
+  of 2190505 copied in as `V2zs_*`, `V2zs.tex`, `G7zs_forces.tex` from `latexreport.py 2190505`). The method document `doc/cutCellIBM.{tex,pdf}`
   describes the ddtCorr and coupled-face flux change (1994dc8).
 - **Last code change, 8d416fd** (finding 11 in `doc/validationSuite.md`): the transient Rhie–Chow
   correction carries the old fluid fraction, `interpolate(rAU*alpha0)` with alpha0 the group mean
@@ -29,7 +31,7 @@ touching src, applications or tutorials, so it is the suite key). Nothing is run
 ## Next: tier 2 (`doc/validationSuite.md` §7 step 3)
 
 Order fixed by the plan: the prerequisites C2 and the zero-shear free-slip wall first (both done; zero
-shear not yet the default), each accepted by its gates; then V14 before V10, V10 and V11 before V6, the V7 sweeps, V15 complete and V16
+shear the default since 2190505, G7 and V2 re-accepted from it), each accepted by its gates; then V14 before V10, V10 and V11 before V6, the V7 sweeps, V15 complete and V16
 before V8, V9, V12 complete. Decision D5 (junction pressure before V14–V16) is done (finding 2).
 
 ### 1. C2: tangential wall velocity on a static geometry — DONE (8108c14, 2026-11-14)
@@ -85,13 +87,20 @@ the ibmPimpleFoam result at t = 150 (α = 2: C_L −5.359, C_D 0.2915, C_M 0.464
 body-fitted values. Also: an invariant body run with ibmPimpleFoam must equal the moving-body run of
 the same case to discretisation level, and G1–G9 must stay bit-identical (no case opts in).
 
-### 2. Zero-shear free slip on curved walls — IMPLEMENTED behind `zeroShear` (2026-11-14/15)
+### 2. Zero-shear free slip on curved walls — DONE, `zeroShear` default on (2026-11-14/15)
 
-Commits f4f2366 (switch), 361c23c (mergeH, finding 12), 8d60565 (normal viscous flux). Status,
+Commits f4f2366 (switch), 361c23c (mergeH, finding 12), 8d60565 (normal viscous flux), 2190505
+(default on, user 2026-11-15), 5272abf (fix 9: tutorial, notebook comparison on a copy with
+`zeroShear false`, `cutCellIBM.tex` §9.5, §11.6, README), 2194276 (G7 and V2 baselines
+re-accepted from 2190505, user 2026-11-15). Status,
 decisions and numbers: `doc/freeSlipPlan.md` "Status"; `doc/validationSuite.md` §8 prerequisites,
 findings 12 and 13; report `validation/suite/results/8d416fd/report` §ZS. Runs and scripts:
 `~/runs/zeroshear` (`scripts/v2zs.py`, `tc_zs.py`, `sph_zs.py`, `mms_zs.py`, `cmp_metrics.py`).
-Gates at f4f2366, 361c23c, 8d60565: PASS; all in-plane metrics bit-identical to 8d416fd.
+Gates at f4f2366, 361c23c, 8d60565: PASS; all in-plane metrics bit-identical to 8d416fd. At
+2190505 (default on): G1–G6, G8, G9 bit-identical; G7 changes only through the free-slip bodies
+(+37 %, +39 %, the no-slip neighbour −2.8 %), V2 free slip 3.9990 at N = 321 (−0.105 %, PASS within
+0.3 % of the body-fitted stress-free 4.00318); results in `validation/suite/results/2190505/`
+(gates, V2), cases in `~/runs/suite/2190505`.
 
 User decisions (2026-11-14): global key `zeroShear` (default false); curvature from the level-set
 Hessian (triSurface/alpha-field fall back with a warning); Robin factor (I + d H)⁻¹ for the wall
@@ -104,10 +113,6 @@ free slip linked 3.9641, 3.9895, 3.9974, 3.9990 (N = 41 … 321) against the bod
 stress-free limit ≈ 3.999 (−24.8 % before).
 
 Next:
-- Ask the user: make `zeroShear` the default (changes the G7 free-slip tutorials and V2; new
-  baselines need the user), V2 then checks free slip against the body-fitted stress-free drag
-  (tolerance like no slip). Fix 9 of the plan with it (tutorial, notebook comparison,
-  `cutCellIBM.tex` free-slip paragraph).
 - Finding 13 (unlinked free slip with alphaMin > 0: absorbed slivers block the slip flow).
 - V11 BUB needs the V10 SPH setup (tier-2 order: V10 first); MIG-G2 stress-free sphere in V6.
 - Worktrees made this session (ask before removing): `openFoam.ibm.docs/zsdiag` (branch

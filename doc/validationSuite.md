@@ -15,7 +15,7 @@ fix the case will accept).
 | K1 | geometry: cut fractions, wall area and normal, sub-sampling, closure Σ S_k = S_w; 2-D, 3-D; analytic, STL, alpha-field bodies; invert; several bodies | `cutCellGeometry.C`, `ibmBody` |
 | K2 | linking: groups, shared value point, mergeAlpha | `cutCellGeometry.C` |
 | K3 | no-slip wall traction ν(u − u_b)/d, second-order wall gradient | wall coefficients |
-| K4 | free-slip wall; zero shear (curvature friction, normal viscous flux) behind `zeroShear`, default off (`doc/freeSlipPlan.md`) | wall coefficients, `zeroShearSource` |
+| K4 | free-slip wall; zero shear (curvature friction, normal viscous flux), `zeroShear` default on since 2190505 (`doc/freeSlipPlan.md`) | wall coefficients, `zeroShearSource` |
 | K5 | pressure gradient in cut cells (linearly exact form) | `grad()` |
 | K6 | continuity: cut-face fluxes, second-order continuity flux, p–U coupling (SIMPLEC, PIMPLE) | solvers, `cutCellGeometry` |
 | K7 | convection at the wall (`ibmConvection`) | `cutCellGeometryTemplates.C` |
@@ -117,8 +117,8 @@ only in G2 and V1 until first order is removed. nSubSamples (8, 32) only in G1.
 2. Merge `feature_amr`; accepted when the gates pass and tier 1 agrees with the baseline.
 3. C1, C2 and the free-slip zero-shear fix, each accepted by its gates; then tier 2 (V10 SPH and
    V11 BUB before V6 MIG, V14 before V10, V7 sweeps, V15 complete and V16 before V8, V9, V12
-   complete). C1, C2 done; zero shear implemented behind `zeroShear` (default off, 2026-11-14,
-   §8 prerequisites), not yet the default.
+   complete). C1, C2 done; zero shear done (`zeroShear`, default on since 2190505, 2026-11-15,
+   §8 prerequisites).
 
 ## 8. Case MIG (V6): inertial migration of a sphere in a pipe (Rivero-Rodriguez & Scheid 2018)
 
@@ -236,16 +236,18 @@ Not involved: turbulence, wall functions, moving geometry, scalars.
   0.2887, 0.4633). Non-invariant motions (sideways, tilted by 1e-3, rotation about a non-axis, a
   prescribed motion turning sideways later) are fatal. The periodic-box MIG-G2 (translating,
   stress-free and rotating sphere) stays a V6 gate, run with C3.
-- **Zero-shear free slip** (`doc/freeSlipPlan.md`): **implemented behind `zeroShear`, default
-  false (f4f2366, 361c23c and the normal-flux commit, 2026-11-14)**. Wall flux of the Laplacian
+- **Zero-shear free slip** (`doc/freeSlipPlan.md`): **done; `zeroShear` default true since
+  2190505 (f4f2366, 361c23c, 8d60565 on 2026-11-14 behind the switch; default and baselines
+  2026-11-15)**. Wall flux of the Laplacian
   form ν (A_w/V)(H_w·w_t,w + ω × n + (∂u_n/∂n) n) on free-slip walls of smooth level-set bodies:
   curvature tensor from the level-set Hessian, Robin factor (I + d H_w)⁻¹ for the wall value,
   ∂u_n/∂n = −tr(P∇uP) explicit. G1–G9 bit-identical with the switch off. Exact rigid rotations
   (Taylor–Couette convex/concave, transient and steady; 3-D spherical shell) and a manufactured
   solution with a varying slip and a normal velocity gradient converge at second order; V2 free
   slip linked 3.9641, 3.9895, 3.9974, 3.9990 (N = 41 … 321) against the body-fitted stress-free
-  limit ≈ 3.999 (−24.8 % before). Open: default on (G7, V2 baselines), unlinked with
-  alphaMin > 0 (finding 13), triSurface and alpha-field bodies, V11.
+  limit ≈ 3.999 (−24.8 % before). Default on: G7 and V2 re-accepted from 2190505 (§12
+  amendments). Open: unlinked with alphaMin > 0 (finding 13), triSurface and alpha-field
+  bodies, V11.
 - **C3 driver:** `validation/suite/mig/` setup, outer (V, Ω) iteration, extraction, report.
 
 ### Gates
@@ -641,6 +643,16 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   (0.1921). Changes are 1–2 % at D/h = 40 and below 1 % on the finer meshes; every check against
   the references passes. Gates, V1–V4, V7 and V15 pass against their baselines (steady and
   G7 tutorial results unchanged within 10⁻⁸).
+- **G7 and V2 re-accepted from 2190505** (2026-11-15, user decision; 2194276): zero shear on by
+  default. V2 free slip 2.8403, 2.9155, 2.9877, 3.0108 -> 3.9641, 3.9895, 3.9974, 3.9990
+  (N = 41 … 321; body-fitted stress-free 4.00318 at M = 256, −0.105 % at N = 321, observed order
+  2.4), no slip unchanged within 1e-12; the free-slip V2 check is now against the stress-free
+  drag with the no-slip tolerance 0.3 %. G7: `cylinderRe1_pimple_freeSlip` Fx 0.3593 -> 0.4924
+  (+37 %), `twoCylinders/smallFreeSlip` 0.1972 -> 0.2736 (+39 %) and its no-slip neighbour
+  `bigNoSlip` 0.6425 -> 0.6243 (−2.8 %: Ubar fixed, driving gradient 0.07136 -> 0.07630, the
+  summed Fx equals gradient × fluid volume before and after); the spanwise moment of the
+  symmetric free-slip cylinder −3.4e-16 -> −3.9e-10 (1e-8 of its scale, solver tolerance); 11
+  out-of-plane round-off values (≤ 1e-18) from 361c23c. G1–G6, G8, G9 bit-identical.
 - **G8**: cylinder drag (the lift is zero by symmetry, solver noise) and the channel driving
   gradient u_τ², each run required stationary (the gradient changes ≤ 1e-10 over the last 100
   iterations): `residualControl` cannot trigger in this 1-D problem (the Uy and p residuals are
@@ -652,8 +664,10 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   before the solver sets it).
 - **V1**: u L2 ≥ 1.8 linked and unlinked; p reported (the cut-cell pressure converges below
   second order, open: `doc/secondOrderStudy.md`).
-- **V2**: no slip within 0.3 % of the body-fitted M = 256 drag (5.83958); free slip reported
-  against both body-fitted slip (3.04843, the same condition) and zero shear (4.00318).
+- **V2**: no slip within 0.3 % of the body-fitted M = 256 drag (5.83958); free slip (zero
+  shear, the default since 2190505) within 0.3 % of the body-fitted stress-free drag (4.00318,
+  M = 256); before, reported against slip (3.04843) and zero shear. Richardson lines are nan:
+  `common.richardson` needs equal refinement ratios (N = 41 … 321: 1.976, 1.988, 1.994).
 - **V3**: the notebook implements the method of 2026-09 (first order, unlinked, no convective
   correction). With those options the force history now differs from it by 2.5e-3 (2e-5 on
   2026-09-08; finding 5): reported, as are the defaults and the Galilean equivalence, until the

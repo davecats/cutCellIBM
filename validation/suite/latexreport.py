@@ -314,9 +314,8 @@ def v2(out, r):
     ax[0].annotate("body-fitted M = 256", (41, 5.8405), fontsize=6.5, color=REF)
     s = sorted([x for x in rows if x["wall"] == "freeSlip"], key=lambda x: x["N"])
     series(ax[1], 2, [x["N"] for x in s], [x["F"] for x in s], "free slip, mergeAlpha 0.5")
-    for v, t in ((3.04843, "body-fitted slip"), (4.00318, "body-fitted zero shear")):
-        ax[1].axhline(v, color=REF, ls="--", lw=0.9)
-        ax[1].annotate(t, (41, v + 0.03), fontsize=6.5, color=REF)
+    ax[1].axhline(4.00318, color=REF, ls="--", lw=0.9)
+    ax[1].annotate("body-fitted zero shear M = 256", (41, 4.0037), fontsize=6.5, color=REF)
     for a in ax:
         a.set_xscale("log")
         a.set_xlabel("N")
