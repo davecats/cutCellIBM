@@ -1,14 +1,20 @@
-"""V14 DFG 3D-1Z (Re 20, steady) and 3D-3Z (U_m(t) = 2.25 sin(pi t/8), t in [0, 8]): cylinder D = 0.1, axis z through (0.5, 0.2), across the square
-channel [0, 2.5] x [0, 0.41]^2 (Schaefer & Turek 1996; references in validation/reference_dfg.py,
-specification doc/validationSuite.md §11). Channel walls body-fitted, only the cylinder immersed:
-it meets the walls z = 0 and z = H at right angles (cells with a wall face and a cut face, G1).
+"""V14 DFG 3D-1Z (Re 20, steady) and 3D-3Z (U_m(t) = 2.25 sin(pi t/8), t in [0, 8]): cylinder
+D = 0.1, axis z through (0.5, 0.2), across the square channel [0, 2.5] x [0, 0.41]^2 (Schaefer &
+Turek 1996; references in validation/reference_dfg.py, specification doc/validationSuite.md §11).
+Channel walls body-fitted, only the cylinder immersed: it meets the walls z = 0 and z = H at right
+angles (cells with a wall face and a cut face, G1).
 
-Mesh family n = 16, 24, 32: background h0 = H/n in y and z, 2.5/round(2.5/h0) in x (aspect ratio
-<= 1.005: 0.41 and 2.5 have no convenient common divisor), one level of refinement in the box B1
-and one more in the finest box B2 = [0.4, 0.75] x [0.1, 0.3] x [0, H] (spec), both fixed in space:
-the whole mesh scales with 1/n, D/h = 15.6, 23.4, 31.2 at the cylinder. 3D-3Z on n = 16, 24 with a
-fixed time step from Courant <= 0.5 at |u| = 3 (user, 2026-11-15: the spec's dt = 0.005 is Courant
-2.3-3.5), and once with dt/2 on n = 16."""
+Mesh family n = 16, 24, 32, 48: background h0 = H/n in y and z, 2.5/round(2.5/h0) in x (aspect
+ratio <= 1.005: 0.41 and 2.5 have no convenient common divisor), one level of refinement in the
+box B1 and one more in the finest box B2, both fixed in space and symmetric about the channel
+centre: the whole mesh scales with 1/n, D/h = 15.6, 23.4, 31.2, 46.8 at the cylinder. The boxes of
+the spec (B2 = [0.4, 0.75] x [0.1, 0.3] x [0, H]) left 16-32 cells across the duct upstream, whose
+error dominated C_D (order 3.6, extrapolated -0.17 %); with these C_D converges at order 1.96 to
+-0.034 % of the reference (user, 2026-11-15). C_D and C_L are judged at D/h 46.8 (user,
+2026-11-15): the lift, 0.15 % of the drag, is set by the cut pattern at D/h <= 31 (2-D DFG on the
+same y-mesh: +114, -57, +29, +2.3, -4.8 % at D/h 15.6 ... 62.4), C_L within 10 %.
+3D-3Z on n = 16, 24 with a fixed time step from Courant <= 0.5 at |u| = 3 (user, 2026-11-15: the
+spec's dt = 0.005 is Courant 2.3-3.5), and once with dt/2 on n = 16."""
 import os
 
 import numpy as np
@@ -29,11 +35,11 @@ LX, H, D, NU = 2.5, 0.41, 0.1, 1e-3
 UM1 = 0.45                       # 3D-1Z: U_mean = 4/9 U_m = 0.2, Re 20
 CENTRE = (0.5, 0.2, 0.0)
 CYL = common.TUTORIALS / "cylinderRe1"
-B2 = ((0.4, 0.1, 0.0), (0.75, 0.3, H))
-B1 = ((0.3, 0.04, 0.0), (1.2, 0.37, H))
+B2 = ((0.35, 0.05, 0.0), (0.85, 0.36, H))
+B1 = ((0.25, 0.0, 0.0), (1.4, H, H))
 P1, P2 = (0.45, 0.2, 0.205), (0.55, 0.2, 0.205)
-NS = [16, 24, 32]
-NP = {16: 8, 24: 24, 32: 48}     # ranks per run
+NS = [16, 24, 32, 48]
+NP = {16: 16, 24: 32, 32: 64, 48: 128}    # ranks per run (0.32, 1.06, 2.5, 8.5 M cells)
 NS3 = [16, 24]                   # 3D-3Z
 UMAX3, CO3, END3 = 3.0, 0.5, 8.0  # |u| bound for the time step (U_m 2.25 accelerated past the cylinder)
 
@@ -170,9 +176,23 @@ def run(ctx, res):
     ns = NS[:1] if ctx.quick else NS
     jobs = [(steady, (n,)) for n in ns] + [(unsteady, (n, 1.0)) for n in (NS3[:1] if ctx.quick else NS3)]
     jobs += [] if ctx.quick else [(unsteady, (NS3[0], 0.5))]
-    # 8 + 24 + 48 + 8 + 24 + 8 ranks: concurrently with --jobs >= 120 (istmhydra)
-    workers = len(jobs) if ctx.jobs >= sum(NP[a[0]] for _, a in jobs) else 1
-    out = common.pmap(lambda j: (j[0].__name__, j[0](ctx, *j[1])), jobs, workers)
+    # 304 ranks in all: as many runs at a time as --jobs (cores) allows
+    import threading
+    free, cv = [max(ctx.jobs, max(NP[a[0]] for _, a in jobs))], threading.Condition()
+
+    def one(j):
+        need = NP[j[1][0]]
+        with cv:
+            cv.wait_for(lambda: free[0] >= need)
+            free[0] -= need
+        try:
+            return j[0].__name__, j[0](ctx, *j[1])
+        finally:
+            with cv:
+                free[0] += need
+                cv.notify_all()
+    jobs.sort(key=lambda j: (j[0] is steady, -NP[j[1][0]]))   # the long transient runs first
+    out = common.pmap(one, jobs, len(jobs))
     st = sorted([r for k, r in out if k == "steady"], key=lambda r: r["n"])
     un = sorted([r for k, r in out if k == "unsteady"], key=lambda r: (r["n"], -r["dtfactor"]))
     res.data["steady"], res.data["unsteady"] = st, un
@@ -186,7 +206,7 @@ def run(ctx, res):
     B = dfg.BENCH3D_1Z
     f = st[-1]
     res.rel("3D-1Z C_D, D/h = %.1f" % f["Dh"], f["C_D"], B["C_D"], 0.01, seq("C_D"))
-    res.rel("3D-1Z C_L, D/h = %.1f" % f["Dh"], f["C_L"], B["C_L"], 0.05, seq("C_L"))
+    res.rel("3D-1Z C_L, D/h = %.1f" % f["Dh"], f["C_L"], B["C_L"], 0.10, seq("C_L"))
     res.report("3D-1Z dp, D/h = %.1f (no sourced reference)" % f["Dh"], f["dp"], note=seq("dp"))
     if len(st) >= 3:
         for q in ("C_D", "C_L"):
