@@ -205,7 +205,8 @@ def driving_gradient(log):
 
 
 def richardson(h, q):
-    """extrapolated value and observed order from the three finest grids (h any spacing)"""
+    """extrapolated value and observed order from the three finest grids (any spacing; constant
+    ratio in closed form)"""
     h, q = np.asarray(h, float), np.asarray(q, float)
     i = np.argsort(h)[:3]
     h, q = h[i], q[i]
@@ -214,7 +215,15 @@ def richardson(h, q):
         return float("nan"), float("nan")
     r21, r32 = h[1]/h[0], h[2]/h[1]
     if abs(r21 - r32) > 1e-6:
-        return float("nan"), float("nan")
+        # q = q0 + C h^p through the three points: e32/e21 = (h2^p - h1^p)/(h1^p - h0^p), a
+        # monotone function of p (V14: D/h = 15.6, 23.4, 31.2)
+        from scipy.optimize import brentq
+        f = lambda p: (h[2]**p - h[1]**p)/(h[1]**p - h[0]**p) - e32/e21
+        try:
+            p = brentq(f, 0.05, 12.0)
+        except ValueError:
+            return float("nan"), float("nan")
+        return float(q[0] - e21*h[0]**p/(h[1]**p - h[0]**p)), float(p)
     p = math.log(e32/e21)/math.log(r21)
     return float(q[0] - e21/(r21**p - 1)), float(p)
 

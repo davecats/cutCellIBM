@@ -11,17 +11,19 @@ from common import write_dict
 from foamio import read_field
 
 
-def refined(d, lo, hi, h0, boxes, patches, two_d=True, thickness=None):
+def refined(d, lo, hi, h0, boxes, patches, two_d=True, thickness=None, cells=None):
     """blockMesh of lo..hi with cells of size h0, then one level of refinement (by 2 in x, y and,
     in 3-D, z) per box of `boxes` (list of (lo, hi), applied in order: nested boxes give nested
-    levels). Returns the number of cells."""
+    levels). cells: the background cell numbers (nx, ny, nz) instead (cells not quite cubic, for a
+    domain whose sides have no convenient common divisor; h0 is then not used). Returns the number
+    of cells."""
     d = Path(d)
     lo, hi = np.array(lo, float), np.array(hi, float)
-    n = [int(round((hi[i] - lo[i])/h0)) for i in range(3)]
+    n = list(cells) if cells else [int(round((hi[i] - lo[i])/h0)) for i in range(3)]
     if two_d:
         hi[2] = lo[2] + (thickness or h0)
         n[2] = 1
-    assert all(abs((hi[i] - lo[i])/n[i] - h0) < 1e-9*h0 for i in range(2)), "domain not a multiple of h0"
+    assert cells or all(abs((hi[i] - lo[i])/n[i] - h0) < 1e-9*h0 for i in range(2)), "domain not a multiple of h0"
     geometry.box(d, lo, hi, n, patches)
     if not (d / "system" / "controlDict").exists():
         geometry.control_dict(d, "blockMesh")
