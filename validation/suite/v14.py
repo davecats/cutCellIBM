@@ -13,8 +13,12 @@ error dominated C_D (order 3.6, extrapolated -0.17 %); with these C_D converges 
 -0.034 % of the reference (user, 2026-11-15). C_D and C_L are judged at D/h 46.8 (user,
 2026-11-15): the lift, 0.15 % of the drag, is set by the cut pattern at D/h <= 31 (2-D DFG on the
 same y-mesh: +114, -57, +29, +2.3, -4.8 % at D/h 15.6 ... 62.4), C_L within 10 %.
-3D-3Z on n = 16, 24 with a fixed time step from Courant <= 0.5 at |u| = 3 (user, 2026-11-15: the
-spec's dt = 0.005 is Courant 2.3-3.5), and once with dt/2 on n = 16."""
+3D-3Z on n = 16, 24, 48 with a fixed time step from Courant <= 0.5 at |u| = 3.75 (user, 2026-11-15:
+the spec's dt = 0.005 is Courant 2.3-3.5; |u| reaches 3.6 past the cylinder), and once with dt/2 on
+n = 16. C_Dmax and C_Lmin judged at D/h 46.8 as in 3D-1Z (user, 2026-11-16: C_Dmax +4.65, +2.37 %
+at D/h 15.6, 23.4, order 1.66; the lift unresolved below). The PIMPLE steady state differs from the
+SIMPLEC one through the rAU in the Rhie-Chow flux (dt against relaxation): -0.5 % C_D at D/h 15.6,
+order >= 3 in h in 2-D and 3-D, so the dt dependence at D/h 15.6 is a resolution effect."""
 import os
 
 import numpy as np
@@ -40,8 +44,8 @@ B1 = ((0.25, 0.0, 0.0), (1.4, H, H))
 P1, P2 = (0.45, 0.2, 0.205), (0.55, 0.2, 0.205)
 NS = [16, 24, 32, 48]
 NP = {16: 16, 24: 32, 32: 64, 48: 128}    # ranks per run (0.32, 1.06, 2.5, 8.5 M cells)
-NS3 = [16, 24]                   # 3D-3Z
-UMAX3, CO3, END3 = 3.0, 0.5, 8.0  # |u| bound for the time step (U_m 2.25 accelerated past the cylinder)
+NS3 = [16, 24, 48]                   # 3D-3Z
+UMAX3, CO3, END3 = 3.75, 0.5, 8.0  # |u| bound for the time step: U_m 2.25 accelerates to 3.6 past the cylinder (V14.1)
 
 
 def setup(d, n, Um, dtfactor=None):
@@ -224,6 +228,10 @@ def run(ctx, res):
     res.rel("3D-3Z C_Dmax, D/h = %.1f" % g["Dh"], g["C_Dmax"], B3["C_Dmax"], 0.01, sq("C_Dmax"))
     res.rel("3D-3Z C_Lmin, D/h = %.1f" % g["Dh"], g["C_Lmin"], B3["C_Lmin"], 0.10, sq("C_Lmin"))
     res.report("3D-3Z C_Lmax, D/h = %.1f" % g["Dh"], g["C_Lmax"], B3["C_Lmax"], sq("C_Lmax"))
+    if len(u1) >= 3:
+        Ce, p = common.richardson([1/r["Dh"] for r in u1], [r["C_Dmax"] for r in u1])
+        res.report("3D-3Z observed order of C_Dmax", p,
+                   note="extrapolated %.6g (reference %.6g, %+.3f %%)" % (Ce, B3["C_Dmax"], 100*(Ce/B3["C_Dmax"] - 1)))
     for q in ("C_D", "C_L"):
         res.report("3D-3Z relative L2 difference of %s(t) to FeatFlow level 4, D/h = %.1f" % (q, g["Dh"]),
                    g["L2_" + q], note=sq("L2_" + q))

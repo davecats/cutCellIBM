@@ -55,7 +55,7 @@ fill these gaps.
 
 | id | check | tolerance |
 |---|---|---|
-| G1 | geometry: Σ αV against the exact area/volume (cylinder 2-D, sphere 3-D, inverted), closure Σ S_k = S_w, linear pressure exact | volume error converging at ≥ 1.8; closure and linear p ≤ 10⁻¹⁰ |
+| G1 | geometry: Σ αV against the exact area/volume (cylinder 2-D, sphere 3-D, cylinder through the walls z = 0, L in 3-D straight and tilted (V14), inverted), closure Σ S_k = S_w, linear pressure exact | volume error converging at ≥ 1.8; closure and linear p ≤ 10⁻¹⁰ |
 | G2 | operator orders, `ibmOrderTest` LD LN CD CN GL GQ, N = 20…160, mergeAlpha 0 and 0.5 | order ≥ 1.8 (LD LN CD CN GL), ≥ 0.9 (GQ); errors within 1 % of the stored baseline |
 | G3 | hydrostatic container | max \|U\| ≤ stored baseline × 1.05 and converging at ≥ 1.8 |
 | G4 | free stream around a translating body | max \|U − u_b\| ≤ 10⁻¹⁰ |
@@ -512,17 +512,24 @@ level 4 c_D(t), c_L(t), c_D,max 3.2978, c_L,min −0.010999. c = 2F/(U_mean² D 
   spanning the full height: the immersed wall meets the body-fitted walls z = 0 and z = H. Cells
   with both a wall patch face and a cut face exist only here: before the run, G1 is extended by a
   cylinder crossing the domain boundary (Σ αV, closure Σ S_k = S_w in those cells).
-- Mesh: D/h = 16, 24, 32 (≈ 0.3–3 M cells), finest box [0.4, 0.75] × [0.1, 0.3] × [0, H];
-  D/h = 48 on HoreKa if the order is unclear.
-- 3D-1Z steady ibmSimpleFoam; 3D-3Z ibmPimpleFoam t ∈ [0, 8], inflow 2.25 sin(πt/8), Δt = 0.005
-  (Courant ≤ 0.5 checked), on D/h = 16, 24.
+- Mesh (as implemented, user 2026-11-15, finding 14): background H/n in y, z (n = 16, 24, 32, 48;
+  2.5/round(2.5 n/H) in x), one level in [0.25, 1.4] × [0, H] × [0, H] and one more in the finest
+  box [0.35, 0.85] × [0.05, 0.36] × [0, H], both symmetric about the channel centre: D/h = 15.6,
+  23.4, 31.2, 46.8 (0.32, 1.06, 2.5, 8.5 M cells). Spec before: finest box [0.4, 0.75] × [0.1, 0.3]
+  × [0, H], D/h = 16, 24, 32, 48 on HoreKa if the order is unclear.
+- 3D-1Z steady ibmSimpleFoam; 3D-3Z ibmPimpleFoam t ∈ [0, 8], inflow 2.25 sin(πt/8), fixed Δt from
+  Courant ≤ 0.5 at |u| = 3.75 (checked from the log; |u| = 3 gave Co 0.60), on D/h = 15.6, 23.4,
+  46.8, and Δt/2 on 15.6 (user 2026-11-15: the Δt = 0.005 written before is Courant 2.3–3.5;
+  D/h 46.8 user 2026-11-16, finding 15).
 - Quantities: c_D, c_L; Δp between (0.45, 0.2, 0.205) and (0.55, 0.2, 0.205) reported (no sourced
   reference); 3D-3Z c_D(t), c_L(t), their extremes and the L2 difference to the FeatFlow series.
-- Tolerances: 3D-1Z c_D within 1 %, c_L within 5 % at D/h = 32; 3D-3Z c_D,max within 1 %, c_L,min
-  within 10 % (FeatFlow level 2: 0.9 %, OpenFOAM level 3: 7.3 %).
+- Tolerances: 3D-1Z c_D within 1 %, c_L within 10 % at D/h = 46.8 (user 2026-11-15, finding 14;
+  before: c_L within 5 % at D/h = 32); 3D-3Z c_D,max within 1 %, c_L,min within 10 % at D/h = 46.8
+  (user 2026-11-16; FeatFlow level 2: 0.9 %, OpenFOAM level 3: 7.3 %), c_D,max order REPORT.
 - Stresses 3-D cut cells on a singly curved wall, the junction of an immersed and a body-fitted
   wall, 3-D forces. Relies on V5; runs before V10 SPH (curvature in one direction before two).
-- Cost: tier 2; 3D-3Z ≈ 1600 steps on up to 3 M cells: HoreKa.
+- Cost: tier 2; 3D-3Z 6000 (D/h 15.6) to 28000 (D/h 46.8) steps, the finest on 8.5 M cells,
+  128 ranks, about a day.
 
 ### V15 TMR 2DZP: turbulent flat plate (SA)
 
@@ -848,6 +855,26 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    4.0119 (N = 41 … 321), rising past the reference; with alphaMin 1e-9 3.9748, 3.9936, 3.9980,
    3.9991, as linked. The old free slip has the same defect.
    Linked runs (alphaMin 0) are not affected.
+14. **V14 3D-1Z: the duct upstream sets C_D, the cut pattern sets C_L** (2026-11-15, 2190505,
+   runs `~/runs/v14`, `~/runs/suite/2190505/V14`). With the boxes of the spec C_D = 6.1214,
+   6.1625, 6.1705 at D/h 15.6, 23.4, 31.2 (order 3.6, extrapolated −0.17 %): 16–32 cells across
+   the duct between the inlet and the boxes. Larger boxes symmetric about the channel centre:
+   6.2204, 6.2000, 6.1928, order 1.96, extrapolated 6.18323 (−0.034 %; FeatFlow level 4
+   6.18465). The junction of the cylinder with the walls z = 0, H needs nothing special: G1
+   closure 0 there, second-order C_D. C_L is the same with both boxes (+142, −40, −19 %;
+   −6.8 % at D/h 46.8): the lift, 0.15 % of the drag, follows the cut pattern; DFG 2D-1 on the
+   same y-mesh (no junction) gives +114, −57, +29, +2.3, −4.8 % at D/h 15.6 … 62.4. Mesh,
+   D/h 46.8 and the C_L tolerance of 10 % there decided by the user.
+15. **V14 3D-3Z: the time-step dependence is the Rhie–Chow rAU, a resolution effect** (2026-11-16,
+   2190505, runs `~/runs/v14/pimple3d`, `~/runs/v14/slicepimple`). V14.1 (Courant 0.60): c_D,max
+   3.4512 (+4.65 %), 3.3760 (+2.37 %) at D/h 15.6, 23.4 (order 1.66), Δt/2 at 15.6 −0.47 %; c_L,min
+   −0.0069, −0.0164 (−0.0110): the lift unresolved, as in 3D-1Z. ibmPimpleFoam run to the steady
+   state differs from ibmSimpleFoam (SIMPLEC) by the rAU in the Rhie–Chow flux (Δt against the
+   relaxation floor); the ddtCorr, the junction and the hanging nodes are excluded (ddtCorr off:
+   −0.81 %; uniform mesh: −0.53 %). Re 44, PIMPLE − SIMPLE c_D at Co 0.6 / 0.3: 3-D −0.51 / −0.73 %
+   (D/h 15.6), −0.17 % (23.4); 2-D slice −0.56 / −0.81, −0.055 / −0.091, −0.002 / −0.006 % at
+   D/h 15.6, 31.2, 62.4: the same in 2-D and 3-D, order ≥ 3 in h, both solvers share the limit.
+   Δt from |u| = 3.75; c_D,max and c_L,min judged at D/h 46.8 (user).
 
 ### Decisions (2026-11-07)
 
