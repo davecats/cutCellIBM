@@ -51,10 +51,11 @@ DT, END300, WINDOW = 0.01, 300.0, 15/0.137       # Re 300: statistics over the l
 CD_REF = {Re: ("Magnaudet et al. 1995", ref.CD_TABLE["Magnaudet et al. 1995"][Re]) for Re in (20, 50, 100)}
 
 
-def setup(d, dh, Re, unsteady=False, lateral=None, full=False, **ibm):
+def setup(d, dh, Re, unsteady=False, lateral=None, full=False, wall="noSlip", **ibm):
     """case d at D/h = dh; lateral: the half width of the domain (default 10, the outer-boundary
     check 15); full: the whole domain z in [-10, 10] (no symmetry plane, the boxes mirrored);
-    ibm: extra top-level ibmProperties entries (ibmConvection, mergeAlpha)"""
+    wall: the wallType of the sphere (V11: freeSlip); ibm: extra top-level ibmProperties entries
+    (ibmConvection, mergeAlpha, zeroShear)"""
     lo, hi = np.array(DOM[0]), np.array(DOM[1])
     if lateral:
         lo[1], hi[1], hi[2] = -lateral, lateral, lateral
@@ -70,7 +71,7 @@ def setup(d, dh, Re, unsteady=False, lateral=None, full=False, **ibm):
     ncells = meshes.refined(d, lo, hi, h0, boxes, patches, two_d=False)
     meshes.face_centres(d)
     geometry.ibm_properties(d, {"sphere": {"type": "sphere", "centre": (0, 0, 0), "radius": R,
-                                           "wallType": "noSlip"}}, **ibm)
+                                           "wallType": wall}}, **ibm)
     for x in ("transportProperties", "turbulenceProperties"):
         (d / "constant" / x).write_text((CYL / "constant" / x).read_text())
     common.set_keys(d / "constant" / "transportProperties", nu=1.0/Re)
