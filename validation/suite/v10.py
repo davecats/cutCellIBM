@@ -360,11 +360,15 @@ def run(ctx, res):
         res.report("Re 250 C_D, D/h %d" % f["Dh"], f["C_D"], note=" ".join("%.5g" % r["C_D"] for r in r250))
         r230 = [r for r in base if r["Re"] == 230]
         if r230:   # Landau: C_L^2 linear in Re - Re_c
+            landau = lambda a, b: 230 - a*a*(250 - 230)/(b*b - a*a)
             a, b = abs(r230[-1]["C_L"]), abs(f["C_L"])
-            rec = 230 - a*a*(250 - 230)/(b*b - a*a)
-            res.report("onset of the non-axisymmetric wake Re_c (from |C_L|^2 at Re 230, 250; J&P 211, "
-                       "Natarajan & Acrivos 210)", rec, note="|C_L| %.4g (J&P %.4g) at Re 230" % (
-                           a, abs(float(CL[list(ReL).index(230)]))))
+            ja, jb = abs(float(CL[list(ReL).index(230)])), abs(float(CL[list(ReL).index(250)]))
+            # |C_L|^2 is not linear in Re this far above the onset: the same two-point estimate
+            # from J&P's own values gives ~180, not their 211
+            res.report("onset Re_c of the non-axisymmetric wake, |C_L|^2 linear through Re 230, 250, "
+                       "D/h %d" % f["Dh"], landau(a, b), landau(ja, jb),
+                       "the same estimate from J&P's |C_L| (their onset 211, Natarajan & Acrivos 210); "
+                       "|C_L| %.4g at Re 230 (J&P %.4g)" % (a, ja))
     u1 = [r for r in un if r["dtfactor"] == 1.0]
     if u1:
         g, B = u1[-1], ref.RE300
