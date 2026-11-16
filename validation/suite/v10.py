@@ -13,7 +13,12 @@ Steady ibmSimpleFoam (SIMPLEC as V5 2D-1) for Re 20, 50, 100 on D/h 24, 32, 48 a
 on 32, 48, 64; Re 250 (steady, not axisymmetric) on 32, 48, 64 from the Re 200 solution with a
 small lateral velocity; Re 300 ibmPimpleFoam from the Re 250 solution, dt = 0.01, statistics
 over the last 15 shedding periods. Sampling: alpha-weighted quadratic least squares over the
-value points, the cells mirrored at z = 0."""
+value points, the cells mirrored at z = 0 (bubble length, vortex centre); the separation angle
+from the wall shear the solver applies (separation()). Re_c of the non-axisymmetric wake from
+|C_L|^2 at Re 230 and 250 on the finest mesh (reported).
+
+The D/h 64 chain ran on HoreKa in
+2026-11 (build of 2190505 against its v2412 module, n16 V14 3D-3Z bit-identical, G1, G2 PASS)."""
 import os
 import shutil
 
@@ -160,24 +165,35 @@ class Field:
         return c[0], c[1:4].T/h
 
 
-def separation(F, h, phis=(30, 60, 90)):
-    """separation angle from the front stagnation point (deg): the zero of the meridional wall
-    shear d u_theta/dr at r = R, from u_theta at R + h and R + 2h (u_theta = a d + b d^2), per
-    meridian phi; 180 if the shear does not change sign"""
-    th = np.radians(np.arange(90.0, 179.6, 0.5))
+def separation(d, t, bands=(2.0, 1.0, 3.0)):
+    """separation angle from the front stagnation point (deg): the sign change of the meridional
+    wall shear the solver applies, nu c V u_P / |S_w| per wall cell (the viscous force of the
+    C_D), area-averaged in bands of theta (all meridians: the flow is axisymmetric), linearly
+    interpolated between the bands. The wall cells cluster on the grid planes x = const (a band
+    spacing of ~h/(R sin theta)), so the first band width is the result, the others its spread.
+    Least-squares fits of u_theta at fixed wall distances (h, 2h) were biased by -1 to -1.5 deg
+    and did not converge (Re 50, 100 at D/h 24-48); 180 if the shear does not change sign."""
+    if not (d / "0" / "V").exists():
+        common.sh("postProcess -func writeCellVolumes -time 0", d, "log.writeCellVolumes")
+    rf = lambda *p: read_field(os.path.join(d, *p))[0]
+    C, V, c, Sw, U = rf("0", "C"), rf("0", "V"), rf("0", "ibmNoSlipCoeff"), rf("0", "ibmSw"), rf(t, "U")
+    A = np.linalg.norm(Sw, axis=1)
+    w = (A > 0) & (c > 0)
+    x, A = C[w], A[w]
+    r = np.linalg.norm(x, axis=1)
+    th = np.arccos(np.clip(-x[:, 0]/r, -1, 1))
+    rho = np.maximum(np.hypot(x[:, 1], x[:, 2]), 1e-12)
+    e = np.column_stack([np.sin(th), np.cos(th)*x[:, 1]/rho, np.cos(th)*x[:, 2]/rho])
+    f = c[w]*V[w]*np.sum(U[w]*e, axis=1)
     out = []
-    for phi in np.radians(phis):
-        n = np.column_stack([-np.cos(th), np.sin(th)*np.cos(phi), np.sin(th)*np.sin(phi)])
-        e = np.column_stack([np.sin(th), np.cos(th)*np.cos(phi), np.cos(th)*np.sin(phi)])
-        u1 = np.array([F.fit((R + h)*ni, h)[0][:3] @ ei for ni, ei in zip(n, e)])
-        u2 = np.array([F.fit((R + 2*h)*ni, h)[0][:3] @ ei for ni, ei in zip(n, e)])
-        s = (4*u1 - u2)/(2*h)          # d u_theta/dr at the wall, d1 = h, d2 = 2h
-        k = np.where((s[:-1] > 0) & (s[1:] <= 0))[0]
-        if len(k) == 0:
-            out.append(180.0)
-            continue
-        k = k[0]
-        out.append(float(np.degrees(th[k] + (th[k+1] - th[k])*s[k]/(s[k] - s[k+1]))))
+    for bw in bands:
+        k = np.digitize(th, np.radians(np.arange(90.0, 180.01, bw)))
+        ks = [i for i in np.unique(k) if A[k == i].sum() > 0]
+        T = np.array([th[k == i] @ A[k == i]/A[k == i].sum() for i in ks])
+        S = np.array([f[k == i].sum()/A[k == i].sum() for i in ks])
+        z = np.where((S[:-1] > 0) & (S[1:] < 0))[0]
+        out.append(180.0 if len(z) == 0 else
+                   float(np.degrees(T[z[-1]] + (T[z[-1]+1] - T[z[-1]])*S[z[-1]]/(S[z[-1]] - S[z[-1]+1]))))
     return out
 
 
@@ -227,8 +243,8 @@ def steady(ctx, dh, Re, tag="", src=None, perturb=0.0, **opts):
            "C_Dchange": float(np.ptp(cd[-200:])/abs(cd[-1]))}
     if Re <= 200 and not opts.get("full"):
         F = Field(d)
-        th = separation(F, h)
-        out.update({"theta_s": float(np.mean(th)), "theta_s_spread": float(np.ptp(th)), "x_s": bubble(F, h)})
+        th = separation(d, latest_time(str(d)))
+        out.update({"theta_s": th[0], "theta_s_spread": float(np.ptp(th)), "x_s": bubble(F, h)})
         s = ref.steady()
         if Re in s["Re"]:
             i = list(s["Re"]).index(Re)
@@ -295,7 +311,7 @@ def run(ctx, res):
             with cv:
                 free[0] += need(j)
                 cv.notify_all()
-    jobs.sort(key=lambda j: (j[0] is not chain, -need(j)))   # the long chains first
+    jobs.sort(key=lambda j: (j[0] is chain, need(j)))   # steady cases smallest first, the long chains last
     out = [x for r in common.pmap(one, jobs, len(jobs)) for x in r]
     st = sorted([r for k, r in out if k == "steady"], key=lambda r: (r["tag"], r["Re"], r["Dh"]))
     un = sorted([r for k, r in out if k == "unsteady"], key=lambda r: (r["Dh"], -r["dtfactor"]))
@@ -327,7 +343,7 @@ def run(ctx, res):
         if Re in jp and Re >= 50:
             i = jp[Re]
             res.absolute("Re %d separation angle theta_s (deg), D/h %d" % (Re, f["Dh"]), f["theta_s"],
-                      s["theta_s"][i], 1.5, seq("theta_s") + "; spread over meridians %.2f" % f["theta_s_spread"])
+                      s["theta_s"][i], 1.5, seq("theta_s") + "; spread over band widths 1-3 deg %.2f" % f["theta_s_spread"])
             res.absolute("Re %d bubble length x_s / D, D/h %d" % (Re, f["Dh"]), f["x_s"], s["x_s"][i], 0.03, seq("x_s"))
             res.absolute("Re %d vortex centre x_c / D, D/h %d" % (Re, f["Dh"]), f["x_c"], s["x_c"][i], 0.02, seq("x_c"))
             res.absolute("Re %d vortex centre y_c / D, D/h %d" % (Re, f["Dh"]), f["y_c"], s["y_c"][i], 0.02, seq("y_c"))
