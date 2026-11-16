@@ -3,7 +3,7 @@ results/<commit>/figures/<ID>_<what>.{pdf,png} from the result JSONs and the cas
 they name (flow pictures of the 2-D cases: flowfield.py), results/<commit>/tables/<ID>.tex (every check: status, value, reference, tolerance,
 note). The narrative (results/<commit>/report/report.tex) includes them.
 
-    latexreport.py <commit> [--diag DIR ...]
+    latexreport.py <commit> [ID=commit ...]   (ID=commit: the timing pairs of that case from another commit's runs)
 
 Diagnostic runs outside the suite (V5 time step / outer correctors, V12 outer correctors) are
 read from ~/runs/suite/diag_V5 and diag_V12 when present."""
@@ -13,12 +13,13 @@ from pathlib import Path
 
 import numpy as np
 
+import matplotlib
+matplotlib.use("Agg")   # before flowfield imports pyplot (a stale DISPLAY hangs the default backend)
+import matplotlib.pyplot as plt   # noqa: E402
+
 import common
 import flowfield
 import report
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt   # noqa: E402
 
 sys.path.insert(0, str(common.VALIDATION))
 from foamio import latest_time, read_field   # noqa: E402
@@ -44,7 +45,7 @@ class Out:
 
     def save(self, fig, name):
         for ax in fig.axes:   # log abscissae of mesh sequences: label the meshes themselves
-            if ax.get_xscale() != "log":
+            if ax.get_xscale() != "log" or getattr(ax, "keep_ticks", False):
                 continue
             x = sorted({float(v) for ln in ax.get_lines() for v in np.atleast_1d(ln.get_xdata())
                         if np.isfinite(v) and v > 0})
@@ -602,8 +603,59 @@ def v15(out, r):
     out.save(fig, "V15_flatPlate")
 
 
+def cost(out, R, commit, other):
+    """tables/timings*.tex (timing.py) and the CPU time against the error of the immersed runs and of the
+    body-fitted runs of the same problem, each against the finest body-fitted solution"""
+    import timing
+    import reference_rotatingCylinder as rot
+    timing.write_tex(out.d / "tables", commit, other)
+    runs = common.RUNS
+    v2c = other.get("V2", commit)
+    v2 = json.loads((common.SUITE / "results" / v2c / "V2.json").read_text()) if v2c != commit else R.get("V2")
+    panels = []
+    if v2:
+        import v2 as V2
+        ref = V2.BF["noSlip"][256]
+        ib = [(timing.parse(runs / v2c / "V2" / ("noSlip_N%d_ma0.5" % x["N"])), x["F"]) for x in v2["data"]["rows"]
+              if x["wall"] == "noSlip" and x["ma"] == 0.5]
+        bf = [(timing.parse(Path.home() / ("runs/ibmSA_study/freeslip_bf/m%d_noSlip" % M)), V2.BF["noSlip"][M]) for M in (64, 128)]
+        panels.append(("V2 no slip: drag\nref. body-fitted M 256", ib, bf, ref))
+    if "V4" in R:
+        rows = R["V4"]["data"]["rows"]
+        ref = next(x["ratio"] for x in rows if x["kind"] == "bf" and x["M"] == 128)
+        d = Path(R["V4"]["cases"])
+        ib = [(timing.parse(d / ("ibm_N%d" % x["N"])), x["ratio"]) for x in rows if x["kind"] == "ibm"]
+        bf = [(timing.parse(d / "bf_M64"), next(x["ratio"] for x in rows if x["kind"] == "bf" and x["M"] == 64))]
+        panels.append(("V4: scalar content\nref. body-fitted M 128", ib, bf, ref))
+    if "V12" in R:
+        d = Path(R["V12"]["cases"])
+        for a in (1, 2):
+            ref = rot.bodyFitted(128)[a]["C_L"]
+            ib = sorted([(timing.parse(d / ("alpha%d_Dh%d" % (a, x["Dh"]))), x["C_L"]) for x in R["V12"]["data"]["rows"]
+                         if x["alpha"] == a], key=lambda z: z[0]["fluid"])
+            bf = [(timing.parse(runs / "bodyfitted" / ("rot_a%d_M64" % a)), rot.bodyFitted(64)[a]["C_L"])]
+            panels.append(("V12 $\\alpha$ = %d: mean $C_L$\nref. body-fitted M 128" % a, ib, bf, ref))
+    fig, ax = plt.subplots(1, len(panels), figsize=(1.8*len(panels) + 0.4, 2.5))
+    for a_, (title, ib, bf, ref) in zip(np.atleast_1d(ax), panels):
+        for i, (lab, S) in enumerate((("immersed", ib), ("body-fitted", bf))):
+            S = [(r, v) for r, v in S if r]
+            x = [r["exec"]*r["ranks"] for r, _ in S]
+            y = [abs(v/ref - 1) for _, v in S]
+            hosts = sorted({r["host"] for r, _ in S})
+            a_.loglog(x, y, marker=M[i], color=C[i], label="%s (%s)" % (lab, ", ".join(hosts)))
+        a_.set_title(title, fontsize=7)
+        a_.set_xlabel("CPU time x ranks [s]")
+        a_.keep_ticks = True
+        a_.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+        a_.legend(fontsize=5.5, loc="lower left")
+    np.atleast_1d(ax)[0].set_ylabel("relative error")
+    fig.tight_layout()
+    out.save(fig, "cost_accuracy")
+
+
 def main():
     commit = sys.argv[1]
+    other = dict(a.split("=") for a in sys.argv[2:] if "=" in a)   # ID=commit: that case's runs from another commit
     d = common.SUITE / "results" / commit
     out = Out(d)
     import report
@@ -629,6 +681,7 @@ def main():
         if k in R:
             fn(out, R[k])
     flowfield.figures(out, R)
+    cost(out, R, commit, other)
     if "V12" in R:
         v12(out, R["V12"], diag12)
     if "V5" in R:

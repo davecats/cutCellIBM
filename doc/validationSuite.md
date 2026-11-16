@@ -109,6 +109,13 @@ only in G2 and V1 until first order is removed. nSubSamples (8, 32) only in G1.
   component × case matrix coloured by status, plots per case (convergence plots with the
   observed order; profiles and curves against the reference), as markdown + PNG in the results
   directory and one HTML page published as a private artifact.
+- Run times (`timing.py`, 2026-11-16): per run from the solver logs, host, ranks, fluid cells,
+  steps, the master's CPU time, pressure iterations per step and the cost per cell and step
+  (core-µs, start-up excluded); the pairs of immersed and body-fitted runs of the same problem
+  (G9, V2, V4, V5, V7, V12, V15). `latexreport.py <commit> V2=<commit>` writes
+  `tables/timings*.tex` and `figures/cost_accuracy` (CPU time against the error). Stored times
+  carry the load of their host: compare only runs on one host at one time; the transient pairs
+  were re-timed on one host (`~/runs/timing_bench/bench.sh`, finding 16).
 
 ## 7. Order of work
 
@@ -887,6 +894,18 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    (D/h 15.6), −0.17 % (23.4); 2-D slice −0.56 / −0.81, −0.055 / −0.091, −0.002 / −0.006 % at
    D/h 15.6, 31.2, 62.4: the same in 2-D and 3-D, order ≥ 3 in h, both solvers share the limit.
    Δt from |u| = 3.75; c_D,max and c_L,min judged at D/h 46.8 (user).
+16. **Cost of the immersed wall against body-fitted runs** (2026-11-16, `timing.py`, report
+   §Cost). Host and load dominate the stored times: the same work took 4.5–6.5× longer in the
+   tier-1 run on eridanus than on io2/hydra (V4 vs V2). Same mesh and solver (G9): 0.8–1.5× per
+   iteration, 11–25 % fewer SIMPLE iterations, 0.7–1.3× in total; V15 same grid 1.04× per
+   iteration (2026-11-11: 3.9×, then 1.34× with the cached gradient); V7 (100 cells) 1.45×.
+   Same host (cetus, v2412, continued from the final states): V12 α = 1 immersed D/h 80 21–22 µs
+   per cell and step against body-fitted M 64 38 µs (829 against 1838 pressure iterations: the
+   stretched O-grid), V5 2D-2 1.0×. Equal accuracy is what differs: steady cylinders (V2, V4)
+   2–2.5× the CPU time of the O-grid; V12 mean C_L −1.20 % (α = 1, D/h 80, 27 core-h) and
+   −0.30 % (α = 2, D/h 160, 286 core-h) against −0.04 % and −0.007 % of body-fitted M 64
+   (35, 38 core-h). The steady immersed cases G9, V2, V4 use PCG/DIC, whose iterations double
+   with N (V2: 21 … 208 per step), where V15 with a GAMG base needs 2: a case setting, open.
 
 ### Decisions (2026-11-07)
 
