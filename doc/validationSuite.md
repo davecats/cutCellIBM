@@ -357,7 +357,19 @@ Masliyah & Epstein 1970 for C_D at Re = 1–100 (table II of Blanco & Magnaudet)
 - Stresses: 3-D cut cells on a doubly curved convex wall, separation, convection at a curved wall,
   3-D force integration; the first 3-D flow case, and the rigid part of MIG without the pipe and
   without the small lift. Relies on G1–G3, V2.
-- Cost: ~1–3 M cells half domain at the finest level; a day on hydra for the steady set.
+- As implemented (`validation/suite/v10.py`, 2026-11-16): background h0 = 16/(D/h) (cubic cells on
+  the spec domain), four boxes fixed in space, [−5.2, 11] × [−5.4, 5.4] × [0, 5.4], [−2.8, 6.5] ×
+  [−3, 3] × [0, 3], [−1.6, 4.2] × [−1.8, 1.8] × [0, 1.8], [−1, 3] × [−1.2, 1.2] × [0, 1.2] (~7
+  cells of the coarser level between them at D/h 24): 0.27, 0.64, 2.2, 5.1 M cells at D/h 24, 32,
+  48, 64. Re 230 on D/h 64 for the onset (reported against the same two-point estimate from J&P's
+  |C_L|: linear |C_L|² gives ~180 from their values too). Once at D/h 32: full domain (symmetry
+  plane through the cut cells: +8e-5 in C_D at D/h 16), lateral 15 D, ibmConvection off,
+  mergeAlpha 0. θ_s from the wall shear the solver applies (ν c V u_P/|S_w| per wall cell,
+  area-averaged in 2° bands of θ, spread over 1–3° bands reported): the wall cells cluster on the
+  grid planes x = const, ~h/(R sin θ) apart; least-squares u_θ at h and 2h was 1–1.5° low and did
+  not converge. Re 50, 100 at D/h 48: θ_s 139.20°, 126.90° (J&P 139.39°, 127.03°).
+- Cost: 5.1 M cells at D/h 64; the D/h 64 chain on HoreKa (4 nodes: SIMPLE 0.46 s per iteration,
+  Re 250 converged in 4036 iterations; Re 300 4 s per step), D/h ≤ 48 on hydra.
 
 ### BUB (V11): stress-free sphere (clean bubble of fixed shape) in uniform flow
 
