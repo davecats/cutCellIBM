@@ -905,7 +905,9 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    2–2.5× the CPU time of the O-grid; V12 mean C_L −1.20 % (α = 1, D/h 80, 27 core-h) and
    −0.30 % (α = 2, D/h 160, 286 core-h) against −0.04 % and −0.007 % of body-fitted M 64
    (35, 38 core-h). The steady immersed cases G9, V2, V4 use PCG/DIC, whose iterations double
-   with N (V2: 21 … 208 per step), where V15 with a GAMG base needs 2: a case setting, open.
+   with N (V2: 21 … 208 per step), where V15 with a GAMG base needs 2: a case setting. Decision (user, 2026-11-16): the GAMG
+   base stays as it is (V5, V13, V15), G9/V2/V4 and their baselines are not changed; the
+   immersed cost is to come down with AMR (degrees of freedom only where needed).
 
 ### Decisions (2026-11-07)
 
