@@ -16,7 +16,10 @@ same y-mesh: +114, -57, +29, +2.3, -4.8 % at D/h 15.6 ... 62.4), C_L within 10 %
 3D-3Z on n = 16, 24, 48 with a fixed time step from Courant <= 0.5 at |u| = 3.75 (user, 2026-11-15:
 the spec's dt = 0.005 is Courant 2.3-3.5; |u| reaches 3.6 past the cylinder), and once with dt/2 on
 n = 16. C_Dmax and C_Lmin judged at D/h 46.8 as in 3D-1Z (user, 2026-11-16: C_Dmax +4.65, +2.37 %
-at D/h 15.6, 23.4, order 1.66; the lift unresolved below). The PIMPLE steady state differs from the
+at D/h 15.6, 23.4, order 1.66; the lift unresolved below). C_Lmin is judged on the Richardson
+extrapolation from D/h 23.4 and 46.8 with the formal order 2 (user, 2026-11-17: -0.0162, -0.0127
+against -0.0110 at D/h 23.4, 46.8, the C_L(t) shape and the time of the minimum right at 46.8; the
+lift at D/h 15.6 has the wrong sign, a D/h 94 run ~68 M cells), the finest mesh reported. The PIMPLE steady state differs from the
 SIMPLEC one through the rAU in the Rhie-Chow flux (dt against relaxation): -0.5 % C_D at D/h 15.6,
 order >= 3 in h in 2-D and 3-D, so the dt dependence at D/h 15.6 is a resolution effect."""
 import os
@@ -226,7 +229,17 @@ def run(ctx, res):
     res.le("3D-3Z max Courant number", max(r["Co"] for r in un), CO3,
            " ".join("%.3f" % r["Co"] for r in un))
     res.rel("3D-3Z C_Dmax, D/h = %.1f" % g["Dh"], g["C_Dmax"], B3["C_Dmax"], 0.01, sq("C_Dmax"))
-    res.rel("3D-3Z C_Lmin, D/h = %.1f" % g["Dh"], g["C_Lmin"], B3["C_Lmin"], 0.10, sq("C_Lmin"))
+    if len(u1) >= 2:   # user (2026-11-17): judged extrapolated, as V11
+        a = u1[-2]
+        r = g["Dh"]/a["Dh"]
+        ext = lambda p: g["C_Lmin"] + (g["C_Lmin"] - a["C_Lmin"])/(r**p - 1)
+        res.rel("3D-3Z C_Lmin, Richardson-extrapolated from D/h %.1f/%.1f with the formal order 2"
+                % (a["Dh"], g["Dh"]), ext(2.0), B3["C_Lmin"], 0.10,
+                sq("C_Lmin") + "; order 1.5 / 2.5: %.5g / %.5g; D/h %.1f %+.1f %%"
+                % (ext(1.5), ext(2.5), g["Dh"], 100*(g["C_Lmin"]/B3["C_Lmin"] - 1)))
+        res.report("3D-3Z C_Lmin, D/h = %.1f (finest mesh)" % g["Dh"], g["C_Lmin"], B3["C_Lmin"], sq("C_Lmin"))
+    else:
+        res.rel("3D-3Z C_Lmin, D/h = %.1f" % g["Dh"], g["C_Lmin"], B3["C_Lmin"], 0.10, sq("C_Lmin"))
     res.report("3D-3Z C_Lmax, D/h = %.1f" % g["Dh"], g["C_Lmax"], B3["C_Lmax"], sq("C_Lmax"))
     if len(u1) >= 3:
         Ce, p = common.richardson([1/r["Dh"] for r in u1], [r["C_Dmax"] for r in u1])

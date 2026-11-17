@@ -561,7 +561,9 @@ level 4 c_D(t), c_L(t), c_D,max 3.2978, c_L,min −0.010999. c = 2F/(U_mean² D 
   reference); 3D-3Z c_D(t), c_L(t), their extremes and the L2 difference to the FeatFlow series.
 - Tolerances: 3D-1Z c_D within 1 %, c_L within 10 % at D/h = 46.8 (user 2026-11-15, finding 14;
   before: c_L within 5 % at D/h = 32); 3D-3Z c_D,max within 1 %, c_L,min within 10 % at D/h = 46.8
-  (user 2026-11-16; FeatFlow level 2: 0.9 %, OpenFOAM level 3: 7.3 %), c_D,max order REPORT.
+  (user 2026-11-16; FeatFlow level 2: 0.9 %, OpenFOAM level 3: 7.3 %), c_D,max order REPORT;
+  c_L,min judged on the Richardson extrapolation from D/h 23.4 and 46.8 with the formal order 2,
+  the finest mesh reported (user 2026-11-17, finding 18).
 - Stresses 3-D cut cells on a singly curved wall, the junction of an immersed and a body-fitted
   wall, 3-D forces. Relies on V5; runs before V10 SPH (curvature in one direction before two).
 - Cost: tier 2; 3D-3Z 6000 (D/h 15.6) to 28000 (D/h 46.8) steps, the finest on 8.5 M cells,
@@ -911,6 +913,16 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    (D/h 15.6), −0.17 % (23.4); 2-D slice −0.56 / −0.81, −0.055 / −0.091, −0.002 / −0.006 % at
    D/h 15.6, 31.2, 62.4: the same in 2-D and 3-D, order ≥ 3 in h, both solvers share the limit.
    Δt from |u| = 3.75; c_D,max and c_L,min judged at D/h 46.8 (user).
+18. **V14 3D-3Z at D/h 46.8** (2026-11-17, 2190505, 8.5 M cells, 304 ranks on HoreKa, job
+   5242766, 18.6 h; runs `~/runs/suite/2190505/V14.2`; the partial draco fallback moved to
+   `3z_n48_dt1/draco_partial_aside`). c_D,max 3.4454, 3.3729, 3.3108 at D/h 15.6, 23.4, 46.8
+   (+0.40 % against 3.2978, order 1.30); c_L,min −0.0062, −0.0162, −0.0127 against −0.0110
+   (+15.6 % at 46.8; D/h 15.6 has the wrong shape: c_L > 0 until t ≈ 3.4); the C_L(t) curve at
+   46.8 has the reference shape and the minimum at t ≈ 3.9 (reference 3.895), L2 difference of
+   c_L(t) 1.43, 0.54, 0.147 and of c_D(t) 0.041, 0.020, 0.0040. Decision (user, 2026-11-17):
+   c_L,min judged on the extrapolation (formal order 2, as the 3D-1Z lift: observed 1.95):
+   −0.01155 (+5.0 %; order 1.5 / 2.5: −0.01080 / −0.01196), the finest mesh reported. V14 PASS;
+   the baseline waits for the user.
 16. **Cost of the immersed wall against body-fitted runs** (2026-11-16, `timing.py`, report
    §Cost). Host and load dominate the stored times: the same work took 4.5–6.5× longer in the
    tier-1 run on eridanus than on io2/hydra (V4 vs V2). Same mesh and solver (G9): 0.8–1.5× per
