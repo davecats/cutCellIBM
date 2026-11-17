@@ -198,8 +198,11 @@ def fig10(interface, Re, d):
 
 
 def mesh_of(d, dh):
-    hf = d/dh
-    return hf, (2*hf if d >= 0.3 else 4*hf)     # d = 0.2: two levels, the pipe wall at h0 = d/(dh/4)
+    """(hf, h0): one level (d >= 0.3) or two (d = 0.2: the pipe wall at h0 = 4 hf); h0 rounded so
+    that the pipe radius 0.5 is a whole number of cells (d = 0.6: d/h 64 -> 64.8)"""
+    lev = 2 if d >= 0.3 else 4
+    h0 = 0.5/round(0.5/(lev*d/dh))
+    return h0/lev, h0
 
 
 def x0_of(interface, d, e):
