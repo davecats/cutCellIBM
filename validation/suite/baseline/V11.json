@@ -1,0 +1,717 @@
+{
+ "id": "V11",
+ "TITLE": "BUB: stress-free sphere (clean bubble) in a uniform stream, Re 50-300",
+ "STRESSES": [
+  "K4"
+ ],
+ "RELIES": [
+  "V10",
+  "V2",
+  "G7"
+ ],
+ "KIND": "case",
+ "TIER": 2,
+ "commit": "2190505",
+ "suite": "97286c7",
+ "status": "PASS",
+ "started": "2026-11-17 06:53:15",
+ "seconds": 313.9,
+ "cases": "/home/ws/xt8786/runs/suite/2190505/V11.1",
+ "checks": [
+  {
+   "name": "steady runs not converged",
+   "status": "PASS",
+   "value": 0,
+   "ref": null,
+   "tol": "<= 0",
+   "note": ""
+  },
+  {
+   "name": "Re 100 D/h 32_merge0 not converged: C_D peak-to-peak over the last 200 iterations (rel.)",
+   "status": "REPORT",
+   "value": 0.020938320467480263,
+   "ref": null,
+   "tol": null,
+   "note": "20000 iterations"
+  },
+  {
+   "name": "zero-shear wall cells and curvature (D/h 48)",
+   "status": "REPORT",
+   "value": null,
+   "ref": null,
+   "tol": null,
+   "note": "zero-shear free slip: 5356 wall cells, wall curvature 1.9999993118 .. 2.00000063807 (0 flat), 0 limited (radius of curvature under twice the distance)"
+  },
+  {
+   "name": "Re 50 C_D, Richardson-extrapolated from D/h 24/32/48 (Blanco & Magnaudet table I)",
+   "status": "PASS",
+   "value": 0.6737791355431466,
+   "ref": 0.664,
+   "tol": "2 %",
+   "note": "0.68249 0.67736 0.6748; Moore 0.66; D/h 48 +1.63 %; deviation +1.47 %"
+  },
+  {
+   "name": "Re 50 observed order of C_D",
+   "status": "PASS",
+   "value": 3.0881610681323726,
+   "ref": null,
+   "tol": ">= 1.5",
+   "note": ""
+  },
+  {
+   "name": "Re 50 C_D, D/h 48 (finest mesh, against table I)",
+   "status": "REPORT",
+   "value": 0.6748034928197311,
+   "ref": 0.664,
+   "tol": null,
+   "note": "0.68249 0.67736 0.6748; Moore 0.66"
+  },
+  {
+   "name": "Re 50 max tangential stress (mu U/a) decreases with the mesh: D/h 48 against 32",
+   "status": "PASS",
+   "value": 0.5453960709120482,
+   "ref": null,
+   "tol": "<= 1",
+   "note": "0.221 0.175 0.0953; at theta 45 deg; rms 0.126 0.0937 0.0494; max |u_t| 1.07; order 1.50"
+  },
+  {
+   "name": "Re 50 surface vorticity / (2 u_theta/a) at the equator, D/h 48",
+   "status": "REPORT",
+   "value": 0.9497049189152872,
+   "ref": 1.0,
+   "tol": null,
+   "note": "0.8264 0.8877 0.9497; range over theta 15-165 deg 0.864 .. 1.01"
+  },
+  {
+   "name": "Re 50 recirculation length on the axis behind the bubble, D/h 48",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 0",
+   "note": "min u_x on the axis 0.06827 0.05215 0.03519 (at x - a = 0.0208)"
+  },
+  {
+   "name": "Re 100 C_D, Richardson-extrapolated from D/h 24/32/48 (Blanco & Magnaudet table I)",
+   "status": "PASS",
+   "value": 0.3734509473577509,
+   "ref": 0.369,
+   "tol": "2 %",
+   "note": "0.3978 0.38579 0.37819; Moore 0.3739; D/h 48 +2.49 %; deviation +1.21 %"
+  },
+  {
+   "name": "Re 100 observed order of C_D",
+   "status": "PASS",
+   "value": 2.3620526497022802,
+   "ref": null,
+   "tol": ">= 1.5",
+   "note": ""
+  },
+  {
+   "name": "Re 100 C_D, D/h 48 (finest mesh, against table I)",
+   "status": "REPORT",
+   "value": 0.37818739061411594,
+   "ref": 0.369,
+   "tol": null,
+   "note": "0.3978 0.38579 0.37819; Moore 0.3739"
+  },
+  {
+   "name": "Re 100 max tangential stress (mu U/a) decreases with the mesh: D/h 48 against 32",
+   "status": "PASS",
+   "value": 0.5596718746808442,
+   "ref": null,
+   "tol": "<= 1",
+   "note": "0.47 0.37 0.207; at theta 45 deg; rms 0.261 0.207 0.115; max |u_t| 1.19; order 1.43"
+  },
+  {
+   "name": "Re 100 surface vorticity / (2 u_theta/a) at the equator, D/h 48",
+   "status": "REPORT",
+   "value": 0.9185002128252941,
+   "ref": 1.0,
+   "tol": null,
+   "note": "0.7432 0.8224 0.9185; range over theta 15-165 deg 0.814 .. 1.03"
+  },
+  {
+   "name": "Re 100 recirculation length on the axis behind the bubble, D/h 48",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 0",
+   "note": "min u_x on the axis 0.06851 0.05443 0.03761 (at x - a = 0.0208)"
+  },
+  {
+   "name": "Re 200 C_D, Richardson-extrapolated from D/h 24/32/48 (Blanco & Magnaudet table I)",
+   "status": "PASS",
+   "value": 0.19954052551801013,
+   "ref": 0.2,
+   "tol": "2 %",
+   "note": "0.24032 0.22291 0.2102; Moore 0.2025; D/h 48 +5.10 %; deviation -0.23 %"
+  },
+  {
+   "name": "Re 200 observed order of C_D",
+   "status": "PASS",
+   "value": 1.9354784504671656,
+   "ref": null,
+   "tol": ">= 1.5",
+   "note": ""
+  },
+  {
+   "name": "Re 200 C_D, D/h 48 (finest mesh, against table I)",
+   "status": "REPORT",
+   "value": 0.21020180408705091,
+   "ref": 0.2,
+   "tol": null,
+   "note": "0.24032 0.22291 0.2102; Moore 0.2025"
+  },
+  {
+   "name": "Re 200 max tangential stress (mu U/a) decreases with the mesh: D/h 48 against 32",
+   "status": "PASS",
+   "value": 0.6203587854468853,
+   "ref": null,
+   "tol": "<= 1",
+   "note": "0.802 0.693 0.43; at theta 70 deg; rms 0.438 0.378 0.232; max |u_t| 1.27; order 1.18"
+  },
+  {
+   "name": "Re 200 surface vorticity / (2 u_theta/a) at the equator, D/h 48",
+   "status": "REPORT",
+   "value": 0.8573118121437311,
+   "ref": 1.0,
+   "tol": null,
+   "note": "0.6257 0.7139 0.8573; range over theta 15-165 deg 0.74 .. 1.08"
+  },
+  {
+   "name": "Re 200 recirculation length on the axis behind the bubble, D/h 48",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 0",
+   "note": "min u_x on the axis 0.0665 0.05717 0.04144 (at x - a = 0.0208)"
+  },
+  {
+   "name": "Re 300 C_D, Richardson-extrapolated from D/h 24/32/48 (Blanco & Magnaudet table I)",
+   "status": "PASS",
+   "value": 0.13667702010128396,
+   "ref": 0.138,
+   "tol": "2 %",
+   "note": "0.18413 0.16447 0.14975; Moore 0.1396; D/h 48 +8.52 %; deviation -0.959 %"
+  },
+  {
+   "name": "Re 300 observed order of C_D",
+   "status": "PASS",
+   "value": 1.85989581839631,
+   "ref": null,
+   "tol": ">= 1.5",
+   "note": ""
+  },
+  {
+   "name": "Re 300 C_D, D/h 48 (finest mesh, against table I)",
+   "status": "REPORT",
+   "value": 0.14975144641187751,
+   "ref": 0.138,
+   "tol": null,
+   "note": "0.18413 0.16447 0.14975; Moore 0.1396"
+  },
+  {
+   "name": "Re 300 max tangential stress (mu U/a) decreases with the mesh: D/h 48 against 32",
+   "status": "PASS",
+   "value": 0.6929215639389109,
+   "ref": null,
+   "tol": "<= 1",
+   "note": "0.987 0.925 0.641; at theta 70 deg; rms 0.548 0.502 0.336; max |u_t| 1.31; order 0.90"
+  },
+  {
+   "name": "Re 300 surface vorticity / (2 u_theta/a) at the equator, D/h 48",
+   "status": "REPORT",
+   "value": 0.79952649590804,
+   "ref": 1.0,
+   "tol": null,
+   "note": "0.5484 0.6299 0.7995; range over theta 15-165 deg 0.673 .. 1.14"
+  },
+  {
+   "name": "Re 300 recirculation length on the axis behind the bubble, D/h 48",
+   "status": "PASS",
+   "value": 0.0,
+   "ref": null,
+   "tol": "<= 0",
+   "note": "min u_x on the axis 0.06361 0.05801 0.04355 (at x - a = 0.0208)"
+  },
+  {
+   "name": "Re 100 C_D, D/h 32: ibmConvection off against on (rel.)",
+   "status": "REPORT",
+   "value": -0.00071349409254029,
+   "ref": null,
+   "tol": null,
+   "note": "0.385518 against 0.385793; max tangential stress 0.412 against 0.37; vorticity ratio at the equator 0.807 against 0.822; min u_x on the axis 0.0542"
+  },
+  {
+   "name": "Re 100 C_D, D/h 32: mergeAlpha 0 against 0.5 (rel.)",
+   "status": "REPORT",
+   "value": 0.002575666898644524,
+   "ref": null,
+   "tol": null,
+   "note": "0.386787 against 0.385793; max tangential stress 0.38 against 0.37; vorticity ratio at the equator 0.831 against 0.822; min u_x on the axis 0.0543"
+  },
+  {
+   "name": "Re 100 C_D, D/h 32: zeroShear off (du_t/dn = 0) against on (rel.)",
+   "status": "REPORT",
+   "value": -0.4395510048696346,
+   "ref": null,
+   "tol": null,
+   "note": "0.216217 against 0.385793; max tangential stress 1.29 against 0.37; vorticity ratio at the equator 0.406 against 0.822; min u_x on the axis 0.11"
+  },
+  {
+   "name": "Re 50 C_D, D/h 32: lateral boundaries at 15 D against 10 D (rel.)",
+   "status": "REPORT",
+   "value": -0.00017483609102730835,
+   "ref": null,
+   "tol": null,
+   "note": "0.677244 against 0.677362; max tangential stress 0.175 against 0.175; vorticity ratio at the equator 0.888 against 0.888; min u_x on the axis 0.0521"
+  },
+  {
+   "name": "baseline",
+   "status": "REPORT",
+   "value": 48,
+   "ref": null,
+   "tol": null,
+   "note": "no stored baseline: this run can be accepted as one"
+  }
+ ],
+ "data": {
+  "steady": [
+   {
+    "Re": 50,
+    "Dh": 24,
+    "tag": "",
+    "cells": 264165,
+    "C_D": 0.6824903873934136,
+    "C_L": 0.00014309331850006864,
+    "iterations": 461,
+    "converged": true,
+    "C_Dchange": 7.938723995782654e-07,
+    "tau_max": 0.2210320019635092,
+    "tau_max_theta": 45.0,
+    "tau_rms": 0.1260032142274071,
+    "ut_max": 1.080930219877312,
+    "omega_ratio_eq": 0.8264157692555318,
+    "omega_ratio_range": [
+     0.6136507972368053,
+     1.0386848180541668
+    ],
+    "ux_axis_min": 0.0682712035524822,
+    "ux_axis_min_at": 0.04166666666666663,
+    "x_s": 0.0,
+    "zs": "zero-shear free slip: 1300 wall cells, wall curvature 1.99999984356 .. 2.00000014849 (0 flat), 0 limited (radius of curvature under twice the distance)"
+   },
+   {
+    "Re": 50,
+    "Dh": 32,
+    "tag": "",
+    "cells": 629224,
+    "C_D": 0.6773621588029912,
+    "C_L": 3.696003001286661e-05,
+    "iterations": 678,
+    "converged": true,
+    "C_Dchange": 1.1709946901158109e-07,
+    "tau_max": 0.17474316184004582,
+    "tau_max_theta": 50.0,
+    "tau_rms": 0.09373418927301587,
+    "ut_max": 1.0773552709378924,
+    "omega_ratio_eq": 0.8877165608197688,
+    "omega_ratio_range": [
+     0.7335925113459861,
+     1.0090623878979177
+    ],
+    "ux_axis_min": 0.05214721443821107,
+    "ux_axis_min_at": 0.03125,
+    "x_s": 0.0,
+    "zs": "zero-shear free slip: 2380 wall cells, wall curvature 1.99999975232 .. 2.00000021878 (0 flat), 0 limited (radius of curvature under twice the distance)"
+   },
+   {
+    "Re": 50,
+    "Dh": 48,
+    "tag": "",
+    "cells": 2189480,
+    "C_D": 0.6748034928197311,
+    "C_L": 1.4557947186527822e-05,
+    "iterations": 1180,
+    "converged": true,
+    "C_Dchange": 3.56414661830676e-08,
+    "tau_max": 0.09530423388630915,
+    "tau_max_theta": 45.0,
+    "tau_rms": 0.04939198795658814,
+    "ut_max": 1.0737064000451912,
+    "omega_ratio_eq": 0.9497049189152872,
+    "omega_ratio_range": [
+     0.8640893521185656,
+     1.0089620181799968
+    ],
+    "ux_axis_min": 0.03518965892134873,
+    "ux_axis_min_at": 0.02083333333333337,
+    "x_s": 0.0,
+    "zs": "zero-shear free slip: 5356 wall cells, wall curvature 1.9999993118 .. 2.00000063807 (0 flat), 0 limited (radius of curvature under twice the distance)"
+   },
+   {
+    "Re": 100,
+    "Dh": 24,
+    "tag": "",
+    "cells": 264165,
+    "C_D": 0.3978010635350756,
+    "C_L": 0.00033351487207423615,
+    "iterations": 441,
+    "converged": true,
+    "C_Dchange": 2.066022481187204e-07,
+    "tau_max": 0.4699441707186451,
+    "tau_max_theta": 65.0,
+    "tau_rms": 0.26145719008415647,
+    "ut_max": 1.1894901548480228,
+    "omega_ratio_eq": 0.7432410396267621,
+    "omega_ratio_range": [
+     0.5227289920823277,
+     1.1456485183153469
+    ],
+    "ux_axis_min": 0.06850624795213628,
+    "ux_axis_min_at": 0.04166666666666663,
+    "x_s": 0.0,
+    "zs": "zero-shear free slip: 1300 wall cells, wall curvature 1.99999984356 .. 2.00000014849 (0 flat), 0 limited (radius of curvature under twice the distance)"
+   },
+   {
+    "Re": 100,
+    "Dh": 32,
+    "tag": "",
+    "cells": 629224,
+    "C_D": 0.3857930502812587,
+    "C_L": 6.129280759926513e-05,
+    "iterations": 551,
+    "converged": true,
+    "C_Dchange": 5.3681643928386034e-08,
+    "tau_max": 0.3704221765707703,
+    "tau_max_theta": 50.0,
+    "tau_rms": 0.2069819497419213,
+    "ut_max": 1.1889433317743812,
+    "omega_ratio_eq": 0.8223826320474428,
+    "omega_ratio_range": [
+     0.6475840469426628,
+     1.0485359878690212
+    ],
+    "ux_axis_min": 0.054427979793754334,
+    "ux_axis_min_at": 0.03125,
+    "x_s": 0.0,
+    "zs": "zero-shear free slip: 2380 wall cells, wall curvature 1.99999975232 .. 2.00000021878 (0 flat), 0 limited (radius of curvature under twice the distance)"
+   },
+   {
+    "Re": 100,
+    "Dh": 48,
+    "tag": "",
+    "cells": 2189480,
+    "C_D": 0.37818739061411594,
+    "C_L": 2.3381747997011507e-05,
+    "iterations": 804,
+    "converged": true,
+    "C_Dchange": 2.2773634884973156e-08,
+    "tau_max": 0.20731487398472173,
+    "tau_max_theta": 45.0,
+    "tau_rms": 0.11505156798414093,
+    "ut_max": 1.1851244092112156,
+    "omega_ratio_eq": 0.9185002128252941,
+    "omega_ratio_range": [
+     0.8136303857494736,
+     1.0303590964454281
+    ],
+    "ux_axis_min": 0.03760972613786712,
+    "ux_axis_min_at": 0.02083333333333337,
+    "x_s": 0.0,
+    "zs": "zero-shear free slip: 5356 wall cells, wall curvature 1.9999993118 .. 2.00000063807 (0 flat), 0 limited (radius of curvature under twice the distance)"
+   },
+   {
+    "Re": 200,
+    "Dh": 24,
+    "tag": "",
+    "cells": 264165,
+    "C_D": 0.24032044469969693,
+    "C_L": 0.0006123252717194149,
+    "iterations": 458,
+    "converged": true,
+    "C_Dchange": 6.849371831123098e-08,
+    "tau_max": 0.8021440254523818,
+    "tau_max_theta": 65.0,
+    "tau_rms": 0.4383466318386205,
+    "ut_max": 1.2707270854909114,
+    "omega_ratio_eq": 0.6257146123492512,
+    "omega_ratio_range": [
+     0.4536450011287859,
+     1.4512537685849594
+    ],
+    "ux_axis_min": 0.06650236692538182,
+    "ux_axis_min_at": 0.04166666666666663,
+    "x_s": 0.0,
+    "zs": "zero-shear free slip: 1300 wall cells, wall curvature 1.99999984356 .. 2.00000014849 (0 flat), 0 limited (radius of curvature under twice the distance)"
+   },
+   {
+    "Re": 200,
+    "Dh": 32,
+    "tag": "",
+    "cells": 629224,
+    "C_D": 0.2229089874245163,
+    "C_L": 9.099582456481232e-05,
+    "iterations": 547,
+    "converged": true,
+    "C_Dchange": 5.4103359672148475e-09,
+    "tau_max": 0.6925661408287529,
+    "tau_max_theta": 70.0,
+    "tau_rms": 0.3775879619265414,
+    "ut_max": 1.2752092137809985,
+    "omega_ratio_eq": 0.7138827175320659,
+    "omega_ratio_range": [
+     0.5711145914449451,
+     1.162713440258049
+    ],
+    "ux_axis_min": 0.05717045495944156,
+    "ux_axis_min_at": 0.03125,
+    "x_s": 0.0,
+    "zs": "zero-shear free slip: 2380 wall cells, wall curvature 1.99999975232 .. 2.00000021878 (0 flat), 0 limited (radius of curvature under twice the distance)"
+   },
+   {
+    "Re": 200,
+    "Dh": 48,
+    "tag": "",
+    "cells": 2189480,
+    "C_D": 0.21020180408705091,
+    "C_L": 3.235536482473389e-05,
+    "iterations": 785,
+    "converged": true,
+    "C_Dchange": 6.054801897649872e-09,
+    "tau_max": 0.42963948996616164,
+    "tau_max_theta": 70.0,
+    "tau_rms": 0.23203239959192826,
+    "ut_max": 1.272402612089839,
+    "omega_ratio_eq": 0.8573118121437311,
+    "omega_ratio_range": [
+     0.7401946505189587,
+     1.0751193256835552
+    ],
+    "ux_axis_min": 0.04143783003390697,
+    "ux_axis_min_at": 0.02083333333333337,
+    "x_s": 0.0,
+    "zs": "zero-shear free slip: 5356 wall cells, wall curvature 1.9999993118 .. 2.00000063807 (0 flat), 0 limited (radius of curvature under twice the distance)"
+   },
+   {
+    "Re": 300,
+    "Dh": 24,
+    "tag": "",
+    "cells": 264165,
+    "C_D": 0.1841347621894246,
+    "C_L": 0.000810668851095827,
+    "iterations": 457,
+    "converged": true,
+    "C_Dchange": 5.242488569262668e-07,
+    "tau_max": 0.9872695719390798,
+    "tau_max_theta": 65.0,
+    "tau_rms": 0.5481605574678755,
+    "ut_max": 1.3056961119853252,
+    "omega_ratio_eq": 0.5483898137726375,
+    "omega_ratio_range": [
+     0.38207522891960094,
+     1.747108975484967
+    ],
+    "ux_axis_min": 0.06361051211065509,
+    "ux_axis_min_at": 0.04166666666666663,
+    "x_s": 0.0,
+    "zs": "zero-shear free slip: 1300 wall cells, wall curvature 1.99999984356 .. 2.00000014849 (0 flat), 0 limited (radius of curvature under twice the distance)"
+   },
+   {
+    "Re": 300,
+    "Dh": 32,
+    "tag": "",
+    "cells": 629224,
+    "C_D": 0.1644699311865232,
+    "C_L": 0.00011497347255570407,
+    "iterations": 632,
+    "converged": true,
+    "C_Dchange": 3.795799094334301e-08,
+    "tau_max": 0.9253753644618706,
+    "tau_max_theta": 70.0,
+    "tau_rms": 0.5024472217967225,
+    "ut_max": 1.3145869381483701,
+    "omega_ratio_eq": 0.6298526695740915,
+    "omega_ratio_range": [
+     0.4859841190956543,
+     1.3105235626117069
+    ],
+    "ux_axis_min": 0.05800881099053218,
+    "ux_axis_min_at": 0.03125,
+    "x_s": 0.0,
+    "zs": "zero-shear free slip: 2380 wall cells, wall curvature 1.99999975232 .. 2.00000021878 (0 flat), 0 limited (radius of curvature under twice the distance)"
+   },
+   {
+    "Re": 300,
+    "Dh": 48,
+    "tag": "",
+    "cells": 2189480,
+    "C_D": 0.14975144641187751,
+    "C_L": 3.6916311813245834e-05,
+    "iterations": 887,
+    "converged": true,
+    "C_Dchange": 1.3515339224732311e-08,
+    "tau_max": 0.6412125447734591,
+    "tau_max_theta": 70.0,
+    "tau_rms": 0.3358178430841761,
+    "ut_max": 1.3147039853254168,
+    "omega_ratio_eq": 0.79952649590804,
+    "omega_ratio_range": [
+     0.67321304731184,
+     1.1381196294335252
+    ],
+    "ux_axis_min": 0.04355065950643018,
+    "ux_axis_min_at": 0.02083333333333337,
+    "x_s": 0.0,
+    "zs": "zero-shear free slip: 5356 wall cells, wall curvature 1.9999993118 .. 2.00000063807 (0 flat), 0 limited (radius of curvature under twice the distance)"
+   },
+   {
+    "Re": 50,
+    "Dh": 32,
+    "tag": "_lat15",
+    "cells": 689224,
+    "C_D": 0.6772437314509363,
+    "C_L": 3.694376146041071e-05,
+    "iterations": 693,
+    "converged": true,
+    "C_Dchange": 7.701511409786569e-08,
+    "tau_max": 0.17469712461787085,
+    "tau_max_theta": 50.0,
+    "tau_rms": 0.09370917763045777,
+    "ut_max": 1.0772206233161161,
+    "omega_ratio_eq": 0.8877268331569677,
+    "omega_ratio_range": [
+     0.7336048116911131,
+     1.0090611259542277
+    ],
+    "ux_axis_min": 0.05213911446697188,
+    "ux_axis_min_at": 0.03125,
+    "x_s": 0.0,
+    "zs": "zero-shear free slip: 2380 wall cells, wall curvature 1.99999975232 .. 2.00000021878 (0 flat), 0 limited (radius of curvature under twice the distance)"
+   },
+   {
+    "Re": 100,
+    "Dh": 32,
+    "tag": "_merge0",
+    "cells": 629224,
+    "C_D": 0.38678672467059527,
+    "C_L": -0.00015674576376443813,
+    "iterations": 20000,
+    "converged": false,
+    "C_Dchange": 0.020938320467480263,
+    "tau_max": 0.3797372139786145,
+    "tau_max_theta": 59.99999999999999,
+    "tau_rms": 0.1857420925345848,
+    "ut_max": 1.1919469405862908,
+    "omega_ratio_eq": 0.8310774444649703,
+    "omega_ratio_range": [
+     0.6658334917427002,
+     1.0747040705878348
+    ],
+    "ux_axis_min": 0.054343973692758264,
+    "ux_axis_min_at": 0.03125,
+    "x_s": 0.0,
+    "zs": "zero-shear free slip: 2116 wall cells, wall curvature 1.99999975232 .. 2.00000021878 (0 flat), 0 limited (radius of curvature under twice the distance)"
+   },
+   {
+    "Re": 100,
+    "Dh": 32,
+    "tag": "_noconv",
+    "cells": 629224,
+    "C_D": 0.3855177892189399,
+    "C_L": 5.422240217070306e-05,
+    "iterations": 552,
+    "converged": true,
+    "C_Dchange": 5.4807213007299995e-08,
+    "tau_max": 0.4123931230476987,
+    "tau_max_theta": 59.99999999999999,
+    "tau_rms": 0.2221621118858241,
+    "ut_max": 1.1927434668373251,
+    "omega_ratio_eq": 0.8071497112412807,
+    "omega_ratio_range": [
+     0.6420295061299607,
+     1.0811255330437703
+    ],
+    "ux_axis_min": 0.05423607124197675,
+    "ux_axis_min_at": 0.03125,
+    "x_s": 0.0,
+    "zs": "zero-shear free slip: 2380 wall cells, wall curvature 1.99999975232 .. 2.00000021878 (0 flat), 0 limited (radius of curvature under twice the distance)"
+   },
+   {
+    "Re": 100,
+    "Dh": 32,
+    "tag": "_zs0",
+    "cells": 629224,
+    "C_D": 0.21621732735840996,
+    "C_L": 2.03966968864089e-05,
+    "iterations": 524,
+    "converged": true,
+    "C_Dchange": 2.0188827924695083e-08,
+    "tau_max": 1.286410078434752,
+    "tau_max_theta": 80.0,
+    "tau_rms": 0.9344917249038389,
+    "ut_max": 1.3284912789844037,
+    "omega_ratio_eq": 0.4060766328363715,
+    "omega_ratio_range": [
+     0.1642285355699036,
+     0.5557891102912889
+    ],
+    "ux_axis_min": 0.10969151269749167,
+    "ux_axis_min_at": 0.03125,
+    "x_s": 0.0,
+    "zs": ""
+   }
+  ],
+  "metrics": {
+   "re50_dh24_C_D": 0.6824903873934136,
+   "re50_dh24_tau_max": 0.2210320019635092,
+   "re50_dh24_ux_axis_min": 0.0682712035524822,
+   "re50_dh32_C_D": 0.6773621588029912,
+   "re50_dh32_tau_max": 0.17474316184004582,
+   "re50_dh32_ux_axis_min": 0.05214721443821107,
+   "re50_dh48_C_D": 0.6748034928197311,
+   "re50_dh48_tau_max": 0.09530423388630915,
+   "re50_dh48_ux_axis_min": 0.03518965892134873,
+   "re100_dh24_C_D": 0.3978010635350756,
+   "re100_dh24_tau_max": 0.4699441707186451,
+   "re100_dh24_ux_axis_min": 0.06850624795213628,
+   "re100_dh32_C_D": 0.3857930502812587,
+   "re100_dh32_tau_max": 0.3704221765707703,
+   "re100_dh32_ux_axis_min": 0.054427979793754334,
+   "re100_dh48_C_D": 0.37818739061411594,
+   "re100_dh48_tau_max": 0.20731487398472173,
+   "re100_dh48_ux_axis_min": 0.03760972613786712,
+   "re200_dh24_C_D": 0.24032044469969693,
+   "re200_dh24_tau_max": 0.8021440254523818,
+   "re200_dh24_ux_axis_min": 0.06650236692538182,
+   "re200_dh32_C_D": 0.2229089874245163,
+   "re200_dh32_tau_max": 0.6925661408287529,
+   "re200_dh32_ux_axis_min": 0.05717045495944156,
+   "re200_dh48_C_D": 0.21020180408705091,
+   "re200_dh48_tau_max": 0.42963948996616164,
+   "re200_dh48_ux_axis_min": 0.04143783003390697,
+   "re300_dh24_C_D": 0.1841347621894246,
+   "re300_dh24_tau_max": 0.9872695719390798,
+   "re300_dh24_ux_axis_min": 0.06361051211065509,
+   "re300_dh32_C_D": 0.1644699311865232,
+   "re300_dh32_tau_max": 0.9253753644618706,
+   "re300_dh32_ux_axis_min": 0.05800881099053218,
+   "re300_dh48_C_D": 0.14975144641187751,
+   "re300_dh48_tau_max": 0.6412125447734591,
+   "re300_dh48_ux_axis_min": 0.04355065950643018,
+   "re50_dh32_lat15_C_D": 0.6772437314509363,
+   "re50_dh32_lat15_tau_max": 0.17469712461787085,
+   "re50_dh32_lat15_ux_axis_min": 0.05213911446697188,
+   "re100_dh32_merge0_C_D": 0.38678672467059527,
+   "re100_dh32_merge0_tau_max": 0.3797372139786145,
+   "re100_dh32_merge0_ux_axis_min": 0.054343973692758264,
+   "re100_dh32_noconv_C_D": 0.3855177892189399,
+   "re100_dh32_noconv_tau_max": 0.4123931230476987,
+   "re100_dh32_noconv_ux_axis_min": 0.05423607124197675,
+   "re100_dh32_zs0_C_D": 0.21621732735840996,
+   "re100_dh32_zs0_tau_max": 1.286410078434752,
+   "re100_dh32_zs0_ux_axis_min": 0.10969151269749167
+  }
+ },
+ "figures": []
+}

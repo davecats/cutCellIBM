@@ -926,7 +926,8 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    flow on the axis. Lateral 15 D −0.02 % (Re 50), ibmConvection off −0.07 %, zeroShear off
    C_D 0.216 (−44 %, vorticity ratio 0.41: the former free slip). mergeAlpha 0 (unlinked,
    alphaMin 0.02, 264 slivers absorbed) cycles with period 2 between 0.3787 and 0.3868 (mean
-   −0.8 %) through 20000 iterations: finding 13 in 3-D, reported, not judged.
+   −0.8 %) through 20000 iterations: finding 13 in 3-D, reported, not judged. Baseline accepted from
+   2190505 (user, 2026-11-17).
 
 ### Decisions (2026-11-07)
 

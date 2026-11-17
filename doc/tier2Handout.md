@@ -114,7 +114,7 @@ stress-free limit ≈ 3.999 (−24.8 % before).
 
 Next:
 - Finding 13 (unlinked free slip with alphaMin > 0: absorbed slivers block the slip flow).
-- V11 BUB done (2026-11-17, finding 17, PASS with C_D judged on the extrapolation, user decision; baseline not yet accepted); MIG-G2 stress-free sphere in V6.
+- V11 BUB done (2026-11-17, finding 17, PASS with C_D judged on the extrapolation, user decision; baseline accepted 2026-11-17); MIG-G2 stress-free sphere in V6.
 - Worktrees made this session (ask before removing): `openFoam.ibm.docs/zsdiag` (branch
   zeroshear_diag, diagnostic keys zsRobin, zsNormalFlux), `zsdiag2` (zeroshear_diag2,
   zsImplicit, zsLagTime), `zsroot` (detached, 361c23c + zeroShearNormalFlux/Mode). N = 641 V2
