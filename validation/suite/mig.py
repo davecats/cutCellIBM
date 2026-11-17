@@ -40,29 +40,36 @@ def ranks(cells):
     return int(min(64, max(4, 2**round(np.log2(cells/40000.0)))))
 
 
-def mesh(d, hf, dsph=None, e=0.0, L=3.0, refine=True):
-    """background h0 = 2 hf, box [-L/2, L/2] x [-W, W] x [0, W], W = 0.5 + 2 h0; one level in the box
-    around the sphere (x and z: R + 4 h0, y: from e - R - 4 h0 to the outer box). Returns cells."""
-    h0 = 2*hf
+def mesh(d, hf, dsph=None, e=0.0, L=3.0, refine=True, h0=None):
+    """background h0 (default 2 hf), box [-L/2, L/2] x [-W, W] x [0, W], W = 0.5 + 2 h0; nested
+    levels to hf in boxes around the sphere, the box of the level with cells h_k (parent 2 h_k)
+    reaching 8 h_k beyond the sphere in x and z, in y from e - R - 8 h_k to the outer box (one
+    level: R + 4 h0, the pipe wall in the box near the sphere). Returns cells."""
+    h0 = h0 or 2*hf
     W = RP + 2*h0
     lo, hi = (-L/2, -W, 0.0), (L/2, W, W)
     boxes = []
     if refine and dsph:
-        R, m = dsph/2, 4*h0
-        boxes = [((-R - m, max(-W, e - R - m), -1.0), (R + m, W + 1.0, R + m))]
+        R = dsph/2
+        n = int(round(np.log2(h0/hf)))
+        assert abs(h0/2**n - hf) < 1e-9*hf, "h0/hf not a power of 2"
+        for k in range(1, n + 1):
+            m = 8*h0/2**k
+            boxes.append(((-R - m, max(-W, e - R - m), -1.0), (R + m, W + 1.0, R + m)))
     patches = {"left": ("cyclic", ["xmin"], "neighbourPatch right;"),
                "right": ("cyclic", ["xmax"], "neighbourPatch left;"),
                "sym": ("symmetryPlane", ["zmin"]), "outer": ("wall", ["ymin", "ymax", "zmax"])}
     return meshes.refined(d, lo, hi, h0, boxes, patches, two_d=False)
 
 
-def setup(d, Re, hf, dsph=None, e=0.0, interface="rigid", V=0.0, Om=0.0, L=3.0, ubar=None, sphere=True, **ibm):
+def setup(d, Re, hf, dsph=None, e=0.0, interface="rigid", V=0.0, Om=0.0, L=3.0, ubar=None, sphere=True, h0=None,
+          **ibm):
     """case d: the pipe sliding at -V (static if V = 0), the mesh refined around a sphere of
     diameter dsph at e (none: the plain pipe mesh); sphere False: the empty pipe on that mesh; ubar:
     the imposed fluid-volume average (default J - V, the empty pipe)"""
     d = Path(d)
     if not (d / "constant" / "polyMesh" / "owner").exists():
-        mesh(d, hf, dsph, e, L)
+        mesh(d, hf, dsph, e, L, h0=h0)
     pipe = {"type": "cylinder", "centre": (0, 0, 0), "axis": (1, 0, 0), "radius": RP, "invert": True}
     if V:
         pipe["motion"] = {"type": "translating", "velocity": (-V, 0, 0), "invariant": True}
@@ -95,9 +102,9 @@ momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar 
 solvers { p { solver PCG; preconditioner { preconditioner linkedGroup; base { preconditioner GAMG;
                 smoother DICGaussSeidel; nCellsInCoarsestLevel 10; tolerance 0; relTol 0.01; } }
               tolerance 1e-13; relTol 0.01; maxIter 1000; }
-          U { solver smoothSolver; smoother symGaussSeidel; tolerance 1e-13; relTol 0.1; } }
+          U { solver smoothSolver; smoother symGaussSeidel; tolerance 1e-13; relTol 0.1; maxIter 50; } }
 SIMPLE { nNonOrthogonalCorrectors 0; consistent yes; pRefPoint (%r -0.21 0.013); pRefValue 0;
-         residualControl { p 1e-10; U 1e-10; } }
+         residualControl { p 1e-9; U 1e-9; } }
 relaxationFactors { equations { U 0.9; } fields { p 1.0; } }
 """ % (-0.4*L,))
     geometry.control_dict(d, "ibmSimpleFoam", endTime=20000, deltaT=1, writeInterval=20000)
@@ -138,7 +145,10 @@ def extract(d):
     log = (d / "log.ibmSimpleFoam").read_text()
     ub = float(re.search(r"Ubar \(([-0-9.eE+]+)", (d / "constant" / "fvOptions").read_text()).group(1))
     g, change = common.driving_gradient(log)
-    out = {"G": float(np.sign(ub)*g[-1]), "Gchange": change(200), "converged": "SIMPLE solution converged" in log,
+    # converged: the residual control (1e-9; the zero-shear free slip has a floor of the U residual
+    # at ~2e-10) or a stationary iteration (G to 1e-10 over 200 iterations)
+    out = {"G": float(np.sign(ub)*g[-1]), "Gchange": change(200),
+           "converged": "SIMPLE solution converged" in log or change(200) < 1e-10,
            "iterations": common.last_match(log, r"\nTime = (\d+)", cast=int)}
     if "IBM force on sphere" in log:
         f = common.ibm_force(log, "sphere")
@@ -161,11 +171,13 @@ class Point:
     """one configuration (interface, d, e, Re, mesh hf): solves at given (V, Omega), the empty-pipe
     reference G0, the force balance"""
 
-    def __init__(self, root, interface, dsph, e, Re, hf, L=3.0, tag="", **ibm):
+    def __init__(self, root, interface, dsph, e, Re, hf, L=3.0, tag="", h0=None, **ibm):
         self.root, self.interface, self.dsph, self.e, self.Re, self.hf, self.L = Path(root), interface, dsph, e, Re, hf, L
+        self.h0 = h0 if h0 and abs(h0 - 2*hf) > 1e-12 else None
         self.ibm = ibm
         self.VB = np.pi*dsph**3/6
-        self.name = "%s_d%g_e%.4f_Re%g_h%d%s" % (interface, dsph, e, Re, round(1/hf), tag)
+        self.name = "%s_d%g_e%.4f_Re%g_h%d%s%s" % (interface, dsph, e, Re, round(1/hf),
+                                                  "_H%d" % round(1/self.h0) if self.h0 else "", tag)
         self.runs = []
 
     def empty(self):
@@ -175,7 +187,7 @@ class Point:
         if f.exists():
             return json.loads(f.read_text())
         d.mkdir(parents=True, exist_ok=True)
-        setup(d, self.Re, self.hf, self.dsph, self.e, L=self.L, sphere=False, **self.ibm)
+        setup(d, self.Re, self.hf, self.dsph, self.e, L=self.L, sphere=False, h0=self.h0, **self.ibm)
         # the mesh with the refinement box of the sphere
         if not (d / "log.refineMesh.0").exists():
             raise RuntimeError("empty pipe without the refinement box")
@@ -199,7 +211,7 @@ class Point:
                 shutil.copytree(self.root / (self.name + "_pipe") / "constant" / "polyMesh", d / "constant" / "polyMesh")
                 shutil.copytree(self.root / (self.name + "_pipe") / "system", d / "system")
                 shutil.copy(self.root / (self.name + "_pipe") / "log.checkMesh", d / "log.checkMesh")
-            setup(d, self.Re, self.hf, self.dsph, self.e, self.interface, V, Om, self.L, **self.ibm)
+            setup(d, self.Re, self.hf, self.dsph, self.e, self.interface, V, Om, self.L, h0=self.h0, **self.ibm)
             Vf = geometry_only(d)
             ub = float((J - V)*ref["Vf0"]/Vf)
             (d / "constant" / "fvOptions").write_text(re.sub(r"Ubar \([^)]*\)", "Ubar (%r 0 0)" % ub,
