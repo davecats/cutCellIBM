@@ -711,12 +711,16 @@ def main():
             fn(out, R[k])
     flowfield.figures(out, R)
     cost(out, R, commit, other)
-    for k, fn in (("V11", v11),):   # tier-2 cases from the commit given as ID=commit
+    T2 = {}
+    for k, fn in (("V11", v11), ("V14", None)):   # tier-2 cases from the commit given as ID=commit
         f = common.SUITE / "results" / other.get(k, commit) / ("%s.json" % k)
         if f.exists():
-            r = json.loads(f.read_text())
+            r = T2[k] = json.loads(f.read_text())
             table(out, r)
-            fn(out, r)
+            if fn:
+                fn(out, r)
+    import flow3d
+    flow3d.figures(out, T2)   # sections of the 3-D cases: the flow with the immersed wall
     if "V12" in R:
         v12(out, R["V12"], diag12)
     if "V5" in R:
