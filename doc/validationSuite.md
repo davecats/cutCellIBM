@@ -973,7 +973,9 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    boundary (x 1.375, y ≈ 0, linked cells). Underlying it, and as large in the old code: the
    steady solution depends on α_U (0.9 against 0.5: max |ΔU| 1.6 % without and 2.6 % with
    linking, RMS 0.26 %, in the column at the outflow boundary and at the junction), the
-   relaxation dependence of OpenFOAM's Rhie–Chow interpolation. The G7 shift after the impulsive
+   relaxation dependence of OpenFOAM's Rhie–Chow interpolation. Decision (user, 2026-11-17):
+   left as a documented property for now; we may want to change it later (relaxation-independent
+   Rhie–Chow: (1 − α)(phi_old − flux(U_old)) added to phiHbyA). The G7 shift after the impulsive
    start is 3e-7 noise of the moving geometry (the same at dt/2 and with 30 correctors; at Re 1
    the viscous diagonal outweighs 1/dt, so dt does not test the mechanism). Re 128, d/h 32 now
    converges in 590 iterations. Gates on 8c6cc10 (eridanus): G1–G6, G8 PASS; G7 and G9 FAIL
