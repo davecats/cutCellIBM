@@ -922,7 +922,7 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    c_L(t) 1.43, 0.54, 0.147 and of c_D(t) 0.041, 0.020, 0.0040. Decision (user, 2026-11-17):
    c_L,min judged on the extrapolation (formal order 2, as the 3D-1Z lift: observed 1.95):
    −0.01155 (+5.0 %; order 1.5 / 2.5: −0.01080 / −0.01196), the finest mesh reported. V14 PASS;
-   the baseline waits for the user.
+   baseline accepted from 2190505 (user, 2026-11-17).
 16. **Cost of the immersed wall against body-fitted runs** (2026-11-16, `timing.py`, report
    §Cost). Host and load dominate the stored times: the same work took 4.5–6.5× longer in the
    tier-1 run on eridanus than on io2/hydra (V4 vs V2). Same mesh and solver (G9): 0.8–1.5× per
