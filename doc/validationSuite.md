@@ -396,6 +396,14 @@ Reference: Blanco & Magnaudet 1995 (Phys. Fluids 7, 1265), table I (sphere, Re =
   (curvature-dependent shear, standing eddy for χ ≥ 1.65 in a range of Re).
 - Stresses K4 in 3-D at a doubly curved wall, without separation, so the error is the boundary
   condition alone. Relies on SPH.
+- As implemented (`validation/suite/v11.py`, 2026-11-17, code 2190505): `v10.setup` with
+  `wall="freeSlip"`; D/h 24, 32, 48 for all Re (no separation), 8, 16, 32 ranks. Surface stress
+  and vorticity from an alpha-weighted quadratic fit of u within 4 h of points on the sphere
+  (θ 15–165°, four meridians). User decision (2026-11-17): C_D judged on the Richardson
+  extrapolation within 2 % with an observed order ≥ 1.5 (D/h 48 does not resolve the surface
+  layer: +8.5 % at Re 300; 2 % on one mesh would need D/h ≈ 128, ~40 M cells); the finest mesh
+  reported; the tangential stress must decrease with the mesh. Once at D/h 32: Re 100
+  ibmConvection off, mergeAlpha 0, zeroShear off; Re 50 lateral 15 D.
 
 ### ROT (V12): cylinder rotating in a uniform stream
 
@@ -908,6 +916,17 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    with N (V2: 21 … 208 per step), where V15 with a GAMG base needs 2: a case setting. Decision (user, 2026-11-16): the GAMG
    base stays as it is (V5, V13, V15), G9/V2/V4 and their baselines are not changed; the
    immersed cost is to come down with AMR (degrees of freedom only where needed).
+
+17. **V11 BUB: the zero-shear free slip gives the clean-bubble drag in 3-D** (2026-11-17, 2190505,
+   `~/runs/suite/2190505/V11.1`, report §V11). C_D at D/h 24, 32, 48: Re 50 0.6825, 0.6774,
+   0.6748; Re 100 0.3978, 0.3858, 0.3782; Re 200 0.2403, 0.2229, 0.2102; Re 300 0.1841, 0.1645,
+   0.1498; orders 3.1, 2.4, 1.9, 1.9; extrapolated +1.5, +1.2, −0.2, −1.0 % from Blanco &
+   Magnaudet (PASS, user decision above). Max tangential stress (μU/a) at D/h 48: 0.095, 0.21,
+   0.43, 0.64, order 0.9–1.5; surface vorticity/(2u_θ/a) at the equator 0.95 … 0.80; no reversed
+   flow on the axis. Lateral 15 D −0.02 % (Re 50), ibmConvection off −0.07 %, zeroShear off
+   C_D 0.216 (−44 %, vorticity ratio 0.41: the former free slip). mergeAlpha 0 (unlinked,
+   alphaMin 0.02, 264 slivers absorbed) cycles with period 2 between 0.3787 and 0.3868 (mean
+   −0.8 %) through 20000 iterations: finding 13 in 3-D, reported, not judged.
 
 ### Decisions (2026-11-07)
 

@@ -603,6 +603,35 @@ def v15(out, r):
     out.save(fig, "V15_flatPlate")
 
 
+def v11(out, r):
+    import reference_bubble as rb
+    st = [x for x in r["data"]["steady"] if not x["tag"]]
+    fig, ax = plt.subplots(1, 3, figsize=(6.8, 2.5))
+    for i, Re in enumerate(sorted({x["Re"] for x in st})):
+        s = sorted([x for x in st if x["Re"] == Re], key=lambda x: x["Dh"])
+        dh = [x["Dh"] for x in s]
+        series(ax[0], i, dh, [100*(x["C_D"]/rb.drag(Re) - 1) for x in s], "Re %d" % Re)
+        series(ax[1], i, dh, [x["tau_max"] for x in s], "Re %d" % Re)
+        series(ax[2], i, dh, [x["omega_ratio_eq"] for x in s], "Re %d" % Re)
+    slope(ax[0], 24, 50, 2, 48)
+    slope(ax[1], 24, 1.6, 1, 48)
+    for a in ax[:2]:
+        loglog(a, "D/h")
+        a.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: "%g" % v))
+        a.yaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+    ax[0].set_yticks([1, 2, 5, 10, 20, 50])
+    ax[1].set_yticks([0.1, 0.2, 0.5, 1])
+    ax[2].set_xscale("log")
+    ax[2].set_xlabel("D/h")
+    ax[2].axhline(1.0, color=REF, ls="--", lw=0.9)
+    ax[0].set_title("$C_D$ / table I $- 1$ [%]")
+    ax[1].set_title(r"max tangential stress [$\mu U/a$]")
+    ax[2].set_title(r"$\omega/(2u_\theta/a)$ at the equator")
+    ax[2].legend(loc="lower right")
+    fig.tight_layout()
+    out.save(fig, "V11_bubble")
+
+
 def cost(out, R, commit, other):
     """tables/timings*.tex (timing.py) and the CPU time against the error of the immersed runs and of the
     body-fitted runs of the same problem, each against the finest body-fitted solution"""
@@ -682,6 +711,12 @@ def main():
             fn(out, R[k])
     flowfield.figures(out, R)
     cost(out, R, commit, other)
+    for k, fn in (("V11", v11),):   # tier-2 cases from the commit given as ID=commit
+        f = common.SUITE / "results" / other.get(k, commit) / ("%s.json" % k)
+        if f.exists():
+            r = json.loads(f.read_text())
+            table(out, r)
+            fn(out, r)
     if "V12" in R:
         v12(out, R["V12"], diag12)
     if "V5" in R:
