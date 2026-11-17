@@ -116,6 +116,16 @@ Next:
 - Finding 13 (unlinked free slip with alphaMin > 0: absorbed slivers block the slip flow).
 - V14 PASS (2026-11-17, finding 18: D/h 46.8 on HoreKa, c_L,min judged on the extrapolation, user decision; baseline accepted 2026-11-17).
 - V11 BUB done (2026-11-17, finding 17, PASS with C_D judged on the extrapolation, user decision; baseline accepted 2026-11-17); MIG-G2 stress-free sphere in V6.
+- V6 MIG (2026-11-17): driver `mig.py`, module `v6.py`; gates G1, G2 PASS (doc §8 "Gate results",
+  runs `~/runs/suite/2190505/V6`). β reference: the paper's "100 β0" columns hold β0 and the rigid
+  fit is ~1.23× below its own figure 4c; MIG-R1 judges β on figure 4c (`fig4_rigid_d0.4.dat`,
+  from arXiv:1708.01114). Cases R1–R4, S1, S2 run on HoreKa: 9 single-node jobs (`v6_job1..9.sh`,
+  driver `v6_hk.py` = `~/runs/v6/scripts/v6_hk.py`, root `<ws>/suite/2190505/V6/cases`); when done,
+  copy `cases/` (result.json files and logs) into `~/runs/suite/2190505/V6/cases` and run
+  `suite.py run V6 --reuse ~/runs/suite/2190505/V6` (evaluation only), then the V6 report section.
+- V10: D/h 64 Re 300 (HoreKa 5242769, continuation 5242864), D/h 48 chain on hydra, D/h 32 Re 300
+  dt and dt/2 moved from draco to HoreKa (5245499, 5245500; draco partial in
+  `re300_dh32_dt1/draco_partial_aside`); copy back, then `suite.py run V10 --reuse ~/runs/suite/2190505/V10.1`.
 - Worktrees made this session (ask before removing): `openFoam.ibm.docs/zsdiag` (branch
   zeroshear_diag, diagnostic keys zsRobin, zsNormalFlux), `zsdiag2` (zeroshear_diag2,
   zsImplicit, zsLagTime), `zsroot` (detached, 361c23c + zeroShearNormalFlux/Mode). N = 641 V2
@@ -148,6 +158,10 @@ fraction, tilt, wall function), V15 complete (cut-fraction sweep, wall function)
   tree whose binaries a running job uses; remote jobs detached (`ssh host 'cd ... || exit 1;
   setsid nohup ... &'`, istmio2 rebooted once and killed an attached run). Stop runs by session or
   PID, never a machine-wide pkill.
+- Runs expected to take longer than 4 h go to the HPC system (HoreKa; legacy access until
+  2026-11-20 noon, ask the user what follows), not the workstations (user, 2026-11-17).
+- Every case section of the report has a description of the flow case and a picture of the flow
+  with the immersed wall (`flow3d.py` for the 3-D cases, `flowfield.py` for 2-D; user, 2026-11-17).
 
 ## Commands
 
