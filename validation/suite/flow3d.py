@@ -185,7 +185,63 @@ def v14(out, r):
     out.save(fig, "V14_flow")
 
 
-FIGURES = {"V11": v11, "V14": v14}
+def v6_case(r, dh=None, epsr=0.4):
+    """the last (balanced) solve of the rigid d 0.4, Re 2 point at eps/eps* epsr on the finest mesh"""
+    pts = [p for p in r.get("points", []) if p["interface"] == "rigid" and p["d"] == 0.4 and p["Re"] == 2.0
+           and not p["tag"] and abs(p["epsr"] - epsr) < 1e-6]
+    p = max(pts, key=lambda p: p["dh"]) if dh is None else [p for p in pts if p["dh"] == dh][0]
+    d = Path(r["cases"]) / "cases" / p["name"]
+    return sorted(d.glob("s[0-9][0-9]"))[-1], p
+
+
+def v6_figure(out, case, p, name="V6_flow"):
+    """MIG, sphere frame (pipe wall sliding at -V): the cross-section x = 0 (axial velocity, in-plane
+    streamlines of the secondary flow), the symmetry plane z = 0 (|U|, streamlines), the cut cells in
+    the gap between the sphere and the pipe wall"""
+    R, e, RP = 0.5*p["d"], p["e"], 0.5
+    fig, ax = plt.subplots(1, 3, figsize=(10.0, 3.1), layout="constrained",
+                           gridspec_kw={"width_ratios": [1.0, 2.0, 0.9]})
+    s = Slice(case, 0, 1e-9, (-RP, RP, 0.0, RP))
+    U = s.field("U")
+    pc = s.draw(ax[0], U[:, 0], cmap=ff.DIV, norm=matplotlib.colors.TwoSlopeNorm(0.0))
+    s.streamlines(ax[0], U, density=0.8)
+    t = np.linspace(0, np.pi, 200)
+    ax[0].plot(RP*np.cos(t), RP*np.sin(t), color=ff.WALL, lw=0.8)
+    sphere_section(ax[0], (0, e, 0), R, 0, 0.0, s.ij)
+    ax[0].set_title("cross-section x = 0: $U_x$")
+    ax[0].set_xlabel("y/$d_h$")
+    ax[0].set_ylabel("z/$d_h$")
+    fig.colorbar(pc, ax=ax[0], location="bottom", fraction=0.05, pad=0.02).set_label("$U_x/J$ (sphere frame)")
+    s = Slice(case, 2, 1e-9, (-1.0, 1.0, -RP, RP))
+    U = s.field("U")
+    pc = s.draw(ax[1], mag(U), norm=matplotlib.colors.Normalize(0, None))
+    s.streamlines(ax[1], U, n=300, density=1.0)
+    for yy in (-RP, RP):
+        ax[1].axhline(yy, color=ff.WALL, lw=0.8)
+    sphere_section(ax[1], (0, e, 0), R, 2, 0.0, s.ij)
+    ax[1].set_title("symmetry plane z = 0: |U|, streamlines")
+    ax[1].set_xlabel("x/$d_h$")
+    ax[1].set_ylabel("y/$d_h$")
+    fig.colorbar(pc, ax=ax[1], location="bottom", fraction=0.05, pad=0.02).set_label("|U|/J (sphere frame)")
+    g = RP - e - R
+    w = (-0.6*R, 0.6*R, e + R - 0.6*g - 0.05, RP + 0.03)
+    s = Slice(case, 2, 1e-9, w)
+    s.draw(ax[2], mag(s.field("U")), norm=pc.norm, edges=True)
+    sphere_section(ax[2], (0, e, 0), R, 2, 0.0, s.ij, lw=1.0)
+    ax[2].axhline(RP, color=ff.WALL, lw=1.0)
+    ax[2].set_title("cut cells, z = 0")
+    ax[2].set_xlabel("x/$d_h$")
+    fig.suptitle("MIG, rigid sphere d = %g, $\\epsilon/\\epsilon_*$ = %.2f, Re %g, d/h %d (V = %.4f, $\\Omega$ = %.4f)"
+                 % (p["d"], p["epsr"], p["Re"], p["dh"], p["V"], p["Om"]), fontsize=9)
+    out.save(fig, name)
+
+
+def v6(out, r):
+    case, p = v6_case(r)
+    v6_figure(out, case, p)
+
+
+FIGURES = {"V6": v6, "V11": v11, "V14": v14}
 
 
 def figures(out, R, only=None):
