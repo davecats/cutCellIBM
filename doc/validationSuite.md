@@ -956,9 +956,14 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    −0.2699856 old, −0.2699858 new, both 395 iterations; G7 PIMPLE tutorials (free slip, moving)
    up to 8e-6 of max |F|, with 3 and with 30 outer correctors alike (galileanTranslating to
    t 5: new − old 3.8e-5 in the impulsive start, 7.5e-7 after t 0.5; 3 − 30 correctors 1.2e-5):
-   not iteration error. Re 128, d/h 32 now converges in 590 iterations. Gates on 8c6cc10: G7
-   FAIL only by these shifts (steady tutorials and TC pass); tier 1 on HoreKa pending; merge,
-   baselines and the V6 R2conv Re 128 reruns with the user.
+   not iteration error. The shift grows with the cell Péclet number of the cut cells (the Re 1
+   tutorials barely move): G9 (stagnation flow, exact solution) errors change by up to 8.5 % at
+   N 20 (p L2, f 0.1), 2.3 % at N 40, the change converging at order 4–5 in N (Rhie–Chow,
+   not the discretisation); 93 of 122 errors smaller, one larger by more than 0.1 % (Homann
+   p L2 N 20, +0.2 %); every exact-solution check and order unchanged. Re 128, d/h 32 now
+   converges in 590 iterations. Gates on 8c6cc10 (eridanus): G1–G6, G8 PASS; G7 and G9 FAIL
+   only their regression against the baselines, by these shifts; tier 1 on HoreKa pending
+   (job 5246487); merge, re-acceptance of G7/G9 and the V6 R2conv Re 128 reruns with the user.
 18. **V14 3D-3Z at D/h 46.8** (2026-11-17, 2190505, 8.5 M cells, 304 ranks on HoreKa, job
    5242766, 18.6 h; runs `~/runs/suite/2190505/V14.2`; the partial draco fallback moved to
    `3z_n48_dt1/draco_partial_aside`). c_D,max 3.4454, 3.3729, 3.3108 at D/h 15.6, 23.4, 46.8
