@@ -950,10 +950,15 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    ibmSimpleFoam, ibmPimpleFoam, ibmScalarTransport, ibmSpalartAllmaras, ibmOrderTest and
    ibmTruncationTC; `convectionSource` removed): on the corrected faces (`convectionFlux`) the
    implicit part is upwind and the explicit part phiC (e − v_U); the case's scheme on the other
-   faces; with a bounded case scheme the upwind part also removes div(phiC) vf. Same face
-   values at convergence: Re 2, d/h 16: F_x −0.2699856 old, −0.2699858 new, both 395 iterations;
-   Re 128, d/h 32 now converges in 590 iterations. Gates and tier 1 on the branch pending; to be
-   merged and the V6 R2conv Re 128 runs repeated with the user.
+   faces; with a bounded case scheme the upwind part also removes div(phiC) vf. The convective
+   face values at convergence are unchanged; the momentum diagonal A of the cut cells is not, and
+   1/A enters the Rhie–Chow flux, so the solution moves by about 1e-6: Re 2, d/h 16: F_x
+   −0.2699856 old, −0.2699858 new, both 395 iterations; G7 PIMPLE tutorials (free slip, moving)
+   up to 8e-6 of max |F|, with 3 and with 30 outer correctors alike (galileanTranslating to
+   t 5: new − old 3.8e-5 in the impulsive start, 7.5e-7 after t 0.5; 3 − 30 correctors 1.2e-5):
+   not iteration error. Re 128, d/h 32 now converges in 590 iterations. Gates on 8c6cc10: G7
+   FAIL only by these shifts (steady tutorials and TC pass); tier 1 on HoreKa pending; merge,
+   baselines and the V6 R2conv Re 128 reruns with the user.
 18. **V14 3D-3Z at D/h 46.8** (2026-11-17, 2190505, 8.5 M cells, 304 ranks on HoreKa, job
    5242766, 18.6 h; runs `~/runs/suite/2190505/V14.2`; the partial draco fallback moved to
    `3z_n48_dt1/draco_partial_aside`). c_D,max 3.4454, 3.3729, 3.3108 at D/h 15.6, 23.4, 46.8
