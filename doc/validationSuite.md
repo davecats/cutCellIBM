@@ -960,7 +960,22 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    tutorials barely move): G9 (stagnation flow, exact solution) errors change by up to 8.5 % at
    N 20 (p L2, f 0.1), 2.3 % at N 40, the change converging at order 4–5 in N (Rhie–Chow,
    not the discretisation); 93 of 122 errors smaller, one larger by more than 0.1 % (Homann
-   p L2 N 20, +0.2 %); every exact-solution check and order unchanged. Re 128, d/h 32 now
+   p L2 N 20, +0.2 %); every exact-solution check and order unchanged. Consistency check
+   (2026-11-17, `~/runs/v6/re128div/g9alpha`, `g7conv`): A and H are an exact split of the
+   assembled matrix for any implicit part; flux(HbyA), the SIMPLEC terms and ibm.ddtCorr
+   (interpolate(rAU alpha0), the alpha0/dt U0 of H) take rAU as in the standard Rhie–Chow form;
+   A − H1 (SIMPLEC) is div(phi) plus the Sp terms for upwind and central alike; mergeA/mergeH
+   cancel the link-face coefficients for any weights and the explicit correction cancels in the
+   group sum. At a converged SIMPLE(C) state phi = flux(HbyA) − interpolate(rAU) snGrad p with
+   rAU = α_U/A, so the only route is the Rhie–Chow coefficient: G9 N 20 f 0.1 new − old
+   max |ΔU|/max |U| 5.7e-3 (α_U 0.9) and 2.6e-3 (0.5), ratio 0.45–0.55 against 0.56 predicted;
+   1e-6 without linking (mergeAlpha 0). The change is largest where the wall meets the outflow
+   boundary (x 1.375, y ≈ 0, linked cells). Underlying it, and as large in the old code: the
+   steady solution depends on α_U (0.9 against 0.5: max |ΔU| 1.6 % without and 2.6 % with
+   linking, RMS 0.26 %, in the column at the outflow boundary and at the junction), the
+   relaxation dependence of OpenFOAM's Rhie–Chow interpolation. The G7 shift after the impulsive
+   start is 3e-7 noise of the moving geometry (the same at dt/2 and with 30 correctors; at Re 1
+   the viscous diagonal outweighs 1/dt, so dt does not test the mechanism). Re 128, d/h 32 now
    converges in 590 iterations. Gates on 8c6cc10 (eridanus): G1–G6, G8 PASS; G7 and G9 FAIL
    only their regression against the baselines, by these shifts; tier 1 on HoreKa pending
    (job 5246487); merge, re-acceptance of G7/G9 and the V6 R2conv Re 128 reruns with the user.
