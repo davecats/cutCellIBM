@@ -273,11 +273,11 @@ Not involved: turbulence, wall functions, moving geometry, scalars.
 
 | id | interface | d | Re | ε/eps_* | reference | quantities |
 |---|---|---|---|---|---|---|
-| MIG-R1 | rigid | 0.4 | 2 (1) | 0, 0.2, 0.4, 0.6, 0.75, 0.9 | fit (table 3), fig. 4 | f/Re, V, Ω, β |
+| MIG-R1 | rigid | 0.4 | 2 (1) | 0, 0.2, 0.4, 0.6, 0.75, 0.9 | fit (table 3); β: fig. 4c | f/Re, V, Ω, β |
 | MIG-R2 | rigid | 0.4 | 8, 32, 128 | 0.2, 0.4, 0.6, 0.75, 0.9 | fig. 9 | f/Re |
 | MIG-R3 | rigid | 0.2, 0.6 | 2, 128 | neutral position (secant on ε) | fit, fig. 10b | ε_eq, V |
 | MIG-R4 | rigid | 0.6, 0.8 | 2 | 0.1 | fit (slope at the centre) | sign and value of ∂_ε f |
-| MIG-S1 | stress-free | 0.4 | 2 | 0, 0.2, 0.4, 0.6, 0.75, 0.9 | fit (table 4) | f/Re, V, β |
+| MIG-S1 | stress-free | 0.4 | 2 | 0, 0.2, 0.4, 0.6, 0.75, 0.9 | fit (table 4); β reported | f/Re, V, β |
 | MIG-S2 | stress-free | 0.2 | 2, 32 | neutral position | fit, fig. 10d (→ √2/4 for small d) | ε_eq, V |
 
 Convergence: MIG-R1 at ε/eps_* = 0.4 and 0.9 and MIG-R2 at Re = 128, ε/eps_* = 0.4 on all three
@@ -286,9 +286,18 @@ meshes (Richardson estimate gives the error bar of the other points). Options: t
 ε/eps_* = 0.4, 0.9 and MIG-R2 Re = 128.
 
 Tolerances on the finest mesh (proposed): f/Re within 3 % of max |f/Re| of the curve (0.01 at
-d = 0.4), V within 0.5 %, Ω within 1 %, ε_eq within 0.01. β is a small signal: at d = 0.4 rigid,
-β α_G = G/G_P − 1 is 3·10⁻⁵ at the centre and 4·10⁻⁴ at 0.9 eps_*, so G and G_0 must be converged
-to 10⁻⁷ relative; β within 5 % where |β α_G| > 10⁻⁴, reported elsewhere.
+d = 0.4), V within 0.5 %, Ω within 1 %, ε_eq within 0.01. β within 5 % where |β α_G| > 10⁻⁴,
+reported elsewhere; G and G_0 converged to 10⁻⁷ relative.
+β reference (2026-11-17, from the arXiv text of the paper, eq. 2.7 and figures 4c, 7c): the
+column "100 β0" of the fit tables holds β0 itself (β = O(1); the earlier reading β0 = value/100
+gave β α_G = 3·10⁻⁵…4·10⁻⁴ here, in fact it is 0.003–0.05), and the rigid fit lies below the
+paper's own figure 4c by a factor 1.22–1.24 up to 0.75 eps_* (1.31 at 0.9 eps_*), while V0 and
+Ω0 agree with figures 4b, 4d to 0.3 %. MIG-R1 judges β on figure 4c
+(`data/riveroScheid2018/fig4_rigid_d0.4.dat`, digitised from the arXiv PDF); for MIG-S1 the
+stress-free fit is the only reference at d = 0.4 (figure 8c is a colour map), so β is reported
+there. First point (rigid, d = 0.4, 0.4 eps_*, Re 2, d/h 16/32/48): β 0.601, 0.611, 0.614
+(extrapolated 0.617) against 0.613 (figure) and 0.496 (fit); f/Re 0.318, 0.300, 0.296
+(extrapolated 0.292, fit 0.293); V 1.6660 (fit 1.6647), Ω 0.9165 (fit 0.9129, figure 0.9145).
 
 Report: tables of the points against the reference with the error and the Richardson bar; plots
 in the form of figures 4a–d (f/Re, V, β, Ω against ε/eps_*, d = 0.4, both interfaces), figure 9

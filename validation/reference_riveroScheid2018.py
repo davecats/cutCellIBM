@@ -11,7 +11,11 @@ Ca = 0), appendix C:
     f1     = f/Re, the balanced transverse body force per unit bubble volume (= migration force
              L_y / V_B), in units mu J / d_h^2; f1 < 0 pushes the sphere towards the axis
     V0/VP  bubble velocity over the Poiseuille velocity at the centre, VP = 2 (1 - 4 eps^2)
-    100 b0 pressure correction factor, Delta_s p_T / d_x p_P = 1 + beta alpha_G
+    100 b0 pressure correction factor, Delta_s p_T / d_x p_P = 1 + beta alpha_G, alpha_G = V_B/(L pi/4)
+           (eq. 2.7); the column header reads "100 beta0", but the tabulated values are beta0 itself
+           (figures 4c, 7c: beta = O(1), up to >= 4), and they lie below figure 4c (d = 0.4, rigid)
+           by a factor 1.22-1.24 up to 0.75 eps_* (1.31 at 0.9 eps_*), while V0 and Omega0 agree
+           with figure 4 to 0.3 %: for beta, d = 0.4 rigid, use the figure (fig4())
     O0/8e  rotation rate over the Poiseuille one, Omega_P = 8 eps (rigid interface only)
 
 The printed captions of tables 3 and 4 are swapped: table 3 (with Omega) is the rigid interface of
@@ -98,7 +102,16 @@ def V0(interface, d, eps):
 
 
 def beta0(interface, d, eps):
-    return fit(interface, "100b0", d, eps)/100.0
+    """the fit as tabulated (beta0, not 100 beta0; below figure 4c by ~1.23, see the docstring)"""
+    return fit(interface, "100b0", d, eps)
+
+
+def fig4():
+    """figure 4(b-d), d = 0.4 rigid: columns eps/eps_*, V, beta, Omega
+    (data/riveroScheid2018/fig4_rigid_d0.4.dat, riveroScheid2018_extract.py)"""
+    import os
+    return np.loadtxt(os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "riveroScheid2018",
+                                   "fig4_rigid_d0.4.dat"))
 
 
 def Omega0(d, eps):
@@ -135,8 +148,14 @@ def check():
     f = f1("rigid", d, s*eps_star(d))
     print("rigid d=0.4: max f/Re %.3f at eps/eps* %.2f (fig. 4a: ~0.3 at ~0.4), neutral %s" % (
         f.max(), s[np.argmax(f)], ["%.3f eps*=%.3f %s" % (e/eps_star(d), e, st) for e, st in neutral("rigid", d)]))
-    print("rigid d=0.4 at eps=0: V0 %.3f (fig. 4b ~1.75), 100 beta0 %.3f, Omega0/8eps %.3f" % (
-        V0("rigid", d, 0.0), 100*beta0("rigid", d, 0.0), fit("rigid", "O0/8e", d, 0.0)))
+    print("rigid d=0.4 at eps=0: V0 %.3f (fig. 4b ~1.75), beta0 %.3f, Omega0/8eps %.3f" % (
+        V0("rigid", d, 0.0), beta0("rigid", d, 0.0), fit("rigid", "O0/8e", d, 0.0)))
+    F = fig4()
+    for k in range(0, 91, 15):
+        s_, e = F[k, 0], F[k, 0]*eps_star(d)
+        print("  fig. 4 at eps/eps* %.2f: V %.4f (fit %+.2f %%), beta %.3f (fit x %.3f), Omega %.4f (fit %+.4f)" % (
+            s_, F[k, 1], 100*(V0("rigid", d, e)/F[k, 1] - 1), F[k, 2], F[k, 2]/beta0("rigid", d, e),
+            F[k, 3], Omega0(d, e) - F[k, 3]))
     for itf in ("rigid", "stressFree"):
         print("%-10s neutral positions:" % itf, "  ".join(
             "d=%.1f: %s" % (dd, ",".join("%.3f(%s)" % (e, st[0]) for e, st in neutral(itf, dd)))
