@@ -2,6 +2,10 @@
 #include "surfaceInterpolate.H"
 #include "fvcSurfaceIntegrate.H"
 #include "convectionScheme.H"
+#include "gaussConvectionScheme.H"
+#include "boundedConvectionScheme.H"
+#include "fvmSup.H"
+#include "upwind.H"
 #include "syncTools.H"
 #include "PstreamBuffers.H"
 
@@ -157,25 +161,41 @@ Foam::cutCellGeometry::snGradCorrection
 
 
 template<class Type>
-Foam::tmp<Foam::GeometricField<Type, Foam::fvPatchField, Foam::volMesh>>
-Foam::cutCellGeometry::convectionSource
+Foam::tmp<Foam::fvMatrix<Type>> Foam::cutCellGeometry::convection
 (
     const surfaceScalarField& phi,
     const GeometricField<Type, fvPatchField, volMesh>& vf,
     const volScalarField* nu
 ) const
 {
-    tmp<fv::convectionScheme<Type>> tcs
-    (
-        fv::convectionScheme<Type>::New
+    const word name("div(" + phi.name() + ',' + vf.name() + ')');
+    if (!ibmConvection_)
+    {
+        return fv::convectionScheme<Type>::New
         (
-            mesh_, phi, mesh_.divScheme("div(" + phi.name() + ',' + vf.name() + ')')
-        )
-    );
-    return fvc::surfaceIntegrate
+            mesh_, phi, mesh_.divScheme(name)
+        )().fvmDiv(phi, vf);
+    }
+    const tmp<surfaceScalarField> tphiC(convectionFlux(phi));
+    const surfaceScalarField& phiC = tphiC();
+    const surfaceScalarField phiR(phi - phiC);
+    const tmp<fv::convectionScheme<Type>> tcs
     (
-        convectionCorrection(phi, vf, tcs().interpolate(phi, vf)(), nu)
+        fv::convectionScheme<Type>::New(mesh_, phiR, mesh_.divScheme(name))
     );
+    tmp<fvMatrix<Type>> tm(tcs().fvmDiv(phiR, vf));
+    tm.ref() += fv::gaussConvectionScheme<Type>
+    (
+        mesh_, phiC,
+        tmp<surfaceInterpolationScheme<Type>>(new upwind<Type>(mesh_, phiC))
+    ).fvmDiv(phiC, vf);
+    // a bounded case scheme removes div(phi) vf of the whole flux
+    if (isA<fv::boundedConvectionScheme<Type>>(tcs()))
+    {
+        tm.ref() -= fvm::Sp(fvc::surfaceIntegrate(phiC), vf);
+    }
+    tm.ref() += fvc::surfaceIntegrate(convectionCorrection(phiC, vf, nu));
+    return tm;
 }
 
 
@@ -183,9 +203,8 @@ template<class Type>
 Foam::tmp<Foam::GeometricField<Type, Foam::fvsPatchField, Foam::surfaceMesh>>
 Foam::cutCellGeometry::convectionCorrection
 (
-    const surfaceScalarField& phi,
+    const surfaceScalarField& phiC,
     const GeometricField<Type, fvPatchField, volMesh>& vf,
-    const GeometricField<Type, fvsPatchField, surfaceMesh>& vSchemeFace,
     const volScalarField* nu
 ) const
 {
@@ -204,13 +223,9 @@ Foam::cutCellGeometry::convectionCorrection
                 IOobject::NO_WRITE
             ),
             mesh_,
-            dimensioned<Type>(phi.dimensions()*vf.dimensions(), Zero)
+            dimensioned<Type>(phiC.dimensions()*vf.dimensions(), Zero)
         )
     );
-    if (!ibmConvection_)
-    {
-        return tcorr;
-    }
     SurfaceField& corr = tcorr.ref();
 
     const direction nCmpt = pTraits<Type>::nComponents;
@@ -250,16 +265,11 @@ Foam::cutCellGeometry::convectionCorrection
 
     forAll(own, facei)
     {
-        const label o = own[facei], n = nei[facei];
-        if (theta_[facei] <= 0 || solidCells_.test(o) || solidCells_.test(n))
+        if (phiC[facei] == 0)
         {
             continue;
         }
-        const label u = (phi[facei] >= 0) ? o : n;
-        if (theta_[facei] >= 1 && magSqr(off[u]) == 0)
-        {
-            continue;
-        }
+        const label u = (phiC[facei] > 0) ? own[facei] : nei[facei];
         const vector r(Cf[facei] + wetFaceOffset_[facei] - C[u] - off[u]);
         Type e(extrapolate(vf[u], u, r));
         if (law && prof.w()[u] > 0)
@@ -270,7 +280,7 @@ Foam::cutCellGeometry::convectionCorrection
                 prof.uTau()[u], prof.w()[u], (*nu)[u]
             );
         }
-        corr[facei] = phi[facei]*(e - vSchemeFace[facei]);
+        corr[facei] = phiC[facei]*(e - vf[u]);
     }
 
     forAll(mesh_.boundary(), patchi)
@@ -293,11 +303,9 @@ Foam::cutCellGeometry::convectionCorrection
             );
         }
         const vectorField d(fvp.delta());
-        const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
-        const fvsPatchScalarField& php = phi.boundaryField()[patchi];
+        const fvsPatchScalarField& php = phiC.boundaryField()[patchi];
         const fvsPatchVectorField& Cfp = Cf.boundaryField()[patchi];
         const fvsPatchVectorField& wop = wetFaceOffset_.boundaryField()[patchi];
-        const fvsPatchField<Type>& vsp = vSchemeFace.boundaryField()[patchi];
         fvsPatchField<Type>& cp = corr.boundaryFieldRef()[patchi];
         scalarField uTauN, wN, yN, nuN;
         vectorField nN, UbN;
@@ -313,12 +321,12 @@ Foam::cutCellGeometry::convectionCorrection
         forAll(fvp, i)
         {
             const label c = fc[i];
-            if (tp[i] <= 0 || solidCells_.test(c)) continue;
+            if (php[i] == 0) continue;
             const point xf(Cfp[i] + wop[i]);
-            Type v;
-            if (php[i] >= 0)
+            Type v, vU;
+            if (php[i] > 0)
             {
-                if (tp[i] >= 1 && magSqr(off[c]) == 0) continue;
+                vU = vf[c];
                 const vector r(xf - C[c] - off[c]);
                 v = extrapolate(vf[c], c, r);
                 if (law && prof.w()[c] > 0)
@@ -332,7 +340,7 @@ Foam::cutCellGeometry::convectionCorrection
             }
             else
             {
-                if (tp[i] >= 1 && magSqr(offN[i]) == 0) continue;
+                vU = vN[i];
                 const vector r(xf - (C[c] + d[i]) - offN[i]);
                 v = vN[i];
                 for (direction cmpt = 0; cmpt < nCmpt; ++cmpt)
@@ -348,7 +356,7 @@ Foam::cutCellGeometry::convectionCorrection
                     );
                 }
             }
-            cp[i] = php[i]*(v - vsp[i]);
+            cp[i] = php[i]*(v - vU);
         }
     }
 

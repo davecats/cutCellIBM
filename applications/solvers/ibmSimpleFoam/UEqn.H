@@ -17,9 +17,15 @@
     }
     const volScalarField& nuWall = ibmTurbulent ? tnuWall() : nuEff;
 
+    // Convection (cutCellGeometry::convection); turbulent: the wall law in the
+    // wall cells with a wall function on the faces with ibmConvection
+    tmp<volScalarField> tnuLam;
+    if (ibmTurbulent) tnuLam = turbulence->nu();
+    const volScalarField* nuLam = ibmTurbulent ? &tnuLam() : nullptr;
+
     tmp<fvVectorMatrix> tUEqn
     (
-        fvm::div(phi, U)
+        ibm.convection(phi, U, nuLam)
       - fvm::laplacian(ibm.thetaInterpolate(nuEff), U)
       + fvm::Sp(nuWall*ibm.noSlipCoeff(), U)
       + fvm::Sp(nuEff*ibm.blankCoeff(), U)
@@ -27,21 +33,6 @@
         fvOptions(U)
     );
     fvVectorMatrix& UEqn = tUEqn.ref();
-
-    if (ibm.ibmConvection())
-    {
-        // Convective face values of cut and linked cells from their value
-        // points (cutCellGeometry::convectionCorrection); turbulent: the
-        // wall law in the wall cells with a wall function
-        if (ibmTurbulent)
-        {
-            UEqn += ibm.convectionSource(phi, U, turbulence->nu()());
-        }
-        else
-        {
-            UEqn += ibm.convectionSource(phi, U);
-        }
-    }
 
     if (ibmTurbulent)
     {

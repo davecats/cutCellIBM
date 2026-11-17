@@ -265,17 +265,13 @@ int main(int argc, char *argv[])
         volScalarField Told(T);
         fvScalarMatrix TEqn
         (
-            fvm::div(phi, T)
+            ibm.convection(phi, T)
           - fvm::laplacian(DT*ibm.theta(), T)
           + fvm::Sp(DT*wallCoeff, T)
           + fvm::Sp(DT*ibm.blankCoeff(), T)
          ==
             source*ibm.alpha()
         );
-        if (ibm.ibmConvection())
-        {
-            TEqn += ibm.convectionSource(phi, T);
-        }
         if (!dirichlet)
         {
             TEqn.setReference(pRefCell, 0.0);

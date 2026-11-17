@@ -927,6 +927,33 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    (D/h 15.6), −0.17 % (23.4); 2-D slice −0.56 / −0.81, −0.055 / −0.091, −0.002 / −0.006 % at
    D/h 15.6, 31.2, 62.4: the same in 2-D and 3-D, order ≥ 3 in h, both solvers share the limit.
    Δt from |u| = 3.75; c_D,max and c_L,min judged at D/h 46.8 (user).
+19. **ibmConvection diverged in steady SIMPLE at high wall cut-cell Péclet numbers: implicit
+   part now upwind on the corrected faces** (2026-11-17, branch `convection_upwind`; runs and the
+   stability model in `~/runs/v6/re128div`, `model/stab.py`). V6 MIG R2conv at Re 128, d 0.4,
+   d/h 32 and 48 diverged (HoreKa, reproduced bit-identically on eridanus): a mode of period two
+   cells in x growing about 2.4× per 10 iterations in a row of wall cut cells (fluid fraction
+   0.49) and the full cells next to them, drifting with the flow; without ibmConvection, with U
+   relaxed by 0.7 or with linearUpwind the same cases converge. Cause: the case's scheme (Gauss
+   linear) was implicit everywhere and ibmConvection added phi (e − v_scheme) explicitly on the
+   faces of cut and linked cells, with e the upwind value extrapolated from the value point; for
+   a sawtooth that is an explicit upwind term next to an implicit central one, which gives no
+   convective diagonal. The SIMPLE factor of the mode, g = (−E + (1−a)/a A')/(A'/a + D) with
+   A' the viscous diagonal plus the wall traction and E = Σ|phi| over the corrected faces,
+   exceeds 1 at a wall-row cell Péclet number of about 3 (a = 0.9). Why this case: in the frame
+   of the sphere the pipe wall moves at −V, so the fastest fluid sits in the wall cut cells (a
+   static wall has Pe 0.17, |g| 0.08); the pipe is axis-aligned and periodic, so the cut cells
+   repeat along x and the mode runs round the period; Re 128 with the background cell size at
+   the wall gives Pe 4.9 (d/h 32, model |g| 1.11, sheet mode 1.33) and 3.35 (d/h 48, 0.74 / 0.91),
+   against 2.9, 2.7 and 1.9 for the cases that converge (d 0.6; d/h 64; d 0.2; the model omits
+   the amplification of the extrapolation, so it puts the threshold too high, but orders the cases
+   as the solver does). Fix (one function, `cutCellGeometry::convection(phi, vf, nu)`, used by
+   ibmSimpleFoam, ibmPimpleFoam, ibmScalarTransport, ibmSpalartAllmaras, ibmOrderTest and
+   ibmTruncationTC; `convectionSource` removed): on the corrected faces (`convectionFlux`) the
+   implicit part is upwind and the explicit part phiC (e − v_U); the case's scheme on the other
+   faces; with a bounded case scheme the upwind part also removes div(phiC) vf. Same face
+   values at convergence: Re 2, d/h 16: F_x −0.2699856 old, −0.2699858 new, both 395 iterations;
+   Re 128, d/h 32 now converges in 590 iterations. Gates and tier 1 on the branch pending; to be
+   merged and the V6 R2conv Re 128 runs repeated with the user.
 18. **V14 3D-3Z at D/h 46.8** (2026-11-17, 2190505, 8.5 M cells, 304 ranks on HoreKa, job
    5242766, 18.6 h; runs `~/runs/suite/2190505/V14.2`; the partial draco fallback moved to
    `3z_n48_dt1/draco_partial_aside`). c_D,max 3.4454, 3.3729, 3.3108 at D/h 15.6, 23.4, 46.8

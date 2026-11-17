@@ -807,51 +807,47 @@ public:
                 const volVectorField& U
             ) const;
 
-            //- Explicit correction of a convection term on the faces of cut
-            //  and linked cells: phi (v_f - vSchemeFace) with v_f the value
-            //  of the upwind cell at its value point extrapolated to the
-            //  wet-face centroid with the least-squares gradient,
-            //  v_U + g_U.(x'_f - x_v,U); zero elsewhere and without
-            //  ibmConvection. Add fvc::surfaceIntegrate of it to the equation.
-            //  With the viscosity nu (velocity of a turbulent flow) and
-            //  ibmConvectionWallLaw, the tangential velocity on the faces of
-            //  wall cells with a wall function follows the SA law of the
-            //  wall with the weight of the wall law (wallProfileValue).
+            //- The convection term div(phi, vf) on the cut mesh. Without
+            //  ibmConvection the case's scheme div(phi,vf). With it, on the
+            //  faces of cut and linked cells (convectionFlux) the face value
+            //  is that of the upwind cell at its value point extrapolated to
+            //  the wet-face centroid with the least-squares gradient,
+            //  v_U + g_U.(x'_f - x_v,U): upwind implicitly, the extrapolation
+            //  explicitly (an implicit central part next to the upwind face
+            //  value loses the convective diagonal: unstable in steady SIMPLE
+            //  at wall cut-cell Peclet numbers above about 3); the case's
+            //  scheme on the other faces. With the viscosity nu (velocity of
+            //  a turbulent flow) and ibmConvectionWallLaw, the tangential
+            //  velocity on the faces of wall cells with a wall function
+            //  follows the SA law of the wall with the weight of the wall law
+            //  (wallProfileValue).
+            template<class Type>
+            tmp<fvMatrix<Type>> convection
+            (
+                const surfaceScalarField& phi,
+                const GeometricField<Type, fvPatchField, volMesh>& vf,
+                const volScalarField* nu = nullptr
+            ) const;
+
+            //- phi on the faces whose convective value convection takes from
+            //  the value point (wet, no solid cell on either side, cut or
+            //  with the value point of the upwind cell off its centre), zero
+            //  elsewhere and without ibmConvection
+            tmp<surfaceScalarField> convectionFlux
+            (
+                const surfaceScalarField& phi
+            ) const;
+
+            //- The explicit part of convection on those faces,
+            //  phiC (v_f - v_U) with phiC = convectionFlux(phi)
             template<class Type>
             tmp<GeometricField<Type, fvsPatchField, surfaceMesh>>
             convectionCorrection
             (
-                const surfaceScalarField& phi,
+                const surfaceScalarField& phiC,
                 const GeometricField<Type, fvPatchField, volMesh>& vf,
-                const GeometricField<Type, fvsPatchField, surfaceMesh>& vSchemeFace,
-                const volScalarField* nu = nullptr
+                const volScalarField* nu
             ) const;
-
-            //- convectionCorrection against the case's scheme div(phi,vf),
-            //  integrated over the cells: add it to the matrix of
-            //  fvm::div(phi, vf) when ibmConvection() is set
-            template<class Type>
-            tmp<GeometricField<Type, fvPatchField, volMesh>>
-            convectionSource
-            (
-                const surfaceScalarField& phi,
-                const GeometricField<Type, fvPatchField, volMesh>& vf,
-                const volScalarField* nu = nullptr
-            ) const;
-
-            //- convectionSource of the velocity of a turbulent flow, with
-            //  the wall law on the faces of wall cells with a wall function
-            template<class Type>
-            tmp<GeometricField<Type, fvPatchField, volMesh>>
-            convectionSource
-            (
-                const surfaceScalarField& phi,
-                const GeometricField<Type, fvPatchField, volMesh>& vf,
-                const volScalarField& nu
-            ) const
-            {
-                return convectionSource(phi, vf, &nu);
-            }
 
             //- True for a component of Type in an empty direction of the
             //  mesh (fvMesh::validComponents, the third direction of a 2-D

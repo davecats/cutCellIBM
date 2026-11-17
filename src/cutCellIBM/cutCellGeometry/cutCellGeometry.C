@@ -3741,3 +3741,74 @@ void Foam::cutCellGeometry::writeGeometryFields() const
         sample.write();
     }
 }
+
+
+Foam::tmp<Foam::surfaceScalarField> Foam::cutCellGeometry::convectionFlux
+(
+    const surfaceScalarField& phi
+) const
+{
+    tmp<surfaceScalarField> tf
+    (
+        new surfaceScalarField
+        (
+            IOobject
+            (
+                "ibmConvectionFlux(" + phi.name() + ')',
+                phi.instance(),
+                mesh_,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            mesh_,
+            dimensionedScalar(phi.dimensions(), Zero)
+        )
+    );
+    if (!ibmConvection_)
+    {
+        return tf;
+    }
+    surfaceScalarField& f = tf.ref();
+    const labelUList& own = mesh_.owner();
+    const labelUList& nei = mesh_.neighbour();
+    const vectorField& off = valueOffset_.primitiveField();
+    forAll(own, facei)
+    {
+        const label o = own[facei], n = nei[facei];
+        const label u = (phi[facei] >= 0) ? o : n;
+        if
+        (
+            theta_[facei] > 0 && !solidCells_.test(o) && !solidCells_.test(n)
+         && (theta_[facei] < 1 || magSqr(off[u]) > 0)
+        )
+        {
+            f[facei] = phi[facei];
+        }
+    }
+    forAll(mesh_.boundary(), patchi)
+    {
+        const fvPatch& fvp = mesh_.boundary()[patchi];
+        if (!fvp.coupled()) continue;
+        const labelUList& fc = fvp.faceCells();
+        const vectorField offN
+        (
+            valueOffset_.boundaryField()[patchi].patchNeighbourField()
+        );
+        const fvsPatchScalarField& tp = theta_.boundaryField()[patchi];
+        const fvsPatchScalarField& php = phi.boundaryField()[patchi];
+        fvsPatchScalarField& fp = f.boundaryFieldRef()[patchi];
+        forAll(fvp, i)
+        {
+            const vector& offU = (php[i] >= 0) ? off[fc[i]] : offN[i];
+            if
+            (
+                tp[i] > 0 && !solidCells_.test(fc[i])
+             && (tp[i] < 1 || magSqr(offU) > 0)
+            )
+            {
+                fp[i] = php[i];
+            }
+        }
+    }
+    return tf;
+}

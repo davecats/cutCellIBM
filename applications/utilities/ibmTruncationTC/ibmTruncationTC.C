@@ -131,10 +131,9 @@ int main(int argc, char *argv[])
       + fvm::Sp(nuv*ibm.blankCoeff(), U)
     );
     if (ibm.wallVelocity()) visc -= ibm.movingWallSource(nuv);
-    fvVectorMatrix conv(fvm::div(phi, U));
+    tmp<fvVectorMatrix> conv(ibm.convection(phi, U));
 
-    volVectorField rc(conv & U);
-    if (ibm.ibmConvection()) rc += ibm.convectionSource(phi, U);
+    volVectorField rc(conv() & U);
     const volVectorField rv(visc & U), gp(ibm.grad(p));
     volScalarField cont("Rcont", fvc::div(phi));
     if (ibm.moving()) cont += ibm.massSource();
