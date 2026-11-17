@@ -237,6 +237,7 @@ def neutral(ctx, interface, d, Re, dh, e_ref):
     es = float(ref.eps_star(d))
     hf, h0 = mesh_of(d, dh)
     pts, Jac = [], None
+    e_ref = float(e_ref)
     xs = [e_ref - 0.05*es, e_ref + 0.05*es]
     for k in range(6):
         e = xs[k] if k < 2 else xs[-1]
@@ -271,13 +272,13 @@ def case_jobs(quick):
         J.append(("R2conv", chain, ("rigid", 0.4, 128.0, dh, [0.4]), NPDH[dh]))
     for dd in (0.2, 0.6):
         for Re in (2.0, 128.0):
-            e = ref.neutral("rigid", dd)[0][0] if Re == 2.0 else fig10("rigid", 128, dd)
+            e = float(ref.neutral("rigid", dd)[0][0]) if Re == 2.0 else fig10("rigid", 128, dd)
             J.append(("R3", neutral, ("rigid", dd, Re, f, e), NPDH[f]))
     for dd in (0.6, 0.8):
         J.append(("R4", chain, ("rigid", dd, 2.0, f, [0.1]), NPDH[f]))
     J.append(("S1", chain, ("stressFree", 0.4, 2.0, f, EPS), NPDH[f]))
     for Re in (2.0, 32.0):
-        e = ref.neutral("stressFree", 0.2)[0][0] if Re == 2.0 else fig10("stressFree", 32, 0.2)
+        e = float(ref.neutral("stressFree", 0.2)[0][0]) if Re == 2.0 else fig10("stressFree", 32, 0.2)
         J.append(("S2", neutral, ("stressFree", 0.2, Re, f, e), NPDH[f]))
     m = DHS[1]
     for tag, opt in (("_noconv", {"ibmConvection": False}), ("_merge0", {"mergeAlpha": 0.0})):
