@@ -37,7 +37,8 @@ CYL = common.TUTORIALS / "cylinderRe1"
 
 
 def ranks(cells):
-    return int(min(64, max(4, 2**round(np.log2(cells/40000.0)))))
+    """~40k cells per rank, 4 ... 64 (MIG_MAXRANKS in the environment lowers the cap)"""
+    return int(min(int(os.environ.get("MIG_MAXRANKS", 64)), max(4, 2**round(np.log2(cells/40000.0)))))
 
 
 def mesh(d, hf, dsph=None, e=0.0, L=3.0, refine=True, h0=None):
