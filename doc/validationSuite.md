@@ -268,6 +268,20 @@ Not involved: turbulence, wall functions, moving geometry, scalars.
   rotating sphere 8πμR³Ω, two box sizes with extrapolation in R/L_box; d/h = 16, 32, 48. Rigid and
   torque within 1 % at d/h = 32 and converging; stress-free reported (expected to fail before the
   free-slip fix). Stresses force and torque integration (C1) and C2 (rotation) without the pipe.
+- **Gate results (2026-11-17, 2190505, `validation/suite/v6.py`, runs `~/runs/suite/2190505/V6`): PASS.**
+  G1 (Re 2, V = 0.7, plain pipe meshes of the MIG outer level h = 1/40, 1/60, 1/80): G −0.187,
+  −0.080, −0.043 % (order 2.1), u_x L2 at the value points 1.37e-3, 5.97e-4, 3.22e-4 (order 2.1),
+  cross flow at round-off; p is uniform to round-off in the empty pipe, so its normalised
+  residual stays ~1e-4 and the run is judged by stationarity (G steady to 1e-10 from ~500
+  iterations). G2 (Re 0.01, half box z ≥ 0, x and y periodic, L/d = 4, 6, 8, nested boxes to
+  d/h 16, 32, 48; the drag of the array is the force on the sphere plus G V_B, U the superficial
+  velocity; the array correction removed by 1/ratio = a0 − a1 s + a3 s³, s = R/L, torque
+  t0 + t3 s³): rigid 0.99575, 0.99982, 1.00098 (each box at d/h 48 within 0.15 % of Sangani &
+  Acrivos 1982: 0.99851, 0.99925, 0.99968); stress-free 0.99382, 0.99914, 1.00047; rotating
+  0.98770, 0.99659, 0.99802. "Converging" is checked as a shrinking change between successive
+  meshes (the rigid error crosses zero between d/h 32 and 48). Stress-free runs: the U residual
+  of the zero-shear free slip has a floor at ~2e-10, the U smoother is capped at 50 sweeps and
+  the residual control is 1e-9 (or a stationary G).
 
 ### Cases
 

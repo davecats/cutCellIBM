@@ -17,7 +17,9 @@ correction (Hasimoto 1959: 1/(1 - 1.7601 s' + ...), s' = c^(1/3), c = (4 pi/3)(R
 by fitting F/F_Stokes = 1/(a0 - a1 s + a3 s^3) (s = R/L) through L/d = 4, 6, 8 (rigid, stress-free)
 and T/T_Stokes = t0 + t3 s^3 (rotating). Drag of the array: the force on the sphere plus G V_B (the
 driving gradient on the sphere volume), U the superficial velocity Ubar V_f/L^3. d/h = 16, 32, 48;
-rigid and torque within 1 % at d/h 32 and decreasing to d/h 48; stress-free reported against 1 %.
+rigid and torque within 1 % at d/h 32 and converging (the change d/h 32 -> 48 below that of 16 -> 32;
+the error itself may cross zero); stress-free reported against 1 %; the rigid boxes are also reported
+against the cubic-array drag of Sangani & Acrivos (1982).
 """
 import json
 import os
@@ -162,6 +164,13 @@ def g2(ctx, kind, L, dh):
         ref = (6 if kind == "rigid" else 4)*np.pi*mu*R*U
     r.update(kind=kind, L=L, dh=dh, value=val, stokes=ref, ratio=val/ref, s=R/L)
     return r
+
+
+def sangani_acrivos(s):
+    """1/K of the simple cubic array of rigid spheres (Sangani & Acrivos 1982, Hasimoto 1959),
+    c = (4 pi/3) s^3, s = R/L: F = 6 pi mu R U K"""
+    c = 4*np.pi/3*s**3
+    return 1 - 1.7601*c**(1/3) + c - 1.5593*c**2 + 3.9799*c**(8/3) - 3.0734*c**(10/3)
 
 
 def g2_fit(rs, kind):
@@ -457,8 +466,14 @@ def run(ctx, res):
             res.report("G2 %s, d/h %d, array correction removed" % (lab, judge), ext[judge], 1.0, note)
         else:
             res.rel("G2 %s, d/h %d, array correction removed" % (lab, judge), ext[judge], 1.0, 0.01, note)
-        if 48 in ext and 32 in ext:
-            res.le("G2 %s: error at d/h 48 against d/h 32" % kind, abs(ext[48] - 1), abs(ext[32] - 1))
+        if all(k in ext for k in (16, 32, 48)):   # converging: the change shrinks (the error may cross 0)
+            res.le("G2 %s: change d/h 32 -> 48 against 16 -> 32" % kind, abs(ext[48] - ext[32]), abs(ext[32] - ext[16]),
+                   "%.5f %.5f %.5f" % (ext[16], ext[32], ext[48]))
+        if kind == "rigid":   # each box against the cubic-array drag of Sangani & Acrivos (1982)
+            rs = sorted([r for r in G2 if r["kind"] == kind and r["dh"] == max(ext)], key=lambda r: r["L"])
+            q = [r["ratio"]*sangani_acrivos(r["s"]) for r in rs]
+            res.report("G2 rigid, d/h %d: drag / (6 pi mu R U K_SA) per box L/d %s" % (
+                max(ext), "/".join("%g" % r["L"] for r in rs)), q[-1], 1.0, " ".join("%.5f" % x for x in q))
     if ctx.gates_only:
         return
     run_cases(ctx, res)
