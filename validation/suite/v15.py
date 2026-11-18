@@ -4,8 +4,8 @@ TMR grid) against immersed (the same grid lines with one cell row added below th
 grid shifted by f dy1: the plate, a box body, cuts that row with fluid fraction f). The body-fitted
 run is the reference; the TMR values check it (REPORT: OpenFOAM's SA is not the TMR SA).
 Tier 1: grid 273 x 193, wall-resolved, f = 0.5."""
+import gzip
 import os
-import subprocess
 
 import numpy as np
 
@@ -28,9 +28,8 @@ XCF = tmr.FLATPLATE["x_cf"]
 
 def read_grid(n):
     p = GRIDS / GRID[n]
-    if not p.exists():
-        subprocess.run(["gunzip", "-k", str(p) + ".gz"], check=True)
-    tok = p.read_text().split()
+    # read the .gz directly: cases set up in parallel threads must not race on unpacking it
+    tok = (p.read_text() if p.exists() else gzip.open(str(p) + ".gz", "rt").read()).split()
     ni, nj = int(tok[1]), int(tok[2])
     v = np.array(tok[3:3 + 2*ni*nj], float)
     x, y = v[:ni*nj].reshape(nj, ni), v[ni*nj:].reshape(nj, ni)
