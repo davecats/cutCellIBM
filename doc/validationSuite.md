@@ -400,6 +400,15 @@ Masliyah & Epstein 1970 for C_D at Re = 1–100 (table II of Blanco & Magnaudet)
   not converge. Re 50, 100 at D/h 48: θ_s 139.20°, 126.90° (J&P 139.39°, 127.03°).
 - Cost: 5.1 M cells at D/h 64; the D/h 64 chain on HoreKa (4 nodes: SIMPLE 0.46 s per iteration,
   Re 250 converged in 4036 iterations; Re 300 4 s per step), D/h ≤ 48 on hydra.
+- References amended (user, 2026-11-18, finding 20): J&P give the steady C_D and wake only as
+  figures, and read off them they run 2–3 % above the tabulated values at Re 150–200. Tabulated
+  values first: C_D from Magnaudet et al. (Re 20–100) and Fornberg 1988 (JFM 190, tables 2 and 4,
+  error < 1 %: Re 200 C_D 0.7683), x_s from Fornberg at Re 100 and 200 (0.8735, 1.4355 D; his wake
+  length is from the centre in radii). Otherwise J&P's figure values, with the reading uncertainty
+  (±0.01 on the 0–3 C_D axis) in the C_D tolerance: Re 150 within 3 %. Re 300: mean C_D within 2 %
+  of the band of the published computations (0.656–0.671), St inside it (0.132–0.137; J&P,
+  Tomboulides 1993, Kang et al. and Angelidis et al. as quoted in arXiv 2411.00272), J&P printed.
+  `v10.steady_ref`, `reference_sphere.FORNBERG`, `RE300_PUBLISHED`.
 
 ### BUB (V11): stress-free sphere (clean bubble of fixed shape) in uniform flow
 
@@ -963,6 +972,17 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    alphaMin 0.02, 264 slivers absorbed) cycles with period 2 between 0.3787 and 0.3868 (mean
    −0.8 %) through 20000 iterations: finding 13 in 3-D, reported, not judged. Baseline accepted from
    2190505 (user, 2026-11-17).
+20. **V10 SPH: the digitised J&P references, not the solver** (2026-11-18, 2190505,
+   `~/runs/suite/2190505/V10.1`, report §V10). Against J&P's figure values four checks failed at
+   the finest mesh: C_D Re 150 −1.7 %, Re 200 −2.2 %, x_s Re 200 −0.033 D, St Re 300 −2.3 %. All
+   converge smoothly (C_D order 2.5; extrapolated 0.8899, 0.7726). Fornberg's table: Re 100 C_D
+   1.0852, x_s 0.8735 (ours 1.0929, 0.8742); Re 200 C_D 0.7683, x_s 1.4355 (ours 0.7746, 1.4397,
+   extrapolated C_D +0.56 %). Re 300: mean C_D 0.6761, 0.6665, 0.6635 and St 0.1332, 0.1337, 0.1339
+   at D/h 32, 48, 64 (Δt/2: −0.14 %, +0.05 %), within the published 0.656–0.671 and 0.132–0.137.
+   Re 250 |C_L| 0.0619 (J&P 0.0615). Half against full domain 5e-6, lateral 15 D −0.05 %,
+   ibmConvection off +0.08 %, mergeAlpha 0 −0.22 % (D/h 32). With the tabulated references (above,
+   user) V10 passes; baseline accepted from 2190505 (user, 2026-11-18). The Re 150 D/h 64 run was
+   missing from the HoreKa chain and ran there on 2026-11-18 (304 ranks, 17 min).
 
 ### Decisions (2026-11-07)
 

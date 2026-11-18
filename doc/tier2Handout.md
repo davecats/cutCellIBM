@@ -119,13 +119,26 @@ Next:
 - V6 MIG (2026-11-17): driver `mig.py`, module `v6.py`; gates G1, G2 PASS (doc §8 "Gate results",
   runs `~/runs/suite/2190505/V6`). β reference: the paper's "100 β0" columns hold β0 and the rigid
   fit is ~1.23× below its own figure 4c; MIG-R1 judges β on figure 4c (`fig4_rigid_d0.4.dat`,
-  from arXiv:1708.01114). Cases R1–R4, S1, S2 run on HoreKa: 9 single-node jobs (`v6_job1..9.sh`,
-  driver `v6_hk.py` = `~/runs/v6/scripts/v6_hk.py`, root `<ws>/suite/2190505/V6/cases`); when done,
-  copy `cases/` (result.json files and logs) into `~/runs/suite/2190505/V6/cases` and run
-  `suite.py run V6 --reuse ~/runs/suite/2190505/V6` (evaluation only), then the V6 report section.
-- V10: D/h 64 Re 300 (HoreKa 5242769, continuation 5242864), D/h 48 chain on hydra, D/h 32 Re 300
-  dt and dt/2 moved from draco to HoreKa (5245499, 5245500; draco partial in
-  `re300_dh32_dt1/draco_partial_aside`); copy back, then `suite.py run V10 --reuse ~/runs/suite/2190505/V10.1`.
+  from arXiv:1708.01114). Cases R1–R4, S1, S2 ran on HoreKa (9 single-node jobs `v6_job1..9.sh`,
+  driver `v6_hk.py` = `~/runs/v6/scripts/v6_hk.py`, root `<ws>/suite/2190505/V6/cases`), all done
+  on 2026-11-18 except R2conv Re 128 at d/h 32 and 48: ibmConvection diverged there (finding 19).
+  Do not run `suite.py run V6 --reuse` before those two have result.json files: it would start
+  them locally with the old code. Order: tier 1 of the fix (HoreKa job 5246487, key 8c6cc10,
+  results `<ws>/convup/validation/suite/results/8c6cc10`, runs `<ws>/suite/8c6cc10`), merge of
+  `convection_upwind` and re-acceptance of G7, G9 with the user, the two R2conv runs with the fixed
+  code on HoreKa, then copy `cases/` (result.json files and logs, no processor*) into
+  `~/runs/suite/2190505/V6/cases`, evaluate, write the V6 report section (figure `flow3d.v6`).
+- ibmConvection fix (finding 19 in the branch's `doc/validationSuite.md`): branch
+  `convection_upwind`, worktree `openFoam.ibm.docs/convup` (code 8c6cc10, docs to fe86bec), HoreKa
+  clone `<ws>/convup` (build `build_convup.sh`, tier 1 `tier1_convup.sh`). Implicit upwind on the
+  corrected faces, the value-point face value as the explicit correction phiC (e − v_U), −Sp(div
+  phiC) for a bounded scheme. Gates: G7 and G9 fail only their regression (Rhie–Chow rAU = α_U/A
+  shift, ∝ α_U). The α_U dependence of steady solutions (also in the old code, 1.6–2.6 % max|U| at
+  G9 N 20) stays a documented property for now (user, 2026-11-17); remedy if wanted later:
+  relaxation-independent Rhie–Chow.
+- V10 done (2026-11-18, finding 20): the missing Re 150 D/h 64 ran on HoreKa (job 5246721, 17 min);
+  the failures against the digitised J&P figures were the references (Fornberg 1988 tabulated);
+  references amended (user), PASS, baseline accepted from 2190505 (10b73ee), report §V10.
 - Worktrees made this session (ask before removing): `openFoam.ibm.docs/zsdiag` (branch
   zeroshear_diag, diagnostic keys zsRobin, zsNormalFlux), `zsdiag2` (zeroshear_diag2,
   zsImplicit, zsLagTime), `zsroot` (detached, 361c23c + zeroShearNormalFlux/Mode). N = 641 V2
