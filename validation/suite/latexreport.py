@@ -603,6 +603,35 @@ def v15(out, r):
     out.save(fig, "V15_flatPlate")
 
 
+def v10(out, r):
+    """steady runs against D/h: C_D, bubble length and separation angle against the references of the
+    checks (v10.steady_ref: Magnaudet et al., Fornberg 1988, else J&P's figures)"""
+    import v10 as case
+    st = [x for x in r["data"]["steady"] if not x["tag"]]
+    fig, ax = plt.subplots(1, 3, figsize=(6.8, 2.6))
+    for i, Re in enumerate(case.RES_LOW + case.RES_HIGH):   # the axisymmetric steady range
+        q = sorted([x for x in st if x["Re"] == Re], key=lambda x: x["Dh"])
+        dh = [x["Dh"] for x in q]
+        cref = case.steady_ref(Re, "C_D")[1]
+        series(ax[0], i, dh, [abs(100*(x["C_D"]/cref - 1)) for x in q], "Re %d" % Re)
+        if Re >= 50:
+            series(ax[1], i, dh, [x["x_s"] - case.steady_ref(Re, "x_s")[1] for x in q], "Re %d" % Re)
+            series(ax[2], i, dh, [x["theta_s"] - case.steady_ref(Re, "theta_s")[1] for x in q], "Re %d" % Re)
+    slope(ax[0], 24, 1.0, 2, 64)
+    loglog(ax[0], "D/h")
+    ax[0].yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: "%g" % v))
+    for a in ax[1:]:
+        a.set_xscale("log")
+        a.set_xlabel("D/h")
+        a.axhline(0.0, color=REF, ls="--", lw=0.9)
+    ax[0].set_title("$|C_D$ / ref. $- 1|$ [%]")
+    ax[1].set_title("$x_s/D$ $-$ ref.")
+    ax[2].set_title(r"$\theta_s$ $-$ J&P fig. [deg]")
+    ax[0].legend(loc="lower left", fontsize=6)
+    fig.tight_layout()
+    out.save(fig, "V10_convergence")
+
+
 def v11(out, r):
     import reference_bubble as rb
     st = [x for x in r["data"]["steady"] if not x["tag"]]
@@ -712,7 +741,7 @@ def main():
     flowfield.figures(out, R)
     cost(out, R, commit, other)
     T2 = {}
-    for k, fn in (("V11", v11), ("V14", None)):   # tier-2 cases from the commit given as ID=commit
+    for k, fn in (("V10", v10), ("V11", v11), ("V14", None)):   # tier-2 cases from the commit given as ID=commit
         f = common.SUITE / "results" / other.get(k, commit) / ("%s.json" % k)
         if f.exists():
             r = T2[k] = json.loads(f.read_text())

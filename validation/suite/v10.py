@@ -47,8 +47,24 @@ NP = {16: 8, 24: 16, 32: 32, 48: 64, 64: 128}          # ranks (0.27, 0.64, 2.2,
 LOW, HIGH = [24, 32, 48], [32, 48, 64]
 RES_LOW, RES_HIGH = [20, 50, 100], [150, 200]
 DT, END300, WINDOW = 0.01, 300.0, 15/0.137       # Re 300: statistics over the last 15 periods
-# the C_D references: Magnaudet et al. (table II of Blanco & Magnaudet) where given, else J&P fig. 5
+# the C_D references: Magnaudet et al. (table II of Blanco & Magnaudet) where given, else Fornberg's
+# table, else J&P figure 5 with its reading uncertainty (+-0.01 on the 0-3 axis) added to the tolerance
 CD_REF = {Re: ("Magnaudet et al. 1995", ref.CD_TABLE["Magnaudet et al. 1995"][Re]) for Re in (20, 50, 100)}
+CD_TOL, CD_TOL_FIGURE = 0.015, 0.03
+
+
+def steady_ref(Re, q):
+    """(source, value, tolerance) of the steady quantity q (C_D, theta_s, x_s, x_c, y_c) at Re:
+    tabulated values (Magnaudet et al. for C_D, Fornberg 1988 for C_D and x_s) before the values
+    digitised from J&P's figures 4 and 5 (user decision 2026-11-18)"""
+    tol = {"theta_s": 1.5, "x_s": 0.03, "x_c": 0.02, "y_c": 0.02}
+    if q == "C_D" and Re in CD_REF:
+        return CD_REF[Re] + (CD_TOL,)
+    if q in ("C_D", "x_s") and Re in ref.FORNBERG:
+        return "Fornberg 1988", ref.FORNBERG[Re][q], CD_TOL if q == "C_D" else tol[q]
+    s = ref.steady()
+    v = float(s[q][list(s["Re"]).index(Re)]) if Re in s["Re"] else np.nan
+    return "Johnson & Patel 1999, figure", v, CD_TOL_FIGURE if q == "C_D" else tol[q]
 
 
 def setup(d, dh, Re, unsteady=False, lateral=None, full=False, wall="noSlip", **ibm):
@@ -285,6 +301,12 @@ def chain(ctx, dh, quick=False):
     return out
 
 
+def band(res, name, value, ref_, lo, hi, note=""):
+    """PASS if lo <= value <= hi (the spread of the published values); ref_ printed as the reference"""
+    ok = bool(np.isfinite(value) and lo <= value <= hi)
+    res.add(name, "PASS" if ok else "FAIL", value, ref_, "%.4g-%.4g" % (lo, hi), note)
+
+
 def run(ctx, res):
     low, high = (LOW[:1], HIGH[:1]) if ctx.quick else (LOW, HIGH)
     mid = LOW[1]
@@ -328,26 +350,23 @@ def run(ctx, res):
             M["re300_dh%d_dt%g_%s" % (r["Dh"], r["dtfactor"], q)] = r["stats"][q]
     res.le("steady runs not converged", sum(not r["converged"] for r in st), 0,
            " ".join("%d/%d:%.1e" % (r["Re"], r["Dh"], r["C_Dchange"]) for r in st if not r["converged"]))
-    s = ref.steady()
-    jp = {int(Re): i for i, Re in enumerate(s["Re"])}
     for Re in RES_LOW + RES_HIGH:
         rs = [r for r in base if r["Re"] == Re]
         if not rs:
             continue
         f, seq = rs[-1], lambda q: " ".join("%.5g" % r[q] for r in rs)
-        name, cref = CD_REF.get(Re, ("Johnson & Patel 1999", s["C_D"][jp[Re]] if Re in jp else np.nan))
-        res.rel("Re %d C_D, D/h %d (%s)" % (Re, f["Dh"], name), f["C_D"], cref, 0.015, seq("C_D"))
+        name, cref, tol = steady_ref(Re, "C_D")
+        res.rel("Re %d C_D, D/h %d (%s)" % (Re, f["Dh"], name), f["C_D"], cref, tol, seq("C_D"))
         if len(rs) >= 3:
             Ce, p = common.richardson([1/r["Dh"] for r in rs], [r["C_D"] for r in rs])
             res.report("Re %d observed order of C_D" % Re, p,
                        note="extrapolated %.5g (%s %.5g, %+.2f %%)" % (Ce, name, cref, 100*(Ce/cref - 1)))
-        if Re in jp and Re >= 50:
-            i = jp[Re]
-            res.absolute("Re %d separation angle theta_s (deg), D/h %d" % (Re, f["Dh"]), f["theta_s"],
-                      s["theta_s"][i], 1.5, seq("theta_s") + "; spread over band widths 1-3 deg %.2f" % f["theta_s_spread"])
-            res.absolute("Re %d bubble length x_s / D, D/h %d" % (Re, f["Dh"]), f["x_s"], s["x_s"][i], 0.03, seq("x_s"))
-            res.absolute("Re %d vortex centre x_c / D, D/h %d" % (Re, f["Dh"]), f["x_c"], s["x_c"][i], 0.02, seq("x_c"))
-            res.absolute("Re %d vortex centre y_c / D, D/h %d" % (Re, f["Dh"]), f["y_c"], s["y_c"][i], 0.02, seq("y_c"))
+        if Re >= 50:
+            for q, what in (("theta_s", "separation angle theta_s (deg)"), ("x_s", "bubble length x_s / D"),
+                            ("x_c", "vortex centre x_c / D"), ("y_c", "vortex centre y_c / D")):
+                name, v, tol = steady_ref(Re, q)
+                note = seq(q) + ("; spread over band widths 1-3 deg %.2f" % f["theta_s_spread"] if q == "theta_s" else "")
+                res.absolute("Re %d %s, D/h %d (%s)" % (Re, what, f["Dh"], name), f[q], v, tol, note)
         elif Re == 20:
             res.report("Re 20 separation angle theta_s (deg; J&P: onset at Re 20), D/h %d" % f["Dh"], f["theta_s"],
                        note=seq("theta_s") + "; x_s " + seq("x_s"))
@@ -375,8 +394,15 @@ def run(ctx, res):
         g, B = u1[-1], ref.RE300
         sq = lambda q: " ".join("%.5g" % r["stats"][q] for r in u1)
         res.report("Re 300 max Courant number", max(r["Co"] for r in un), note=" ".join("%.3f" % r["Co"] for r in un))
-        res.rel("Re 300 mean C_D, D/h %d" % g["Dh"], g["stats"]["C_D"], B["C_D mean"], 0.02, sq("C_D"))
-        res.rel("Re 300 St, D/h %d" % g["Dh"], g["stats"]["f"], B["St"], 0.02, sq("f"))
+        # mean C_D and St against the band of the published computations (user decision 2026-11-18):
+        # C_D within 2 % of it, St inside it; J&P printed as the reference
+        P = ref.RE300_PUBLISHED
+        band(res, "Re 300 mean C_D, D/h %d (published band +- 2 %%)" % g["Dh"], g["stats"]["C_D"], B["C_D mean"],
+             0.98*min(v[0] for v in P.values()), 1.02*max(v[0] for v in P.values()),
+             sq("C_D") + "; published " + ", ".join("%s %.3f" % (k, v[0]) for k, v in P.items()))
+        band(res, "Re 300 St, D/h %d (published band)" % g["Dh"], g["stats"]["f"], B["St"],
+             min(v[1] for v in P.values()), max(v[1] for v in P.values()),
+             sq("f") + "; published " + ", ".join("%s %.3f" % (k, v[1]) for k, v in P.items()))
         res.rel("Re 300 mean |C_L|, D/h %d" % g["Dh"], abs(g["stats"]["C_L"]), abs(B["C_L mean"]), 0.10, sq("C_L"))
         res.report("Re 300 C_L amplitude (sqrt 2 rms), D/h %d" % g["Dh"], np.sqrt(2)*g["stats"]["C_Lrms"],
                    B["C_L amplitude"], " ".join("%.4g" % (np.sqrt(2)*r["stats"]["C_Lrms"]) for r in u1))

@@ -141,6 +141,46 @@ def v11(out, r):
     out.save(fig, "V11_flow")
 
 
+R10 = 0.5   # V10 sphere radius (D = 1)
+
+
+def v10(out, r):
+    """symmetry plane z = 0 (the plane of the lateral force): |U| and streamlines at Re 100 and 250
+    (steady) and Re 300 (the last time, shedding) on D/h 48, the cut cells at D/h 24"""
+    root = Path(r["cases"])
+    norm = matplotlib.colors.Normalize(0, 1.2)
+    fig = plt.figure(figsize=(10.0, 5.2), layout="constrained")
+    g = fig.add_gridspec(2, 3, width_ratios=[1.5, 1.5, 1.0])
+    w = (-1.2, 3.8, -1.5, 1.5)
+    for k, (case, title) in enumerate((("re100_dh48", "Re 100, D/h 48"), ("re250_dh48", "Re 250, D/h 48 (steady, oblique)"))):
+        a_ = fig.add_subplot(g[0, k])
+        s = Slice(root / case, 2, 1e-9, w)
+        U = s.field("U")
+        pc = s.draw(a_, mag(U), norm=norm)
+        s.streamlines(a_, U, density=0.9)
+        sphere_section(a_, (0, 0, 0), R10, 2, 0.0, s.ij)
+        a_.set_title(title)
+        a_.set_xlabel("x/D")
+        a_.set_ylabel("y/D")
+    a_ = fig.add_subplot(g[0, 2])
+    s = Slice(root / "re100_dh24", 2, 1e-9, (-0.62, -0.22, 0.12, 0.52))
+    s.draw(a_, mag(s.field("U")), norm=norm, edges=True)
+    sphere_section(a_, (0, 0, 0), R10, 2, 0.0, s.ij, lw=1.0)
+    a_.set_title("cut cells, D/h 24 (Re 100)")
+    a_.set_xlabel("x/D")
+    a_ = fig.add_subplot(g[1, :])
+    s = Slice(root / "re300_dh48_dt1", 2, 1e-9, (-1.2, 9.0, -1.5, 1.5))
+    U = s.field("U")
+    s.draw(a_, mag(U), norm=norm)
+    s.streamlines(a_, U, n=400, density=1.2)
+    sphere_section(a_, (0, 0, 0), R10, 2, 0.0, s.ij)
+    a_.set_title("Re 300, D/h 48: instantaneous, t U/D = %s" % s.time)
+    a_.set_xlabel("x/D")
+    a_.set_ylabel("y/D")
+    fig.colorbar(pc, ax=fig.axes, fraction=0.02, pad=0.01).set_label("|U|/U")
+    out.save(fig, "V10_flow")
+
+
 def v14(out, r):
     """3D-1Z (Re 20) on D/h 23.4: mid-plane z = H/2 (|U|, streamlines, cut cells) and the plane
     y = 0.2 through the cylinder axis, where the immersed cylinder meets the channel walls"""
@@ -241,7 +281,7 @@ def v6(out, r):
     v6_figure(out, case, p)
 
 
-FIGURES = {"V6": v6, "V11": v11, "V14": v14}
+FIGURES = {"V6": v6, "V10": v10, "V11": v11, "V14": v14}
 
 
 def figures(out, R, only=None):
