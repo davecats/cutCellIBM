@@ -202,7 +202,7 @@ void Foam::ibmScalarTransport::solve()
     fvScalarMatrix TEqn
     (
         fvm::ddt(ibm_.alpha(), T_)
-      + fvm::div(phi_, T_)
+      + ibm_.convection(phi_, T_)
       - fvm::laplacian(DT_*ibm_.theta(), T_)
       + fvm::Sp(DT_*wallCoeff_, T_)
       + fvm::Sp(DT_*ibm_.blankCoeff(), T_)
@@ -211,13 +211,6 @@ void Foam::ibmScalarTransport::solve()
       + q_*ibm_.alpha()
       + srcEqn
     );
-
-    if (ibm_.ibmConvection())
-    {
-        // Convective face values of cut and linked cells from their value
-        // points (cutCellGeometry::convectionCorrection)
-        TEqn += ibm_.convectionSource(phi_, T_);
-    }
 
     TEqn.relax();
     // Linked cells: the wall coefficient is that of the merged cell

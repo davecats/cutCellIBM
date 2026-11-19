@@ -868,7 +868,7 @@ with `secondOrder` since 773df1b, next section) adds an
 explicit correction φ_f (v_U + g_U·(x'_f − x_v,U) − v_f^scheme) on every wet face of a cut or
 linked upwind cell. v_U is the upwind value at its value point x_v (group centroid, fluid
 centroid or centre), g_U its least-squares gradient, x'_f the wet-face centroid. It is done
-also over processor faces (`cutCellGeometry::convectionCorrection`). It is applied to U in
+also over processor faces (`cutCellGeometry::convection`). It is applied to U in
 `ibmSimpleFoam` and to ν̃ in `ibmSpalartAllmaras`. With the switch off the code path is not
 entered.
 
@@ -910,8 +910,10 @@ corrects for it.
 `ibmConvection` now defaults to `secondOrder` (773df1b). First order has no value points, so it
 is unchanged. The correction is applied to U in `ibmSimpleFoam` and `ibmPimpleFoam`, to ν̃ in
 the SA model, and to the passive scalars. It is also in `ibmOrderTest` and `ibmTruncationTC`.
-All of it goes through `cutCellGeometry::convectionSource` (the correction against the case's
-`div(phi,·)` scheme, integrated over the cells).
+All of it goes through `cutCellGeometry::convection`, the whole convection term: upwind implicitly
+on the corrected faces with the extrapolation explicit, the case's `div(phi,·)` scheme elsewhere
+(2026-11-17; before, the case scheme was implicit on those faces too, see
+doc/validationSuite.md finding 19).
 
 Rerun with the same code, on (default) against `ibmConvection false` (off), in fresh case
 directories (`runs/ibmSA_study/convDefault`). The off runs reproduce the previous defaults to all

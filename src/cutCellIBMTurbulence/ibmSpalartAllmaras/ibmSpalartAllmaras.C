@@ -233,7 +233,7 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
         tmp<fvScalarMatrix> nuTildaEqn
         (
             fvm::ddt(alpha, nuTilda)
-          + fvm::div(this->phi_, nuTilda)
+          + ibm_.convection(this->phi_, nuTilda)
           - fvm::laplacian
             (
                 ibm_.thetaInterpolate
@@ -254,11 +254,6 @@ void ibmSpalartAllmaras<BasicTurbulenceModel>::correct()
             )
           + fvOptions(nuTilda)
         );
-
-        if (ibm_.ibmConvection())
-        {
-            nuTildaEqn.ref() += ibm_.convectionSource(this->phi_, nuTilda);
-        }
 
         nuTildaEqn.ref().relax();
 

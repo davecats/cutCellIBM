@@ -936,6 +936,60 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    (D/h 15.6), −0.17 % (23.4); 2-D slice −0.56 / −0.81, −0.055 / −0.091, −0.002 / −0.006 % at
    D/h 15.6, 31.2, 62.4: the same in 2-D and 3-D, order ≥ 3 in h, both solvers share the limit.
    Δt from |u| = 3.75; c_D,max and c_L,min judged at D/h 46.8 (user).
+19. **ibmConvection diverged in steady SIMPLE at high wall cut-cell Péclet numbers: implicit
+   part now upwind on the corrected faces** (2026-11-17, branch `convection_upwind`; runs and the
+   stability model in `~/runs/v6/re128div`, `model/stab.py`). V6 MIG R2conv at Re 128, d 0.4,
+   d/h 32 and 48 diverged (HoreKa, reproduced bit-identically on eridanus): a mode of period two
+   cells in x growing about 2.4× per 10 iterations in a row of wall cut cells (fluid fraction
+   0.49) and the full cells next to them, drifting with the flow; without ibmConvection, with U
+   relaxed by 0.7 or with linearUpwind the same cases converge. Cause: the case's scheme (Gauss
+   linear) was implicit everywhere and ibmConvection added phi (e − v_scheme) explicitly on the
+   faces of cut and linked cells, with e the upwind value extrapolated from the value point; for
+   a sawtooth that is an explicit upwind term next to an implicit central one, which gives no
+   convective diagonal. The SIMPLE factor of the mode, g = (−E + (1−a)/a A')/(A'/a + D) with
+   A' the viscous diagonal plus the wall traction and E = Σ|phi| over the corrected faces,
+   exceeds 1 at a wall-row cell Péclet number of about 3 (a = 0.9). Why this case: in the frame
+   of the sphere the pipe wall moves at −V, so the fastest fluid sits in the wall cut cells (a
+   static wall has Pe 0.17, |g| 0.08); the pipe is axis-aligned and periodic, so the cut cells
+   repeat along x and the mode runs round the period; Re 128 with the background cell size at
+   the wall gives Pe 4.9 (d/h 32, model |g| 1.11, sheet mode 1.33) and 3.35 (d/h 48, 0.74 / 0.91),
+   against 2.9, 2.7 and 1.9 for the cases that converge (d 0.6; d/h 64; d 0.2; the model omits
+   the amplification of the extrapolation, so it puts the threshold too high, but orders the cases
+   as the solver does). Fix (one function, `cutCellGeometry::convection(phi, vf, nu)`, used by
+   ibmSimpleFoam, ibmPimpleFoam, ibmScalarTransport, ibmSpalartAllmaras, ibmOrderTest and
+   ibmTruncationTC; `convectionSource` removed): on the corrected faces (`convectionFlux`) the
+   implicit part is upwind and the explicit part phiC (e − v_U); the case's scheme on the other
+   faces; with a bounded case scheme the upwind part also removes div(phiC) vf. The convective
+   face values at convergence are unchanged; the momentum diagonal A of the cut cells is not, and
+   1/A enters the Rhie–Chow flux, so the solution moves by about 1e-6: Re 2, d/h 16: F_x
+   −0.2699856 old, −0.2699858 new, both 395 iterations; G7 PIMPLE tutorials (free slip, moving)
+   up to 8e-6 of max |F|, with 3 and with 30 outer correctors alike (galileanTranslating to
+   t 5: new − old 3.8e-5 in the impulsive start, 7.5e-7 after t 0.5; 3 − 30 correctors 1.2e-5):
+   not iteration error. The shift grows with the cell Péclet number of the cut cells (the Re 1
+   tutorials barely move): G9 (stagnation flow, exact solution) errors change by up to 8.5 % at
+   N 20 (p L2, f 0.1), 2.3 % at N 40, the change converging at order 4–5 in N (Rhie–Chow,
+   not the discretisation); 93 of 122 errors smaller, one larger by more than 0.1 % (Homann
+   p L2 N 20, +0.2 %); every exact-solution check and order unchanged. Consistency check
+   (2026-11-17, `~/runs/v6/re128div/g9alpha`, `g7conv`): A and H are an exact split of the
+   assembled matrix for any implicit part; flux(HbyA), the SIMPLEC terms and ibm.ddtCorr
+   (interpolate(rAU alpha0), the alpha0/dt U0 of H) take rAU as in the standard Rhie–Chow form;
+   A − H1 (SIMPLEC) is div(phi) plus the Sp terms for upwind and central alike; mergeA/mergeH
+   cancel the link-face coefficients for any weights and the explicit correction cancels in the
+   group sum. At a converged SIMPLE(C) state phi = flux(HbyA) − interpolate(rAU) snGrad p with
+   rAU = α_U/A, so the only route is the Rhie–Chow coefficient: G9 N 20 f 0.1 new − old
+   max |ΔU|/max |U| 5.7e-3 (α_U 0.9) and 2.6e-3 (0.5), ratio 0.45–0.55 against 0.56 predicted;
+   1e-6 without linking (mergeAlpha 0). The change is largest where the wall meets the outflow
+   boundary (x 1.375, y ≈ 0, linked cells). Underlying it, and as large in the old code: the
+   steady solution depends on α_U (0.9 against 0.5: max |ΔU| 1.6 % without and 2.6 % with
+   linking, RMS 0.26 %, in the column at the outflow boundary and at the junction), the
+   relaxation dependence of OpenFOAM's Rhie–Chow interpolation. Decision (user, 2026-11-17):
+   left as a documented property for now; we may want to change it later (relaxation-independent
+   Rhie–Chow: (1 − α)(phi_old − flux(U_old)) added to phiHbyA). The G7 shift after the impulsive
+   start is 3e-7 noise of the moving geometry (the same at dt/2 and with 30 correctors; at Re 1
+   the viscous diagonal outweighs 1/dt, so dt does not test the mechanism). Re 128, d/h 32 now
+   converges in 590 iterations. Gates on 8c6cc10 (eridanus): G1–G6, G8 PASS; G7 and G9 FAIL
+   only their regression against the baselines, by these shifts; tier 1 on HoreKa pending
+   (job 5246487); merge, re-acceptance of G7/G9 and the V6 R2conv Re 128 reruns with the user.
 18. **V14 3D-3Z at D/h 46.8** (2026-11-17, 2190505, 8.5 M cells, 304 ranks on HoreKa, job
    5242766, 18.6 h; runs `~/runs/suite/2190505/V14.2`; the partial draco fallback moved to
    `3z_n48_dt1/draco_partial_aside`). c_D,max 3.4454, 3.3729, 3.3108 at D/h 15.6, 23.4, 46.8
