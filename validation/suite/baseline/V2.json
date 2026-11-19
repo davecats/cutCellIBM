@@ -13,12 +13,12 @@
  ],
  "KIND": "case",
  "TIER": 1,
- "commit": "2190505",
- "suite": "5272abf",
+ "commit": "8c6cc10",
+ "suite": "8c6cc10",
  "status": "FAIL",
- "started": "2026-11-15 01:50:50",
- "seconds": 3664.5,
- "cases": "/home/ws/xt8786/runs/suite/2190505/V2",
+ "started": "2026-11-18 02:05:34",
+ "seconds": 5042.6,
+ "cases": "/hkfs/work/workspace/scratch/xt8786-ibm/suite/8c6cc10/V2",
  "checks": [
   {
    "name": "runs not converged within 40000 iterations",
@@ -31,23 +31,23 @@
   {
    "name": "drag N = 321, noSlip, mergeAlpha 0.5, vs body-fitted M = 256",
    "status": "PASS",
-   "value": 5.8350217271232,
+   "value": 5.835021730622101,
    "ref": 5.83958,
    "tol": "0.3 %",
-   "note": "5.77266 5.81695 5.83182 5.83502; deviation -0.0781 %"
+   "note": "5.77267 5.81695 5.83182 5.83502; deviation -0.0781 %"
   },
   {
    "name": "drag Richardson extrapolation, noSlip, mergeAlpha 0.5",
    "status": "REPORT",
-   "value": null,
+   "value": 5.835887902213515,
    "ref": 5.83958,
    "tol": null,
-   "note": "observed order nan"
+   "note": "observed order 2.24"
   },
   {
    "name": "drag N = 321, noSlip, mergeAlpha 0, vs body-fitted M = 256",
    "status": "PASS",
-   "value": 5.8349808019665,
+   "value": 5.8349808021911995,
    "ref": 5.83958,
    "tol": "0.3 %",
    "note": "5.78414 5.82066 5.83188 5.83498; deviation -0.0788 %"
@@ -55,31 +55,31 @@
   {
    "name": "drag Richardson extrapolation, noSlip, mergeAlpha 0",
    "status": "REPORT",
-   "value": null,
+   "value": 5.8361495824134995,
    "ref": 5.83958,
    "tol": null,
-   "note": "observed order nan"
+   "note": "observed order 1.88"
   },
   {
    "name": "drag N = 321, freeSlip, mergeAlpha 0.5, vs body-fitted zero shear M = 256 (stress-free wall)",
    "status": "PASS",
-   "value": 3.998965404471,
+   "value": 3.9989656649946,
    "ref": 4.00318,
    "tol": "0.3 %",
-   "note": "3.96407 3.98945 3.99745 3.99897; deviation -0.105 %"
+   "note": "3.96425 3.98948 3.99745 3.99897; deviation -0.105 %"
   },
   {
    "name": "drag Richardson extrapolation, freeSlip, mergeAlpha 0.5",
    "status": "REPORT",
-   "value": null,
+   "value": 3.999318735550612,
    "ref": 4.00318,
    "tol": null,
-   "note": "observed order nan"
+   "note": "observed order 2.42"
   },
   {
-   "name": "regression against baseline e7d742a (12 metrics)",
+   "name": "regression against baseline 2190505 (12 metrics)",
    "status": "FAIL",
-   "value": 39563.481677967604,
+   "value": 4.457128947354796,
    "ref": null,
    "tol": "<= 1 (in units of the tolerance)",
    "note": "rtol 1e-05, atol 0; worst freeSlip_N41_ma0.5"
@@ -91,100 +91,100 @@
     "wall": "noSlip",
     "N": 41,
     "ma": 0.5,
-    "F": 5.77265805308,
+    "F": 5.772673907985,
     "converged": true
    },
    {
     "wall": "noSlip",
     "N": 81,
     "ma": 0.5,
-    "F": 5.8169498841729,
+    "F": 5.8169518305138,
     "converged": true
    },
    {
     "wall": "noSlip",
     "N": 161,
     "ma": 0.5,
-    "F": 5.8318239267498,
+    "F": 5.8318239747922,
     "converged": true
    },
    {
     "wall": "noSlip",
     "N": 321,
     "ma": 0.5,
-    "F": 5.8350217271232,
+    "F": 5.835021730622101,
     "converged": true
    },
    {
     "wall": "freeSlip",
     "N": 41,
     "ma": 0.5,
-    "F": 3.9640703530739,
+    "F": 3.9642470368011002,
     "converged": true
    },
    {
     "wall": "freeSlip",
     "N": 81,
     "ma": 0.5,
-    "F": 3.98945352627,
+    "F": 3.9894802262514,
     "converged": true
    },
    {
     "wall": "freeSlip",
     "N": 161,
     "ma": 0.5,
-    "F": 3.9974458534324997,
+    "F": 3.9974480002226,
     "converged": true
    },
    {
     "wall": "freeSlip",
     "N": 321,
     "ma": 0.5,
-    "F": 3.998965404471,
+    "F": 3.9989656649946,
     "converged": true
    },
    {
     "wall": "noSlip",
     "N": 41,
     "ma": 0,
-    "F": 5.784138625973,
+    "F": 5.7841434156339995,
     "converged": true
    },
    {
     "wall": "noSlip",
     "N": 81,
     "ma": 0,
-    "F": 5.820662727828901,
+    "F": 5.8206629355696,
     "converged": true
    },
    {
     "wall": "noSlip",
     "N": 161,
     "ma": 0,
-    "F": 5.8318827907165,
+    "F": 5.8318827967379,
     "converged": true
    },
    {
     "wall": "noSlip",
     "N": 321,
     "ma": 0,
-    "F": 5.8349808019665,
+    "F": 5.8349808021911995,
     "converged": true
    }
   ],
   "metrics": {
-   "noSlip_N41_ma0.5": 5.77265805308,
-   "noSlip_N81_ma0.5": 5.8169498841729,
-   "noSlip_N161_ma0.5": 5.8318239267498,
-   "noSlip_N321_ma0.5": 5.8350217271232,
-   "freeSlip_N41_ma0.5": 3.9640703530739,
-   "freeSlip_N81_ma0.5": 3.98945352627,
-   "freeSlip_N161_ma0.5": 3.9974458534324997,
-   "freeSlip_N321_ma0.5": 3.998965404471,
-   "noSlip_N41_ma0": 5.784138625973,
-   "noSlip_N81_ma0": 5.820662727828901,
-   "noSlip_N161_ma0": 5.8318827907165,
-   "noSlip_N321_ma0": 5.8349808019665
+   "noSlip_N41_ma0.5": 5.772673907985,
+   "noSlip_N81_ma0.5": 5.8169518305138,
+   "noSlip_N161_ma0.5": 5.8318239747922,
+   "noSlip_N321_ma0.5": 5.835021730622101,
+   "freeSlip_N41_ma0.5": 3.9642470368011002,
+   "freeSlip_N81_ma0.5": 3.9894802262514,
+   "freeSlip_N161_ma0.5": 3.9974480002226,
+   "freeSlip_N321_ma0.5": 3.9989656649946,
+   "noSlip_N41_ma0": 5.7841434156339995,
+   "noSlip_N81_ma0": 5.8206629355696,
+   "noSlip_N161_ma0": 5.8318827967379,
+   "noSlip_N321_ma0": 5.8349808021911995
   }
  },
  "figures": []

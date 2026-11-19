@@ -10,25 +10,25 @@
  ],
  "KIND": "case",
  "TIER": 1,
- "commit": "8d416fd",
- "suite": "8d416fd",
+ "commit": "8c6cc10",
+ "suite": "8c6cc10",
  "status": "FAIL",
- "started": "2026-11-13 21:44:39",
- "seconds": 16652.3,
- "cases": "/home/ws/xt8786/runs/suite/8d416fd/V13",
+ "started": "2026-11-18 20:04:30",
+ "seconds": 13648.1,
+ "cases": "/hkfs/work/workspace/scratch/xt8786-ibm/suite/8c6cc10/V13",
  "checks": [
   {
    "name": "c_d, D/h = 160 (Morison fit, cycles 5-10)",
    "status": "PASS",
-   "value": 2.0545356158830215,
+   "value": 2.0545641284466054,
    "ref": 2.09,
    "tol": "2 %",
-   "note": "2.1207 2.0779 2.0545; deviation -1.7 %"
+   "note": "2.1195 2.0778 2.0546; deviation -1.7 %"
   },
   {
    "name": "c_i, D/h = 160 (Morison fit, cycles 5-10)",
    "status": "PASS",
-   "value": 1.462762946955938,
+   "value": 1.4627623363159685,
    "ref": 1.45,
    "tol": "2 %",
    "note": "1.4655 1.4650 1.4628; deviation +0.88 %"
@@ -36,23 +36,23 @@
   {
    "name": "c_d Richardson",
    "status": "REPORT",
-   "value": 2.026233206706457,
+   "value": 2.025137143442192,
    "ref": 2.09,
    "tol": null,
-   "note": "observed order 0.87"
+   "note": "observed order 0.84"
   },
   {
    "name": "c_i Richardson",
    "status": "REPORT",
-   "value": 1.4656656340641183,
+   "value": 1.4656666918224628,
    "ref": 1.45,
    "tol": null,
-   "note": "observed order -2.16"
+   "note": "observed order -2.21"
   },
   {
-   "name": "regression against baseline 43cafca (6 metrics)",
+   "name": "regression against baseline 8d416fd (6 metrics)",
    "status": "FAIL",
-   "value": 95.75232122675334,
+   "value": 5.328565902538162,
    "ref": null,
    "tol": "<= 1 (in units of the tolerance)",
    "note": "rtol 0.0001, atol 0; worst Dh40_c_d"
@@ -64,31 +64,31 @@
     "Dh": 40,
     "cells": 28708,
     "dt": 0.006944444444444444,
-    "c_d": 2.120670097410992,
-    "c_i": 1.4655213033013899
+    "c_d": 2.1195400843738326,
+    "c_i": 1.4655309036287496
    },
    {
     "Dh": 80,
     "cells": 82510,
     "dt": 0.006944444444444444,
-    "c_d": 2.0779322543000274,
-    "c_i": 1.4650183728770494
+    "c_d": 2.077843821644939,
+    "c_i": 1.4650386972459513
    },
    {
     "Dh": 160,
     "cells": 280813,
     "dt": 0.004166666666666667,
-    "c_d": 2.0545356158830215,
-    "c_i": 1.462762946955938
+    "c_d": 2.0545641284466054,
+    "c_i": 1.4627623363159685
    }
   ],
   "metrics": {
-   "Dh40_c_d": 2.120670097410992,
-   "Dh40_c_i": 1.4655213033013899,
-   "Dh80_c_d": 2.0779322543000274,
-   "Dh80_c_i": 1.4650183728770494,
-   "Dh160_c_d": 2.0545356158830215,
-   "Dh160_c_i": 1.462762946955938
+   "Dh40_c_d": 2.1195400843738326,
+   "Dh40_c_i": 1.4655309036287496,
+   "Dh80_c_d": 2.077843821644939,
+   "Dh80_c_i": 1.4650386972459513,
+   "Dh160_c_d": 2.0545641284466054,
+   "Dh160_c_i": 1.4627623363159685
   }
  },
  "figures": []

@@ -13,12 +13,12 @@
  ],
  "KIND": "gate",
  "TIER": 0,
- "commit": "e7d742a",
- "suite": "81b448b",
- "status": "PASS",
- "started": "2026-11-10 15:42:20",
- "seconds": 26.0,
- "cases": "/home/ws/xt8786/runs/suite/e7d742a/G9",
+ "commit": "8c6cc10",
+ "suite": "8c6cc10",
+ "status": "FAIL",
+ "started": "2026-11-18 01:33:20",
+ "seconds": 1012.5,
+ "cases": "/hkfs/work/workspace/scratch/xt8786-ibm/suite/8c6cc10/G9",
  "checks": [
   {
    "name": "all runs converged (SIMPLE residualControl)",
@@ -31,79 +31,79 @@
   {
    "name": "u L2 order (all fluid cells), hiemenz tan 0 f 0.1",
    "status": "PASS",
-   "value": 2.40193344538793,
+   "value": 2.3989896439725813,
    "ref": null,
    "tol": ">= 1.8",
-   "note": "1.79e-02 2.73e-03 4.93e-04 9.79e-05"
+   "note": "1.74e-02 2.72e-03 4.93e-04 9.79e-05"
   },
   {
    "name": "p L2 order (interior), hiemenz tan 0 f 0.1",
    "status": "PASS",
-   "value": 2.1608622581313437,
+   "value": 2.1447288017261195,
    "ref": null,
    "tol": ">= 1.8",
-   "note": "5.02e-03 1.08e-03 2.34e-04 5.40e-05"
+   "note": "4.59e-03 1.06e-03 2.34e-04 5.40e-05"
   },
   {
    "name": "p L2 order (all, incl. the wall/boundary junction), hiemenz tan 0 f 0.1",
    "status": "REPORT",
-   "value": 1.6847086905623267,
+   "value": 1.6760080508157498,
    "ref": null,
    "tol": null,
-   "note": "7.19e-03 1.80e-03 5.19e-04 1.74e-04"
+   "note": "6.81e-03 1.77e-03 5.18e-04 1.74e-04"
   },
   {
    "name": "u Linf order (interior), hiemenz tan 0 f 0.1",
    "status": "REPORT",
-   "value": 1.8314025203685471,
+   "value": 1.8348369840431575,
    "ref": null,
    "tol": null,
-   "note": "4.82e-02 9.21e-03 2.68e-03 7.27e-04"
+   "note": "4.51e-02 9.25e-03 2.69e-03 7.27e-04"
   },
   {
    "name": "p Linf order (interior), hiemenz tan 0 f 0.1",
    "status": "REPORT",
-   "value": 2.0751218327237035,
+   "value": 2.051021526022708,
    "ref": null,
    "tol": null,
-   "note": "2.56e-02 7.12e-03 1.65e-03 4.01e-04"
+   "note": "2.30e-02 6.87e-03 1.63e-03 4.00e-04"
   },
   {
    "name": "p Linf at the junction of the wall with the outer boundary, hiemenz tan 0 f 0.1",
    "status": "REPORT",
-   "value": 0.004002259207258476,
+   "value": 0.003989614767245575,
    "ref": null,
    "tol": null,
-   "note": "3.83e-02 1.64e-02 8.02e-03 4.00e-03"
+   "note": "3.52e-02 1.57e-02 7.92e-03 3.99e-03"
   },
   {
    "name": "wall shear force (tangential) order, hiemenz tan 0 f 0.1",
    "status": "PASS",
-   "value": 1.9273517153694806,
+   "value": 1.915172011750118,
    "ref": null,
    "tol": ">= 1.5",
-   "note": "rel. error 4.63e-02 1.12e-02 2.88e-03 7.72e-04"
+   "note": "rel. error 4.35e-02 1.10e-02 2.87e-03 7.71e-04"
   },
   {
    "name": "wall viscous force normal part / |F_v| (finest), hiemenz tan 0 f 0.1",
    "status": "REPORT",
-   "value": -0.002026112183731085,
+   "value": -0.0020209055523126305,
    "ref": null,
    "tol": null,
-   "note": "-2.54e-02 -1.07e-02 -4.52e-03 -2.03e-03"
+   "note": "-2.35e-02 -1.04e-02 -4.48e-03 -2.02e-03"
   },
   {
    "name": "wall pressure force rel. error (finest), hiemenz tan 0 f 0.1",
    "status": "REPORT",
-   "value": 4.641761532504336e-05,
+   "value": 4.5766857810023116e-05,
    "ref": null,
    "tol": null,
-   "note": "1.49e-02 3.26e-03 4.82e-04 4.64e-05"
+   "note": "1.37e-02 3.19e-03 4.83e-04 4.58e-05"
   },
   {
    "name": "u L2 order (all fluid cells), hiemenz tan 0 f 0.1 (mergeAlpha 0.5, ibmConvection off)",
    "status": "REPORT",
-   "value": 2.403505772187742,
+   "value": 2.403505770942195,
    "ref": null,
    "tol": null,
    "note": "1.81e-02 2.74e-03 4.94e-04 9.80e-05"
@@ -111,7 +111,7 @@
   {
    "name": "p L2 order (interior), hiemenz tan 0 f 0.1 (mergeAlpha 0.5, ibmConvection off)",
    "status": "REPORT",
-   "value": 2.1645411931218366,
+   "value": 2.164542802345022,
    "ref": null,
    "tol": null,
    "note": "5.07e-03 1.09e-03 2.35e-04 5.40e-05"
@@ -119,7 +119,7 @@
   {
    "name": "p L2 order (all, incl. the wall/boundary junction), hiemenz tan 0 f 0.1 (mergeAlpha 0.5, ibmConvection off)",
    "status": "REPORT",
-   "value": 1.6863619742931835,
+   "value": 1.6863621256763468,
    "ref": null,
    "tol": null,
    "note": "7.26e-03 1.80e-03 5.19e-04 1.74e-04"
@@ -127,7 +127,7 @@
   {
    "name": "u Linf order (interior), hiemenz tan 0 f 0.1 (mergeAlpha 0.5, ibmConvection off)",
    "status": "REPORT",
-   "value": 1.8376423098717307,
+   "value": 1.83764230756843,
    "ref": null,
    "tol": null,
    "note": "4.90e-02 9.30e-03 2.69e-03 7.28e-04"
@@ -135,7 +135,7 @@
   {
    "name": "p Linf order (interior), hiemenz tan 0 f 0.1 (mergeAlpha 0.5, ibmConvection off)",
    "status": "REPORT",
-   "value": 2.0791913794893,
+   "value": 2.079191764123002,
    "ref": null,
    "tol": null,
    "note": "2.53e-02 7.16e-03 1.65e-03 4.01e-04"
@@ -143,7 +143,7 @@
   {
    "name": "wall shear force (tangential) order, hiemenz tan 0 f 0.1 (mergeAlpha 0.5, ibmConvection off)",
    "status": "REPORT",
-   "value": 1.915471753867199,
+   "value": 1.915471730128308,
    "ref": null,
    "tol": null,
    "note": "rel. error 4.50e-02 1.09e-02 2.83e-03 7.63e-04"
@@ -151,7 +151,7 @@
   {
    "name": "wall viscous force normal part / |F_v| (finest), hiemenz tan 0 f 0.1 (mergeAlpha 0.5, ibmConvection off)",
    "status": "REPORT",
-   "value": -0.00202610169345891,
+   "value": -0.0020261016932966495,
    "ref": null,
    "tol": null,
    "note": "-2.57e-02 -1.07e-02 -4.52e-03 -2.03e-03"
@@ -159,7 +159,7 @@
   {
    "name": "wall pressure force rel. error (finest), hiemenz tan 0 f 0.1 (mergeAlpha 0.5, ibmConvection off)",
    "status": "REPORT",
-   "value": 4.671845191055669e-05,
+   "value": 4.6718424452931545e-05,
    "ref": null,
    "tol": null,
    "note": "1.53e-02 3.28e-03 4.81e-04 4.67e-05"
@@ -167,7 +167,7 @@
   {
    "name": "u L2 order (all fluid cells), hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection on)",
    "status": "REPORT",
-   "value": 2.38725367558683,
+   "value": 2.387253531908048,
    "ref": null,
    "tol": null,
    "note": "1.58e-02 2.52e-03 4.59e-04 9.22e-05"
@@ -175,7 +175,7 @@
   {
    "name": "p L2 order (interior), hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection on)",
    "status": "REPORT",
-   "value": 1.9438501092509368,
+   "value": 1.9438455121718459,
    "ref": null,
    "tol": null,
    "note": "2.87e-03 7.43e-04 1.94e-04 5.02e-05"
@@ -183,7 +183,7 @@
   {
    "name": "p L2 order (all, incl. the wall/boundary junction), hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection on)",
    "status": "REPORT",
-   "value": 1.5860515626343854,
+   "value": 1.5860507086306443,
    "ref": null,
    "tol": null,
    "note": "5.40e-03 1.53e-03 4.87e-04 1.70e-04"
@@ -191,7 +191,7 @@
   {
    "name": "u Linf order (interior), hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection on)",
    "status": "REPORT",
-   "value": 1.8493984541684485,
+   "value": 1.8493986616201106,
    "ref": null,
    "tol": null,
    "note": "3.51e-02 7.65e-03 2.19e-03 5.89e-04"
@@ -199,7 +199,7 @@
   {
    "name": "p Linf order (interior), hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection on)",
    "status": "REPORT",
-   "value": 1.696688040796044,
+   "value": 1.696684772856675,
    "ref": null,
    "tol": null,
    "note": "1.31e-02 4.75e-03 1.43e-03 4.52e-04"
@@ -207,7 +207,7 @@
   {
    "name": "wall shear force (tangential) order, hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection on)",
    "status": "REPORT",
-   "value": 1.8819113752605114,
+   "value": 1.8819084588512547,
    "ref": null,
    "tol": null,
    "note": "rel. error 3.19e-02 8.49e-03 2.29e-03 6.25e-04"
@@ -215,7 +215,7 @@
   {
    "name": "wall viscous force normal part / |F_v| (finest), hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection on)",
    "status": "REPORT",
-   "value": -0.005479156571827521,
+   "value": -0.005479155742012298,
    "ref": null,
    "tol": null,
    "note": "-4.12e-02 -2.15e-02 -1.09e-02 -5.48e-03"
@@ -223,7 +223,7 @@
   {
    "name": "wall pressure force rel. error (finest), hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection on)",
    "status": "REPORT",
-   "value": 0.0008436096174358261,
+   "value": 0.0008436096549548005,
    "ref": null,
    "tol": null,
    "note": "2.42e-03 1.17e-03 1.28e-03 8.44e-04"
@@ -231,7 +231,7 @@
   {
    "name": "u L2 order (all fluid cells), hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection off)",
    "status": "REPORT",
-   "value": 2.387253065891736,
+   "value": 2.3872531701972366,
    "ref": null,
    "tol": null,
    "note": "1.58e-02 2.52e-03 4.59e-04 9.22e-05"
@@ -239,7 +239,7 @@
   {
    "name": "p L2 order (interior), hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection off)",
    "status": "REPORT",
-   "value": 1.943845639336208,
+   "value": 1.9438454998194759,
    "ref": null,
    "tol": null,
    "note": "2.87e-03 7.43e-04 1.94e-04 5.02e-05"
@@ -247,7 +247,7 @@
   {
    "name": "p L2 order (all, incl. the wall/boundary junction), hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection off)",
    "status": "REPORT",
-   "value": 1.5860545269258495,
+   "value": 1.5860545154419314,
    "ref": null,
    "tol": null,
    "note": "5.40e-03 1.53e-03 4.87e-04 1.70e-04"
@@ -255,7 +255,7 @@
   {
    "name": "u Linf order (interior), hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection off)",
    "status": "REPORT",
-   "value": 1.8493998651625663,
+   "value": 1.8493998717714215,
    "ref": null,
    "tol": null,
    "note": "3.51e-02 7.65e-03 2.19e-03 5.89e-04"
@@ -263,7 +263,7 @@
   {
    "name": "p Linf order (interior), hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection off)",
    "status": "REPORT",
-   "value": 1.6966771104605116,
+   "value": 1.6966770366227755,
    "ref": null,
    "tol": null,
    "note": "1.31e-02 4.75e-03 1.43e-03 4.52e-04"
@@ -271,7 +271,7 @@
   {
    "name": "wall shear force (tangential) order, hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection off)",
    "status": "REPORT",
-   "value": 1.8821663023895745,
+   "value": 1.882165768470549,
    "ref": null,
    "tol": null,
    "note": "rel. error 3.19e-02 8.49e-03 2.29e-03 6.25e-04"
@@ -279,7 +279,7 @@
   {
    "name": "wall viscous force normal part / |F_v| (finest), hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection off)",
    "status": "REPORT",
-   "value": -0.005479156671536453,
+   "value": -0.005479156671747392,
    "ref": null,
    "tol": null,
    "note": "-4.12e-02 -2.15e-02 -1.09e-02 -5.48e-03"
@@ -287,7 +287,7 @@
   {
    "name": "wall pressure force rel. error (finest), hiemenz tan 0 f 0.1 (mergeAlpha 0, ibmConvection off)",
    "status": "REPORT",
-   "value": 0.0008436090700981723,
+   "value": 0.000843609083611715,
    "ref": null,
    "tol": null,
    "note": "2.42e-03 1.17e-03 1.28e-03 8.44e-04"
@@ -295,7 +295,7 @@
   {
    "name": "u L2 order (all fluid cells), hiemenz tan 0 f 0.5",
    "status": "PASS",
-   "value": 2.384142979264549,
+   "value": 2.384050223680062,
    "ref": null,
    "tol": ">= 1.8",
    "note": "1.54e-02 2.46e-03 4.48e-04 9.04e-05"
@@ -303,287 +303,287 @@
   {
    "name": "p L2 order (interior), hiemenz tan 0 f 0.5",
    "status": "PASS",
-   "value": 1.933566778522685,
+   "value": 1.932571591010129,
    "ref": null,
    "tol": ">= 1.8",
-   "note": "2.59e-03 6.99e-04 1.86e-04 4.79e-05"
+   "note": "2.57e-03 6.98e-04 1.86e-04 4.79e-05"
   },
   {
    "name": "p L2 order (all, incl. the wall/boundary junction), hiemenz tan 0 f 0.5",
    "status": "REPORT",
-   "value": 1.5798646489079697,
+   "value": 1.5795330438664306,
    "ref": null,
    "tol": null,
-   "note": "5.23e-03 1.52e-03 4.84e-04 1.70e-04"
+   "note": "5.21e-03 1.51e-03 4.84e-04 1.70e-04"
   },
   {
    "name": "u Linf order (interior), hiemenz tan 0 f 0.5",
    "status": "REPORT",
-   "value": 1.7417745390571904,
+   "value": 1.7419818691235733,
    "ref": null,
    "tol": null,
-   "note": "3.41e-02 6.24e-03 1.98e-03 5.58e-04"
+   "note": "3.39e-02 6.24e-03 1.98e-03 5.58e-04"
   },
   {
    "name": "p Linf order (interior), hiemenz tan 0 f 0.5",
    "status": "REPORT",
-   "value": 1.772423121420016,
+   "value": 1.7705972079511172,
    "ref": null,
    "tol": null,
-   "note": "1.18e-02 4.33e-03 1.27e-03 3.71e-04"
+   "note": "1.16e-02 4.32e-03 1.27e-03 3.71e-04"
   },
   {
    "name": "p Linf at the junction of the wall with the outer boundary, hiemenz tan 0 f 0.5",
    "status": "REPORT",
-   "value": 0.002318364522327262,
+   "value": 0.0023183649202686905,
    "ref": null,
    "tol": null,
-   "note": "2.13e-02 7.97e-03 3.95e-03 2.32e-03"
+   "note": "2.10e-02 7.97e-03 3.95e-03 2.32e-03"
   },
   {
    "name": "wall shear force (tangential) order, hiemenz tan 0 f 0.5",
    "status": "PASS",
-   "value": 1.9062458992156783,
+   "value": 1.905411538180177,
    "ref": null,
    "tol": ">= 1.5",
-   "note": "rel. error 3.23e-02 8.85e-03 2.35e-03 6.30e-04"
+   "note": "rel. error 3.22e-02 8.84e-03 2.35e-03 6.30e-04"
   },
   {
    "name": "wall viscous force normal part / |F_v| (finest), hiemenz tan 0 f 0.5",
    "status": "REPORT",
-   "value": -0.00287621056412792,
+   "value": -0.0028758503615593295,
    "ref": null,
    "tol": null,
-   "note": "-2.24e-02 -1.15e-02 -5.75e-03 -2.88e-03"
+   "note": "-2.22e-02 -1.15e-02 -5.75e-03 -2.88e-03"
   },
   {
    "name": "wall pressure force rel. error (finest), hiemenz tan 0 f 0.5",
    "status": "REPORT",
-   "value": 0.0003189446542837062,
+   "value": 0.0003188923940459023,
    "ref": null,
    "tol": null,
-   "note": "5.87e-03 8.53e-04 2.37e-04 3.19e-04"
+   "note": "5.78e-03 8.51e-04 2.36e-04 3.19e-04"
   },
   {
    "name": "u L2 order (all fluid cells), hiemenz tan 0 f 0.9",
    "status": "PASS",
-   "value": 2.3921328614902193,
+   "value": 2.3919593683368845,
    "ref": null,
    "tol": ">= 1.8",
-   "note": "1.56e-02 2.49e-03 4.51e-04 9.03e-05"
+   "note": "1.55e-02 2.49e-03 4.51e-04 9.03e-05"
   },
   {
    "name": "p L2 order (interior), hiemenz tan 0 f 0.9",
    "status": "PASS",
-   "value": 1.9589313643517285,
+   "value": 1.9573289575859532,
    "ref": null,
    "tol": ">= 1.8",
-   "note": "2.75e-03 7.04e-04 1.83e-04 4.66e-05"
+   "note": "2.71e-03 7.02e-04 1.83e-04 4.66e-05"
   },
   {
    "name": "p L2 order (all, incl. the wall/boundary junction), hiemenz tan 0 f 0.9",
    "status": "REPORT",
-   "value": 1.585495333936149,
+   "value": 1.5849353779921185,
    "ref": null,
    "tol": null,
-   "note": "5.37e-03 1.52e-03 4.84e-04 1.69e-04"
+   "note": "5.34e-03 1.52e-03 4.84e-04 1.69e-04"
   },
   {
    "name": "u Linf order (interior), hiemenz tan 0 f 0.9",
    "status": "REPORT",
-   "value": 1.793273388720572,
+   "value": 1.793639930042598,
    "ref": null,
    "tol": null,
-   "note": "3.45e-02 6.27e-03 1.78e-03 5.22e-04"
+   "note": "3.42e-02 6.27e-03 1.78e-03 5.22e-04"
   },
   {
    "name": "p Linf order (interior), hiemenz tan 0 f 0.9",
    "status": "REPORT",
-   "value": 1.907546987680395,
+   "value": 1.9045649220735887,
    "ref": null,
    "tol": null,
-   "note": "1.25e-02 4.16e-03 1.13e-03 2.95e-04"
+   "note": "1.22e-02 4.14e-03 1.13e-03 2.95e-04"
   },
   {
    "name": "p Linf at the junction of the wall with the outer boundary, hiemenz tan 0 f 0.9",
    "status": "REPORT",
-   "value": 0.0023193614705189097,
+   "value": 0.0023193617015018673,
    "ref": null,
    "tol": null,
-   "note": "2.18e-02 8.03e-03 3.95e-03 2.32e-03"
+   "note": "2.14e-02 8.02e-03 3.95e-03 2.32e-03"
   },
   {
    "name": "wall shear force (tangential) order, hiemenz tan 0 f 0.9",
    "status": "PASS",
-   "value": 1.8741878670010377,
+   "value": 1.8719115071117929,
    "ref": null,
    "tol": ">= 1.5",
-   "note": "rel. error 2.93e-02 8.20e-03 2.24e-03 6.10e-04"
+   "note": "rel. error 2.88e-02 8.17e-03 2.23e-03 6.10e-04"
   },
   {
    "name": "wall viscous force normal part / |F_v| (finest), hiemenz tan 0 f 0.9",
    "status": "REPORT",
-   "value": -0.0006306607400964582,
+   "value": -0.0006302926712865121,
    "ref": null,
    "tol": null,
-   "note": "-1.31e-02 -4.81e-03 -1.67e-03 -6.31e-04"
+   "note": "-1.29e-02 -4.79e-03 -1.67e-03 -6.30e-04"
   },
   {
    "name": "wall pressure force rel. error (finest), hiemenz tan 0 f 0.9",
    "status": "REPORT",
-   "value": 0.00013278916574992536,
+   "value": 0.00013281736500873176,
    "ref": null,
    "tol": null,
-   "note": "8.58e-03 2.29e-03 5.96e-04 1.33e-04"
+   "note": "8.37e-03 2.28e-03 5.95e-04 1.33e-04"
   },
   {
    "name": "u L2 order (all fluid cells), hiemenz tan 0.333",
    "status": "PASS",
-   "value": 2.2295430598323245,
+   "value": 2.227796779221944,
    "ref": null,
    "tol": ">= 1.8",
-   "note": "1.70e-02 2.70e-03 5.56e-04 1.23e-04"
+   "note": "1.67e-02 2.70e-03 5.55e-04 1.23e-04"
   },
   {
    "name": "p L2 order (interior), hiemenz tan 0.333",
    "status": "PASS",
-   "value": 2.020659147937195,
+   "value": 2.0114560175027303,
    "ref": null,
    "tol": ">= 1.8",
-   "note": "5.27e-03 1.22e-03 2.98e-04 7.41e-05"
+   "note": "4.93e-03 1.20e-03 2.98e-04 7.41e-05"
   },
   {
    "name": "p L2 order (all, incl. the wall/boundary junction), hiemenz tan 0.333",
    "status": "REPORT",
-   "value": 1.6838614566253696,
+   "value": 1.6784863507945504,
    "ref": null,
    "tol": null,
-   "note": "7.09e-03 1.84e-03 5.46e-04 1.78e-04"
+   "note": "6.77e-03 1.82e-03 5.46e-04 1.78e-04"
   },
   {
    "name": "u Linf order (interior), hiemenz tan 0.333",
    "status": "REPORT",
-   "value": 2.0676888064301013,
+   "value": 2.061504664446632,
    "ref": null,
    "tol": null,
-   "note": "4.98e-02 1.21e-02 2.89e-03 6.86e-04"
+   "note": "4.90e-02 1.19e-02 2.88e-03 6.85e-04"
   },
   {
    "name": "p Linf order (interior), hiemenz tan 0.333",
    "status": "REPORT",
-   "value": 1.479414540720604,
+   "value": 1.4701288527983865,
    "ref": null,
    "tol": null,
-   "note": "3.11e-02 9.59e-03 3.12e-03 1.23e-03"
+   "note": "2.95e-02 9.47e-03 3.12e-03 1.23e-03"
   },
   {
    "name": "p Linf at the junction of the wall with the outer boundary, hiemenz tan 0.333",
    "status": "REPORT",
-   "value": 0.0027422219718060974,
+   "value": 0.0027296644514561872,
    "ref": null,
    "tol": null,
-   "note": "3.40e-02 1.40e-02 6.78e-03 2.74e-03"
+   "note": "3.20e-02 1.38e-02 6.72e-03 2.73e-03"
   },
   {
    "name": "wall shear force (tangential) order, hiemenz tan 0.333",
    "status": "PASS",
-   "value": 1.8816595627986272,
+   "value": 1.868922970765612,
    "ref": null,
    "tol": ">= 1.5",
-   "note": "rel. error 2.03e-02 6.67e-03 1.98e-03 4.91e-04"
+   "note": "rel. error 1.86e-02 6.54e-03 1.97e-03 4.90e-04"
   },
   {
    "name": "wall viscous force normal part / |F_v| (finest), hiemenz tan 0.333",
    "status": "REPORT",
-   "value": -0.0014372911669566116,
+   "value": -0.0014400309308668163,
    "ref": null,
    "tol": null,
-   "note": "-4.03e-03 -6.68e-03 -3.44e-03 -1.44e-03"
+   "note": "-5.08e-03 -6.83e-03 -3.46e-03 -1.44e-03"
   },
   {
    "name": "wall pressure force rel. error (finest), hiemenz tan 0.333",
    "status": "REPORT",
-   "value": 1.4394621807058137e-05,
+   "value": 1.3649491911018195e-05,
    "ref": null,
    "tol": null,
-   "note": "1.51e-02 2.78e-03 4.47e-04 1.44e-05"
+   "note": "1.39e-02 2.69e-03 4.41e-04 1.36e-05"
   },
   {
    "name": "u L2 order (all fluid cells), hiemenz tan 1",
    "status": "PASS",
-   "value": 2.253416982816808,
+   "value": 2.2528667483710745,
    "ref": null,
    "tol": ">= 1.8",
-   "note": "1.12e-02 1.94e-03 4.30e-04 8.54e-05"
+   "note": "1.10e-02 1.94e-03 4.30e-04 8.54e-05"
   },
   {
    "name": "p L2 order (interior), hiemenz tan 1",
    "status": "PASS",
-   "value": 2.046027989348344,
+   "value": 2.038962818125859,
    "ref": null,
    "tol": ">= 1.8",
-   "note": "3.94e-03 6.53e-04 1.95e-04 3.83e-05"
+   "note": "3.71e-03 6.47e-04 1.95e-04 3.83e-05"
   },
   {
    "name": "p L2 order (all, incl. the wall/boundary junction), hiemenz tan 1",
    "status": "REPORT",
-   "value": 1.5915978341503905,
+   "value": 1.5866345295092938,
    "ref": null,
    "tol": null,
-   "note": "6.31e-03 1.40e-03 5.04e-04 1.54e-04"
+   "note": "6.04e-03 1.39e-03 5.03e-04 1.54e-04"
   },
   {
    "name": "u Linf order (interior), hiemenz tan 1",
    "status": "REPORT",
-   "value": 1.586685973554414,
+   "value": 1.589059180684266,
    "ref": null,
    "tol": null,
-   "note": "1.63e-02 4.21e-03 2.31e-03 4.67e-04"
+   "note": "1.67e-02 4.22e-03 2.31e-03 4.67e-04"
   },
   {
    "name": "p Linf order (interior), hiemenz tan 1",
    "status": "REPORT",
-   "value": 1.9904066658829607,
+   "value": 1.9802703596363946,
    "ref": null,
    "tol": null,
-   "note": "2.24e-02 4.14e-03 1.48e-03 2.62e-04"
+   "note": "2.06e-02 4.08e-03 1.47e-03 2.62e-04"
   },
   {
    "name": "p Linf at the junction of the wall with the outer boundary, hiemenz tan 1",
    "status": "REPORT",
-   "value": 0.005385398345250225,
+   "value": 0.005376089308217598,
    "ref": null,
    "tol": null,
-   "note": "3.92e-02 1.78e-02 1.23e-02 5.39e-03"
+   "note": "3.72e-02 1.75e-02 1.22e-02 5.38e-03"
   },
   {
    "name": "wall shear force (tangential) order, hiemenz tan 1",
    "status": "PASS",
-   "value": 1.7945917052802511,
+   "value": 1.7893818047497332,
    "ref": null,
    "tol": ">= 1.5",
-   "note": "rel. error 8.30e-02 1.56e-02 6.41e-03 1.29e-03"
+   "note": "rel. error 8.11e-02 1.54e-02 6.39e-03 1.29e-03"
   },
   {
    "name": "wall viscous force normal part / |F_v| (finest), hiemenz tan 1",
    "status": "REPORT",
-   "value": -0.0069346018671650805,
+   "value": -0.006934381902374204,
    "ref": null,
    "tol": null,
-   "note": "-4.74e-02 -2.97e-02 -1.25e-02 -6.93e-03"
+   "note": "-4.69e-02 -2.97e-02 -1.25e-02 -6.93e-03"
   },
   {
    "name": "wall pressure force rel. error (finest), hiemenz tan 1",
    "status": "REPORT",
-   "value": 0.000912766992777447,
+   "value": 0.000913119565731035,
    "ref": null,
    "tol": null,
-   "note": "1.40e-02 6.44e-04 5.21e-04 9.13e-04"
+   "note": "1.31e-02 7.07e-04 5.27e-04 9.13e-04"
   },
   {
    "name": "u L2 order (all fluid cells), hiemenz tan 0 body-fitted",
    "status": "PASS",
-   "value": 2.389711638801119,
+   "value": 2.3897116388041817,
    "ref": null,
    "tol": ">= 1.8",
    "note": "1.59e-02 2.54e-03 4.62e-04 9.26e-05"
@@ -591,7 +591,7 @@
   {
    "name": "p L2 order (interior), hiemenz tan 0 body-fitted",
    "status": "PASS",
-   "value": 1.9612157622518385,
+   "value": 1.9612157621324158,
    "ref": null,
    "tol": ">= 1.8",
    "note": "3.04e-03 7.64e-04 1.96e-04 5.04e-05"
@@ -599,7 +599,7 @@
   {
    "name": "p L2 order (all, incl. the wall/boundary junction), hiemenz tan 0 body-fitted",
    "status": "REPORT",
-   "value": 1.5912958208387933,
+   "value": 1.5912958208308645,
    "ref": null,
    "tol": null,
    "note": "5.52e-03 1.55e-03 4.88e-04 1.70e-04"
@@ -607,7 +607,7 @@
   {
    "name": "u Linf order (interior), hiemenz tan 0 body-fitted",
    "status": "REPORT",
-   "value": 1.8724785813281417,
+   "value": 1.8724785813281406,
    "ref": null,
    "tol": null,
    "note": "3.57e-02 7.98e-03 2.23e-03 5.95e-04"
@@ -615,7 +615,7 @@
   {
    "name": "p Linf order (interior), hiemenz tan 0 body-fitted",
    "status": "REPORT",
-   "value": 1.7030054787587434,
+   "value": 1.7030054787224407,
    "ref": null,
    "tol": null,
    "note": "1.43e-02 4.89e-03 1.45e-03 4.61e-04"
@@ -623,7 +623,7 @@
   {
    "name": "u L2 order (all fluid cells), homann tan 0 f 0.5",
    "status": "PASS",
-   "value": 2.2580204884970296,
+   "value": 2.2577994796654095,
    "ref": null,
    "tol": ">= 1.8",
    "note": "1.30e-02 2.75e-03 5.67e-04"
@@ -631,7 +631,7 @@
   {
    "name": "p L2 order (interior), homann tan 0 f 0.5",
    "status": "PASS",
-   "value": 2.2092381709805613,
+   "value": 2.2095416498049376,
    "ref": null,
    "tol": ">= 1.8",
    "note": "4.46e-03 8.64e-04 2.09e-04"
@@ -639,7 +639,7 @@
   {
    "name": "p L2 order (all, incl. the wall/boundary junction), homann tan 0 f 0.5",
    "status": "REPORT",
-   "value": 1.6062824794901767,
+   "value": 1.6061794267475167,
    "ref": null,
    "tol": null,
    "note": "1.14e-02 3.71e-03 1.22e-03"
@@ -647,15 +647,15 @@
   {
    "name": "u Linf order (interior), homann tan 0 f 0.5",
    "status": "REPORT",
-   "value": 1.409054487730142,
+   "value": 1.4055981579814003,
    "ref": null,
    "tol": null,
-   "note": "7.15e-03 2.93e-03 1.01e-03"
+   "note": "7.11e-03 2.93e-03 1.01e-03"
   },
   {
    "name": "p Linf order (interior), homann tan 0 f 0.5",
    "status": "REPORT",
-   "value": 1.7806500368497646,
+   "value": 1.7808349711717093,
    "ref": null,
    "tol": null,
    "note": "1.05e-02 2.75e-03 8.87e-04"
@@ -663,7 +663,7 @@
   {
    "name": "p Linf at the junction of the wall with the outer boundary, homann tan 0 f 0.5",
    "status": "REPORT",
-   "value": 0.008219861978317833,
+   "value": 0.008219851802625688,
    "ref": null,
    "tol": null,
    "note": "4.07e-02 1.77e-02 8.22e-03"
@@ -671,31 +671,31 @@
   {
    "name": "wall shear force (tangential) order, homann tan 0 f 0.5",
    "status": "PASS",
-   "value": 1.8090352905648852,
+   "value": 1.8060690084656472,
    "ref": null,
    "tol": ">= 1.5",
-   "note": "rel. error 4.30e-02 1.23e-02 3.50e-03"
+   "note": "rel. error 4.28e-02 1.23e-02 3.50e-03"
   },
   {
    "name": "wall viscous force normal part / |F_v| (finest), homann tan 0 f 0.5",
    "status": "REPORT",
-   "value": -0.03890686448160369,
+   "value": -0.03889106573988764,
    "ref": null,
    "tol": null,
-   "note": "-1.46e-01 -7.64e-02 -3.89e-02"
+   "note": "-1.45e-01 -7.63e-02 -3.89e-02"
   },
   {
    "name": "wall pressure force rel. error (finest), homann tan 0 f 0.5",
    "status": "REPORT",
-   "value": 0.001944524881090196,
+   "value": 0.0019426794899228775,
    "ref": null,
    "tol": null,
-   "note": "3.26e-02 3.09e-03 1.94e-03"
+   "note": "3.26e-02 3.10e-03 1.94e-03"
   },
   {
    "name": "u L2 order (all fluid cells), homann tan 0.333",
    "status": "PASS",
-   "value": 2.31665851817312,
+   "value": 2.314189443426482,
    "ref": null,
    "tol": ">= 1.8",
    "note": "1.40e-02 2.81e-03 5.66e-04"
@@ -703,7 +703,7 @@
   {
    "name": "p L2 order (interior), homann tan 0.333",
    "status": "PASS",
-   "value": 2.1253556189224407,
+   "value": 2.1269342261577475,
    "ref": null,
    "tol": ">= 1.8",
    "note": "3.98e-03 8.41e-04 2.09e-04"
@@ -711,66 +711,66 @@
   {
    "name": "p L2 order (all, incl. the wall/boundary junction), homann tan 0.333",
    "status": "REPORT",
-   "value": 1.5704058598980024,
+   "value": 1.5691661639771277,
    "ref": null,
    "tol": null,
-   "note": "1.00e-02 3.36e-03 1.13e-03"
+   "note": "9.98e-03 3.36e-03 1.13e-03"
   },
   {
    "name": "u Linf order (interior), homann tan 0.333",
    "status": "REPORT",
-   "value": 1.677465603283082,
+   "value": 1.707979637392635,
    "ref": null,
    "tol": null,
-   "note": "1.19e-02 3.76e-03 1.17e-03"
+   "note": "1.25e-02 3.78e-03 1.17e-03"
   },
   {
    "name": "p Linf order (interior), homann tan 0.333",
    "status": "REPORT",
-   "value": 1.7035409183620884,
+   "value": 1.6940253180963754,
    "ref": null,
    "tol": null,
-   "note": "1.10e-02 3.44e-03 1.04e-03"
+   "note": "1.08e-02 3.40e-03 1.04e-03"
   },
   {
    "name": "p Linf at the junction of the wall with the outer boundary, homann tan 0.333",
    "status": "REPORT",
-   "value": 0.010167441761364804,
+   "value": 0.010167328219064745,
    "ref": null,
    "tol": null,
-   "note": "3.98e-02 2.05e-02 1.02e-02"
+   "note": "3.97e-02 2.05e-02 1.02e-02"
   },
   {
    "name": "wall shear force (tangential) order, homann tan 0.333",
    "status": "PASS",
-   "value": 1.8496662513824316,
+   "value": 1.837944536371356,
    "ref": null,
    "tol": ">= 1.5",
-   "note": "rel. error 4.89e-02 1.18e-02 3.76e-03"
+   "note": "rel. error 4.81e-02 1.18e-02 3.76e-03"
   },
   {
    "name": "wall viscous force normal part / |F_v| (finest), homann tan 0.333",
    "status": "REPORT",
-   "value": -0.04106396419078331,
+   "value": -0.04099665581044922,
    "ref": null,
    "tol": null,
-   "note": "-1.36e-01 -8.46e-02 -4.11e-02"
+   "note": "-1.33e-01 -8.41e-02 -4.10e-02"
   },
   {
    "name": "wall pressure force rel. error (finest), homann tan 0.333",
    "status": "REPORT",
-   "value": 0.0020921210533196557,
+   "value": 0.0020866943065399033,
    "ref": null,
    "tol": null,
-   "note": "3.95e-02 2.22e-03 2.09e-03"
+   "note": "3.91e-02 2.22e-03 2.09e-03"
   },
   {
    "name": "regression against baseline e7d742a (122 metrics)",
-   "status": "PASS",
-   "value": 0.0,
+   "status": "FAIL",
+   "value": 8.548642373077438,
    "ref": null,
    "tol": "<= 1 (in units of the tolerance)",
-   "note": "rtol 0.01, atol 0; worst -"
+   "note": "rtol 0.01, atol 0; worst hiemenz_t0_f0.1_N20_ma0.5_c1_pL2i"
   }
  ],
  "data": {
@@ -785,21 +785,21 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.01788504558350158,
-    "uLinf": 0.12933579168516146,
-    "pL2": 0.0071932626218914,
-    "pLinf": 0.038316173459881656,
-    "uL2i": 0.008359173393439275,
-    "uLinfi": 0.04823461398176144,
-    "pL2i": 0.0050239045035931846,
-    "pLinfi": 0.025569572268425003,
-    "eFp": 0.014855442566841888,
-    "eFvn": -0.025444404214956667,
-    "eFv": 0.04625941271983528,
+    "uL2": 0.01744240129939386,
+    "uLinf": 0.12146727637684575,
+    "pL2": 0.006805950024612973,
+    "pLinf": 0.03522138560814679,
+    "uL2i": 0.008104406292060084,
+    "uLinfi": 0.04513913766669718,
+    "pL2i": 0.004594428874416072,
+    "pLinfi": 0.02295163837969015,
+    "eFp": 0.013678850712511402,
+    "eFvn": -0.023469968548832713,
+    "eFv": 0.04351454226272866,
     "Fv": [
-     0.00470227550276,
-     -0.000125449834282,
-     -1.45298408505e-43
+     0.00471580867654,
+     -0.000115715174157,
+     -1.67993495142e-45
     ],
     "Fv_exact": [
      0.004930350627280885,
@@ -807,9 +807,9 @@
      0.0
     ],
     "Fp": [
-     1.78750549797e-21,
-     0.0233884691723,
-     -2.83967497143e-35
+     1.47990214989e-21,
+     0.0234519588514,
+     -2.85062331005e-35
     ],
     "Fp_exact": [
      0.0,
@@ -827,21 +827,21 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.0027348034860897414,
-    "uLinf": 0.021987874685932857,
-    "pL2": 0.0017955936786143872,
-    "pLinf": 0.016443789176836428,
-    "uL2i": 0.0013962404016502003,
-    "uLinfi": 0.009206860127990655,
-    "pL2i": 0.0010795634363417394,
-    "pLinfi": 0.0071176196325619745,
-    "eFp": 0.0032639329885648023,
-    "eFvn": -0.010661471512055475,
-    "eFv": 0.011162198152068667,
+    "uL2": 0.002723299837171545,
+    "uLinf": 0.021605021609536503,
+    "pL2": 0.0017738090638341616,
+    "pLinf": 0.01570993280020378,
+    "uL2i": 0.0013863156439128477,
+    "uLinfi": 0.009251307439022693,
+    "pL2i": 0.0010551216367509187,
+    "pLinfi": 0.00687146227392927,
+    "eFp": 0.003185668621134954,
+    "eFvn": -0.010374158418426425,
+    "eFv": 0.010963721115854327,
     "Fv": [
-     0.00243765853831,
-     -2.62823963786e-05,
-     3.24299937588e-44
+     0.002438147819,
+     -2.55741192329e-05,
+     2.56181277455e-44
     ],
     "Fv_exact": [
      0.0024651753136404426,
@@ -849,9 +849,9 @@
      0.0
     ],
     "Fp": [
-     -1.32718946437e-20,
-     0.0123304275428,
-     2.91801921313e-35
+     -1.32878247672e-20,
+     0.0123322278977,
+     2.91801215175e-35
     ],
     "Fp_exact": [
      0.0,
@@ -869,21 +869,21 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.0004930272739748454,
-    "uLinf": 0.004427547712701841,
-    "pL2": 0.0005186874217507061,
-    "pLinf": 0.008021304416321092,
-    "uL2i": 0.00032180289493929703,
-    "uLinfi": 0.0026849282911443123,
-    "pL2i": 0.00023448507234206782,
-    "pLinfi": 0.001645798074455303,
-    "eFp": 0.0004820410276326214,
-    "eFvn": -0.004521582742380881,
-    "eFv": 0.0028838285865942304,
+    "uL2": 0.000492637988183035,
+    "uLinf": 0.00440331057147287,
+    "pL2": 0.0005179217628730282,
+    "pLinf": 0.007924420002737093,
+    "uL2i": 0.0003214949083891489,
+    "uLinfi": 0.0026863834515006534,
+    "pL2i": 0.000233625664830161,
+    "pLinfi": 0.0016338217118713372,
+    "eFp": 0.0004825828147247257,
+    "eFvn": -0.004481818537629357,
+    "eFv": 0.002871390022963319,
     "Fv": [
-     0.0012290330853,
-     -5.57324707755e-06,
-     4.29133195433e-45
+     0.00122904841692,
+     -5.52423420959e-06,
+     6.90701750571e-45
     ],
     "Fv_exact": [
      0.0012325876568202213,
@@ -891,9 +891,9 @@
      0.0
     ],
     "Fp": [
-     -2.22032707793e-20,
-     0.00617013962344,
-     3.20647888784e-36
+     -2.22052514476e-20,
+     0.00617015090103,
+     3.20648967318e-36
     ],
     "Fp_exact": [
      0.0,
@@ -911,21 +911,21 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 9.790798114216736e-05,
-    "uLinf": 0.00104214385252414,
-    "pL2": 0.00017374502111113207,
-    "pLinf": 0.004002259207258476,
-    "uL2i": 7.660244211796042e-05,
-    "uLinfi": 0.0007269379799426987,
-    "pL2i": 5.398578921163055e-05,
-    "pLinfi": 0.0004008546656839386,
-    "eFp": 4.641761532504336e-05,
-    "eFvn": -0.002026112183731085,
-    "eFv": 0.0007715576307771166,
+    "uL2": 9.789483435050777e-05,
+    "uLinf": 0.0010407946892735367,
+    "pL2": 0.00017371986259886974,
+    "pLinf": 0.003989614767245575,
+    "uL2i": 7.659374461334667e-05,
+    "uLinfi": 0.0007269778436972528,
+    "pL2i": 5.3956916784483964e-05,
+    "pLinfi": 0.0004001392596709733,
+    "eFp": 4.5766857810023116e-05,
+    "eFvn": -0.0020209055523126305,
+    "eFv": 0.0007707429041371998,
     "Fv": [
-     0.000615818322204,
-     -1.2486804345e-06,
-     6.02871296376e-45
+     0.000615818824315,
+     -1.24547161969e-06,
+     9.53956289895e-45
     ],
     "Fv_exact": [
      0.0006162938284101107,
@@ -933,9 +933,9 @@
      0.0
     ],
     "Fp": [
-     -4.12442101593e-21,
-     0.00307279867367,
-     -9.23681490427e-36
+     -4.12406125941e-21,
+     0.00307279690948,
+     -9.23679546166e-36
     ],
     "Fp_exact": [
      0.0,
@@ -953,21 +953,21 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.015427414173975034,
-    "uLinf": 0.09539498673170946,
-    "pL2": 0.0052291284889559074,
-    "pLinf": 0.02128046147612184,
-    "uL2i": 0.005881615992844584,
-    "uLinfi": 0.03405507895650362,
-    "pL2i": 0.0025941217845104523,
-    "pLinfi": 0.011803773950122002,
-    "eFp": 0.005871272657530762,
-    "eFvn": -0.022396329103858924,
-    "eFv": 0.03233159044690475,
+    "uL2": 0.015404315255323865,
+    "uLinf": 0.09500866377899693,
+    "pL2": 0.005210424409808644,
+    "pLinf": 0.02099664057654508,
+    "uL2i": 0.005868212122897107,
+    "uLinfi": 0.03390174546644136,
+    "pL2i": 0.0025706668566403967,
+    "pLinfi": 0.011610441871545175,
+    "eFp": 0.005780769737624704,
+    "eFvn": -0.022231412947693287,
+    "eFv": 0.03215118556959668,
     "Fv": [
-     0.00477094455004,
-     -0.000110421755246,
-     1.8419374089e-35
+     0.00477183400934,
+     -0.000109608660772,
+     1.7164064729e-35
     ],
     "Fv_exact": [
      0.004930350627280885,
@@ -975,9 +975,9 @@
      0.0
     ],
     "Fp": [
-     8.75111979264e-20,
-     0.0249063898652,
-     -6.15407623873e-35
+     8.74233279964e-20,
+     0.0249106834083,
+     -6.15896275414e-35
     ],
     "Fp_exact": [
      0.0,
@@ -995,21 +995,21 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.002464899997835157,
-    "uLinf": 0.018697093747179497,
-    "pL2": 0.0015150856152611142,
-    "pLinf": 0.007968524743132104,
-    "uL2i": 0.0009343373073830531,
-    "uLinfi": 0.006242850919935492,
-    "pL2i": 0.0006990911705018592,
-    "pLinfi": 0.004334432837929265,
-    "eFp": 0.0008534685071843268,
-    "eFvn": -0.01149988244663027,
-    "eFv": 0.00884707789736682,
+    "uL2": 0.002464577060049094,
+    "uLinf": 0.018691292470906437,
+    "pL2": 0.0015143826315991574,
+    "pLinf": 0.007967865630161865,
+    "uL2i": 0.0009340105361946089,
+    "uLinfi": 0.006244670889093284,
+    "pL2i": 0.0006981076145075637,
+    "pLinfi": 0.004323032941899473,
+    "eFp": 0.0008506477813880897,
+    "eFvn": -0.011478431040068071,
+    "eFv": 0.008836148516461861,
     "Fv": [
-     0.00244336571561,
-     -2.83492263172e-05,
-     6.6336764874e-37
+     0.00244339265845,
+     -2.82963448393e-05,
+     6.54118139208e-37
     ],
     "Fv_exact": [
      0.0024651753136404426,
@@ -1017,9 +1017,9 @@
      0.0
     ],
     "Fp": [
-     -1.18586809563e-20,
-     0.0121999108737,
-     2.79815916148e-35
+     -1.18596520525e-20,
+     0.0121999809116,
+     2.79814731183e-35
     ],
     "Fp_exact": [
      0.0,
@@ -1037,21 +1037,21 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.0004484403509537104,
-    "uLinf": 0.00393110576252496,
-    "pL2": 0.0004838227225717977,
-    "pLinf": 0.003945839179496884,
-    "uL2i": 0.0002593655614915124,
-    "uLinfi": 0.0019792733901709495,
-    "pL2i": 0.000185570087515952,
-    "pLinfi": 0.001266496634518373,
-    "eFp": 0.00023667551267280256,
-    "eFvn": -0.005754100471496499,
-    "eFv": 0.002346241051676466,
+    "uL2": 0.0004484302786166812,
+    "uLinf": 0.003931097738694604,
+    "pL2": 0.000483800103876007,
+    "pLinf": 0.00394584970343914,
+    "uL2i": 0.0002593559513320354,
+    "uLinfi": 0.0019793371038616097,
+    "pL2i": 0.00018553718420787497,
+    "pLinfi": 0.0012659536615760043,
+    "eFp": 0.00023648936487165962,
+    "eFvn": -0.005751288840801656,
+    "eFv": 0.0023455246563798588,
     "Fv": [
-     0.00122969570906,
-     -7.09243321727e-06,
-     -2.57247803159e-38
+     0.00122969659208,
+     -7.08896763598e-06,
+     -2.57104243388e-38
     ],
     "Fv_exact": [
      0.0012325876568202213,
@@ -1059,9 +1059,9 @@
      0.0
     ],
     "Fp": [
-     -1.25024741577e-20,
-     0.00613099905983,
-     3.36272405641e-36
+     -1.25024902878e-20,
+     0.00613099848457,
+     3.36272443707e-36
     ],
     "Fp_exact": [
      0.0,
@@ -1079,21 +1079,21 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 9.044867371649848e-05,
+    "uL2": 9.044845332967644e-05,
     "uLinf": 0.0008556423506839656,
-    "pL2": 0.0001695367595750076,
-    "pLinf": 0.002318364522327262,
-    "uL2i": 6.800641253543523e-05,
-    "uLinfi": 0.0005581233600934467,
-    "pL2i": 4.790828441296609e-05,
-    "pLinfi": 0.0003713874542304796,
-    "eFp": 0.0003189446542837062,
-    "eFvn": -0.00287621056412792,
-    "eFv": 0.0006296880647203721,
+    "pL2": 0.00016953601448381353,
+    "pLinf": 0.0023183649202686905,
+    "uL2i": 6.800634766595573e-05,
+    "uLinfi": 0.000558125629172508,
+    "pL2i": 4.790692985395819e-05,
+    "pLinfi": 0.00037134946728913825,
+    "eFp": 0.0003188923940459023,
+    "eFvn": -0.0028758503615593295,
+    "eFv": 0.0006296380317675742,
     "Fv": [
-     0.000615905755542,
-     -1.77259081988e-06,
-     -1.00693390964e-36
+     0.000615905786377,
+     -1.77236882926e-06,
+     -1.00583550078e-36
     ],
     "Fv_exact": [
      0.0006162938284101107,
@@ -1101,9 +1101,9 @@
      0.0
     ],
     "Fp": [
-     -3.10686445999e-21,
-     0.00309039428441,
-     -7.47784283831e-36
+     -3.10684274052e-21,
+     0.0030903941323,
+     -7.47778891293e-36
     ],
     "Fp_exact": [
      0.0,
@@ -1121,21 +1121,21 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.015576840328662214,
-    "uLinf": 0.09597529645821315,
-    "pL2": 0.005368584501993562,
-    "pLinf": 0.021847561530518537,
-    "uL2i": 0.006285856344998772,
-    "uLinfi": 0.03454770494077836,
-    "pL2i": 0.002745596146263538,
-    "pLinfi": 0.012469255261518713,
-    "eFp": 0.008579273634388162,
-    "eFvn": -0.013075709741328144,
-    "eFv": 0.029303752301398846,
+    "uL2": 0.015529723499733498,
+    "uLinf": 0.09530554055754742,
+    "pL2": 0.005340444942028749,
+    "pLinf": 0.021441666558544663,
+    "uL2i": 0.006265960827101948,
+    "uLinfi": 0.03422824600411752,
+    "pL2i": 0.002713271032823163,
+    "pLinfi": 0.012234475652544803,
+    "eFp": 0.00837295737503484,
+    "eFvn": -0.012944750535257217,
+    "eFv": 0.028825538576201657,
     "Fv": [
-     0.00478587285374,
-     -6.44678337253e-05,
-     -7.30469787608e-36
+     0.00478823061508,
+     -6.38221589215e-05,
+     -6.00893379651e-36
     ],
     "Fv_exact": [
      0.004930350627280885,
@@ -1143,9 +1143,9 @@
      0.0
     ],
     "Fp": [
-     -6.28368262954e-20,
-     0.0241331339935,
-     -1.06288479761e-35
+     -6.29249538923e-20,
+     0.0241412159259,
+     -1.06477040003e-35
     ],
     "Fp_exact": [
      0.0,
@@ -1163,21 +1163,21 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.002488434749881248,
-    "uLinf": 0.018725161225511336,
-    "pL2": 0.001524179079023721,
-    "pLinf": 0.008025943874429797,
-    "uL2i": 0.0009935757115740642,
-    "uLinfi": 0.006266288082254405,
-    "pL2i": 0.0007040374267116284,
-    "pLinfi": 0.004155965151013343,
-    "eFp": 0.0022947031332698434,
-    "eFvn": -0.0048122771184906845,
-    "eFv": 0.008199171157768156,
+    "uL2": 0.002487817831832608,
+    "uLinf": 0.01871617142411222,
+    "pL2": 0.0015229857834723611,
+    "pLinf": 0.008024838846255117,
+    "uL2i": 0.000993102036415935,
+    "uLinfi": 0.006269522443625785,
+    "pL2i": 0.0007024504984020288,
+    "pLinfi": 0.004138123519188002,
+    "eFp": 0.0022839981488430704,
+    "eFvn": -0.00479326440339466,
+    "eFv": 0.008171810349136435,
     "Fv": [
-     0.00244496291931,
-     -1.18631067549e-05,
-     2.06584782067e-36
+     0.0024450303685,
+     -1.1816237079e-05,
+     1.9356398579e-36
     ],
     "Fv_exact": [
      0.0024651753136404426,
@@ -1185,9 +1185,9 @@
      0.0
     ],
     "Fp": [
-     -3.57211968184e-20,
-     0.0124463003352,
-     2.40412438142e-35
+     -3.57207162782e-20,
+     0.0124464915659,
+     2.4041347868e-35
     ],
     "Fp_exact": [
      0.0,
@@ -1205,21 +1205,21 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.00045082532433968133,
-    "uLinf": 0.0039325181185277894,
-    "pL2": 0.0004835560879978293,
-    "pLinf": 0.003949005585350808,
-    "uL2i": 0.0002629509811330087,
-    "uLinfi": 0.001777879710782247,
-    "pL2i": 0.0001830579406192129,
-    "pLinfi": 0.0011316189440276,
-    "eFp": 0.0005956422987274899,
-    "eFvn": -0.0016721522462889774,
-    "eFv": 0.002236521520370354,
+    "uL2": 0.00045080710069384666,
+    "uLinf": 0.003932504724721126,
+    "pL2": 0.0004835161909812808,
+    "pLinf": 0.003949024515706915,
+    "uL2i": 0.00026293503111546324,
+    "uLinfi": 0.0017780006175613567,
+    "pL2i": 0.00018300298808030725,
+    "pLinfi": 0.0011307832356714804,
+    "eFp": 0.0005953833064733266,
+    "eFvn": -0.0016694040937407532,
+    "eFv": 0.0022347718435923305,
     "Fv": [
-     0.001229830948,
-     -2.0610742191e-06,
-     -3.34092745297e-38
+     0.00122983310463,
+     -2.05768688019e-06,
+     -3.33473442522e-38
     ],
     "Fv_exact": [
      0.0012325876568202213,
@@ -1227,9 +1227,9 @@
      0.0
     ],
     "Fp": [
-     -1.69509827801e-21,
-     0.00619273366236,
-     3.21855615673e-36
+     -1.69509632798e-21,
+     0.00619273628072,
+     3.21855646278e-36
     ],
     "Fp_exact": [
      0.0,
@@ -1247,21 +1247,21 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 9.030644945051687e-05,
-    "uLinf": 0.0008558828544364634,
-    "pL2": 0.00016922818211179613,
-    "pLinf": 0.0023193614705189097,
-    "uL2i": 6.772117040048606e-05,
-    "uLinfi": 0.0005216175513928896,
-    "pL2i": 4.6580221209397565e-05,
-    "pLinfi": 0.000295266498821623,
-    "eFp": 0.00013278916574992536,
-    "eFvn": -0.0006306607400964582,
-    "eFv": 0.0006100935329510748,
+    "uL2": 9.030577827285873e-05,
+    "uLinf": 0.0008558828544222424,
+    "pL2": 0.00016922700543843108,
+    "pLinf": 0.0023193617015018673,
+    "uL2i": 6.772066379077524e-05,
+    "uLinfi": 0.0005216216645453559,
+    "pL2i": 4.657858271339676e-05,
+    "pLinfi": 0.0002952168278387938,
+    "eFp": 0.00013281736500873176,
+    "eFvn": -0.0006302926712865121,
+    "eFv": 0.0006099795191530932,
     "Fv": [
-     0.000615917831531,
-     -3.88672321942e-07,
-     1.11698590451e-36
+     0.000615917901797,
+     -3.88445483406e-07,
+     1.11160758196e-36
     ],
     "Fv_exact": [
      0.0006162938284101107,
@@ -1269,9 +1269,9 @@
      0.0
     ],
     "Fp": [
-     -5.19771172352e-23,
-     0.00307790925647,
-     -1.20777595064e-35
+     -5.19770754122e-23,
+     0.00307790918626,
+     -1.20777551905e-35
     ],
     "Fp_exact": [
      0.0,
@@ -1289,35 +1289,35 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.01697077714363199,
-    "uLinf": 0.11791910056901415,
-    "pL2": 0.0070864154854508535,
-    "pLinf": 0.03404044857978156,
-    "uL2i": 0.00874409378453705,
-    "uLinfi": 0.04979759657681665,
-    "pL2i": 0.005268655318631404,
-    "pLinfi": 0.03110239488872263,
-    "eFp": 0.015078085533276334,
-    "eFvn": -0.0040283376445438696,
-    "eFv": 0.02031240640673515,
+    "uL2": 0.01665381478173429,
+    "uLinf": 0.11451832292566158,
+    "pL2": 0.006774898417789081,
+    "pLinf": 0.03203257907440553,
+    "uL2i": 0.008567534441322248,
+    "uLinfi": 0.048986280912708555,
+    "pL2i": 0.004931887369313437,
+    "pLinfi": 0.029458922373324967,
+    "eFp": 0.01391905149149714,
+    "eFvn": -0.0050848472349551655,
+    "eFv": 0.018587124984214737,
     "Fv": [
-     0.00492383760877,
-     0.00161881429602,
-     3.51915051413e-35
+     0.00493426443454,
+     0.00161639804755,
+     2.49208852372e-35
     ],
     "Fv_exact": [
-     0.0050190470603636355,
-     0.0016730156867878787,
+     0.005019047060363635,
+     0.001673015686787878,
      0.0
     ],
     "Fp": [
-     -0.008746494514,
-     0.026239483542,
-     -1.72747706761e-34
+     -0.00876567006806,
+     0.0262970102042,
+     -1.13355534386e-34
     ],
     "Fp_exact": [
-     -0.008936315246913584,
-     0.026808945740740747,
+     -0.00893631524691358,
+     0.02680894574074074,
      0.0
     ]
    },
@@ -1331,35 +1331,35 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.002702332233154399,
-    "uLinf": 0.0208806665068655,
-    "pL2": 0.0018362026013573082,
-    "pLinf": 0.013988822067947135,
-    "uL2i": 0.0016741776682048409,
-    "uLinfi": 0.01205627894956163,
-    "pL2i": 0.0012207242775401626,
-    "pLinfi": 0.009586977965460684,
-    "eFp": 0.0027845133309728526,
-    "eFvn": -0.0066772219916527735,
-    "eFv": 0.006666459066317647,
+    "uL2": 0.002695315086297492,
+    "uLinf": 0.020822551709455295,
+    "pL2": 0.0018223651312162933,
+    "pLinf": 0.013776072508429072,
+    "uL2i": 0.0016678640726090815,
+    "uLinfi": 0.011940242569392258,
+    "pL2i": 0.0012048319812553718,
+    "pLinfi": 0.009469755839942607,
+    "eFp": 0.0026921394137104687,
+    "eFvn": -0.006828492523542321,
+    "eFv": 0.006540501130558441,
     "Fv": [
-     0.00249837944286,
-     0.000814174652393,
-     -6.26986968254e-35
+     0.00249882207625,
+     0.000813900400235,
+     -6.5770335796e-35
     ],
     "Fv_exact": [
-     0.002509523530181818,
-     0.0008365078433939394,
+     0.0025095235301818173,
+     0.0008365078433939391,
      0.0
     ],
     "Fp": [
-     -0.00440601624768,
-     0.013218048743,
-     1.52877594333e-34
+     -0.00440660731492,
+     0.0132198219448,
+     1.54471233512e-34
     ],
     "Fp_exact": [
-     -0.004468157623456792,
-     0.013404472870370374,
+     -0.00446815762345679,
+     0.01340447287037037,
      0.0
     ]
    },
@@ -1373,35 +1373,35 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.0005556477779843597,
-    "uLinf": 0.004225242230169387,
-    "pL2": 0.0005461879196908166,
-    "pLinf": 0.006778006437665527,
-    "uL2i": 0.0004340207524967304,
-    "uLinfi": 0.002888110990320586,
-    "pL2i": 0.0002983592404604739,
-    "pLinfi": 0.003117940658431471,
-    "eFp": 0.00044738733952271804,
-    "eFvn": -0.0034424180109497576,
-    "eFv": 0.001975094119901954,
+    "uL2": 0.00055529866905252,
+    "uLinf": 0.004225251236648228,
+    "pL2": 0.0005456434240937817,
+    "pLinf": 0.006720546303495834,
+    "uL2i": 0.00043368031389801455,
+    "uLinfi": 0.0028782010562470317,
+    "pL2i": 0.00029770149858306187,
+    "pLinfi": 0.0031162871802615797,
+    "eFp": 0.0004405768748850179,
+    "eFvn": -0.0034607492554455735,
+    "eFv": 0.0019671492291843903,
     "Fv": [
-     0.00125372329734,
-     0.000413108416336,
-     8.01536414058e-35
+     0.0012537409334,
+     0.000413088737973,
+     7.94965474229e-35
     ],
     "Fv_exact": [
-     0.0012547617650909089,
-     0.00041825392169696966,
+     0.0012547617650909087,
+     0.0004182539216969695,
      0.0
     ],
     "Fp": [
-     -0.00222927970958,
-     0.00668783912874,
-     -1.4441478337e-34
+     -0.00222929864441,
+     0.00668789593323,
+     -1.44339278891e-34
     ],
     "Fp_exact": [
-     -0.002234078811728396,
-     0.006702236435185187,
+     -0.002234078811728395,
+     0.006702236435185185,
      0.0
     ]
    },
@@ -1415,35 +1415,35 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.00012286270316380255,
-    "uLinf": 0.0009123468891086277,
-    "pL2": 0.00017788322082159416,
-    "pLinf": 0.0027422219718060974,
-    "uL2i": 0.00010836170866813836,
-    "uLinfi": 0.0006860260117117691,
-    "pL2i": 7.414119006305777e-05,
-    "pLinfi": 0.0012330634468475103,
-    "eFp": 1.4394621807058137e-05,
-    "eFvn": -0.0014372911669566116,
-    "eFv": 0.0004909341878649075,
+    "uL2": 0.00012284068585672475,
+    "uLinf": 0.0009123470236610367,
+    "pL2": 0.00017786312534313623,
+    "pLinf": 0.0027296644514561872,
+    "uL2i": 0.0001083402879542382,
+    "uLinfi": 0.0006852730765298066,
+    "pL2i": 7.41155429602868e-05,
+    "pLinfi": 0.0012337666234978504,
+    "eFp": 1.3649491911018195e-05,
+    "eFvn": -0.0014400309308668163,
+    "eFv": 0.0004902383450169452,
     "Fv": [
-     0.000627373456155,
-     0.000208122564273,
-     -3.84676919963e-36
+     0.000627374465672,
+     0.000208120990917,
+     -4.06983967112e-36
     ],
     "Fv_exact": [
-     0.0006273808825454544,
-     0.00020912696084848483,
+     0.0006273808825454543,
+     0.00020912696084848475,
      0.0
     ],
     "Fp": [
-     -0.00112034616069,
-     0.00336103848207,
-     7.98761653901e-36
+     -0.0011203470794,
+     0.00336104123821,
+     7.98219794925e-36
     ],
     "Fp_exact": [
-     -0.001117039405864198,
-     0.0033511182175925934,
+     -0.0011170394058641975,
+     0.0033511182175925925,
      0.0
     ]
    },
@@ -1457,34 +1457,34 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.011152625548257878,
-    "uLinf": 0.07668617123325848,
-    "pL2": 0.0063135987358782005,
-    "pLinf": 0.039186617268004965,
-    "uL2i": 0.004572250668132526,
-    "uLinfi": 0.01633298243056777,
-    "pL2i": 0.003938748012512561,
-    "pLinfi": 0.022443761272719052,
-    "eFp": 0.013972348696172433,
-    "eFvn": -0.047429847144343944,
-    "eFv": 0.08297577914800695,
+    "uL2": 0.01095214429747949,
+    "uLinf": 0.07045585644115888,
+    "pL2": 0.006038519793009797,
+    "pLinf": 0.03716845581008368,
+    "uL2i": 0.00454452705096654,
+    "uLinfi": 0.016707540801047163,
+    "pL2i": 0.003713520914458866,
+    "pLinfi": 0.020585152389797877,
+    "eFp": 0.013127354807902987,
+    "eFvn": -0.04686431571419426,
+    "eFv": 0.0810700102854908,
     "Fv": [
-     0.00342078216002,
-     0.003084328242,
-     5.74908939093e-35
+     0.00342553579262,
+     0.00309309359458,
+     5.83883650333e-35
     ],
     "Fv_exact": [
-     0.0035468585529705,
+     0.0035468585529704996,
      0.003546858552970499,
      0.0
     ],
     "Fp": [
-     -0.0195556278311,
-     0.0195556278311,
-     -1.67136370745e-34
+     -0.0195838199223,
+     0.0195838199223,
+     -1.67808735335e-34
     ],
     "Fp_exact": [
-     -0.01958277675,
+     -0.019582776750000003,
      0.019582776750000003,
      0.0
     ]
@@ -1499,34 +1499,34 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.0019412444487504072,
-    "uLinf": 0.012331177302903612,
-    "pL2": 0.0013982698534766515,
-    "pLinf": 0.01784186803706938,
-    "uL2i": 0.0009590830903841741,
-    "uLinfi": 0.004210656726517463,
-    "pL2i": 0.0006531611022198942,
-    "pLinfi": 0.00413524763125433,
-    "eFp": 0.0006442794598641584,
-    "eFvn": -0.029735789311831885,
-    "eFv": 0.015561952679018715,
+    "uL2": 0.001939858191633061,
+    "uLinf": 0.012125422341668288,
+    "pL2": 0.001388459707565763,
+    "pLinf": 0.01747161217941223,
+    "uL2i": 0.0009594001525123273,
+    "uLinfi": 0.004224636766878206,
+    "pL2i": 0.0006466507228057239,
+    "pLinfi": 0.004077192127597102,
+    "eFp": 0.0007071046278670732,
+    "eFvn": -0.02970788614949209,
+    "eFv": 0.01544027440976867,
     "Fv": [
-     0.00179856557333,
-     0.00169309693468,
-     -4.57038463399e-34
+     0.00179873187685,
+     0.00169336220677,
+     -5.08025988527e-34
     ],
     "Fv_exact": [
-     0.00177342927648525,
+     0.0017734292764852498,
      0.0017734292764852496,
      0.0
     ],
     "Fp": [
-     -0.00991224154905,
-     0.00991224154905,
-     1.03793106543e-33
+     -0.00991305084707,
+     0.00991305084707,
+     1.03925939214e-33
     ],
     "Fp_exact": [
-     -0.009791388375,
+     -0.009791388375000001,
      0.009791388375000001,
      0.0
     ]
@@ -1541,35 +1541,35 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.0004295960184434308,
-    "uLinf": 0.0026984017191820846,
-    "pL2": 0.0005040530072550191,
-    "pLinf": 0.012254433667651148,
-    "uL2i": 0.0003352897727665443,
-    "uLinfi": 0.0023119918378023767,
-    "pL2i": 0.0001949567277411698,
-    "pLinfi": 0.0014782979391396002,
-    "eFp": 0.0005213939821809824,
-    "eFvn": -0.012495438773807613,
-    "eFv": 0.00640725939281313,
+    "uL2": 0.0004296027257233609,
+    "uLinf": 0.0026822659545855873,
+    "pL2": 0.0005031426779317151,
+    "pLinf": 0.01218321829955895,
+    "uL2i": 0.0003353214570204475,
+    "uLinfi": 0.0023129930687155785,
+    "pL2i": 0.0001945567857746633,
+    "pLinfi": 0.0014746524700473206,
+    "eFp": 0.0005274597893155597,
+    "eFvn": -0.012490801501767113,
+    "eFv": 0.006394138931620419,
     "Fv": [
-     0.00089211311602,
-     0.000869953339076,
-     -8.43156753017e-35
+     0.000892120638188,
+     0.000869969085118,
+     -1.06212578313e-34
     ],
     "Fv_exact": [
-     0.0008867146382426252,
+     0.000886714638242625,
      0.0008867146382426247,
      0.0
     ],
     "Fp": [
-     -0.00491767061639,
-     0.00491767061639,
-     2.71112646842e-34
+     -0.0049177063767,
+     0.0049177063767,
+     2.71123511252e-34
     ],
     "Fp_exact": [
      -0.0048956941875,
-     0.004895694187500001,
+     0.0048956941875000015,
      0.0
     ]
    },
@@ -1583,34 +1583,34 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 8.538626515572042e-05,
-    "uLinf": 0.0006005606123391397,
-    "pL2": 0.00015394075640831834,
-    "pLinf": 0.005385398345250225,
-    "uL2i": 7.145452289304933e-05,
-    "uLinfi": 0.00046673427365088603,
-    "pL2i": 3.829911333607839e-05,
-    "pLinfi": 0.00026191314863757096,
-    "eFp": 0.000912766992777447,
-    "eFvn": -0.0069346018671650805,
-    "eFv": 0.0012930407858127658,
+    "uL2": 8.539040003160759e-05,
+    "uLinf": 0.0005997447633526664,
+    "pL2": 0.0001539161211592374,
+    "pLinf": 0.005376089308217598,
+    "uL2i": 7.145635440774664e-05,
+    "uLinfi": 0.00046674579911427114,
+    "pL2i": 3.8290569944767164e-05,
+    "pLinfi": 0.00026189042560504505,
+    "eFp": 0.000913119565731035,
+    "eFvn": -0.006934381902374204,
+    "eFv": 0.0012922300041147085,
     "Fv": [
-     0.000445858546518,
-     0.000439709533532,
-     -1.74186637269e-34
+     0.000445858808461,
+     0.000439709990521,
+     -2.10922656949e-34
     ],
     "Fv_exact": [
-     0.0004433573191213125,
+     0.00044335731912131246,
      0.0004433573191213124,
      0.0
     ],
     "Fp": [
-     -0.00244988897167,
-     0.00244988897167,
-     4.71164962496e-34
+     -0.00244988992193,
+     0.00244988992193,
+     4.7118958601e-34
     ],
     "Fp_exact": [
-     -0.00244784709375,
+     -0.0024478470937500003,
      0.0024478470937500003,
      0.0
     ]
@@ -1625,14 +1625,14 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.015938131550423125,
+    "uL2": 0.015938131550422646,
     "uLinf": 0.09786224392574346,
-    "pL2": 0.0055159965261929855,
-    "pLinf": 0.023701585189919314,
-    "uL2i": 0.006869682877072266,
+    "pL2": 0.005515996526192928,
+    "pLinf": 0.02370158518991891,
+    "uL2i": 0.006869682877071357,
     "uLinfi": 0.035735107110422874,
-    "pL2i": 0.0030393950816330023,
-    "pLinfi": 0.014340402738919277
+    "pL2i": 0.003039395081632772,
+    "pLinfi": 0.014340402738918873
    },
    {
     "name": "hiemenz_t0_f0.5_N40_bf_ma0.5_c1",
@@ -1644,14 +1644,14 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.0025429819280501633,
+    "uL2": 0.0025429819280499174,
     "uLinf": 0.018830573425549876,
-    "pL2": 0.0015465873983903477,
-    "pLinf": 0.008054833489523941,
-    "uL2i": 0.0011309153763348783,
+    "pL2": 0.0015465873983971222,
+    "pLinf": 0.008054833489534629,
+    "uL2i": 0.001130915376334394,
     "uLinfi": 0.00798270118501789,
-    "pL2i": 0.0007639502150372193,
-    "pLinfi": 0.00488660000052408
+    "pL2i": 0.000763950215038829,
+    "pLinfi": 0.004886600000534768
    },
    {
     "name": "hiemenz_t0_f0.5_N80_bf_ma0.5_c1",
@@ -1663,14 +1663,14 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.00046201807861453585,
+    "uL2": 0.00046201807861359146,
     "uLinf": 0.003937181720321636,
-    "pL2": 0.00048811482674422283,
-    "pLinf": 0.003890576025066984,
-    "uL2i": 0.0002830171342708281,
+    "pL2": 0.00048811482659782046,
+    "pLinf": 0.003890576024697529,
+    "uL2i": 0.0002830171342683044,
     "uLinfi": 0.0022334766807126268,
-    "pL2i": 0.00019575072078548386,
-    "pLinfi": 0.0014528021499918265
+    "pL2i": 0.00019575072039767003,
+    "pLinfi": 0.0014528021493611927
    },
    {
     "name": "hiemenz_t0_f0.5_N160_bf_ma0.5_c1",
@@ -1682,14 +1682,14 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 9.259627270507837e-05,
+    "uL2": 9.259627270467605e-05,
     "uLinf": 0.0008563328346462636,
-    "pL2": 0.00017034089278539905,
-    "pLinf": 0.002307480089668387,
-    "uL2i": 7.087805379296507e-05,
+    "pL2": 0.00017034089278801726,
+    "pLinf": 0.0023074800896441786,
+    "uL2i": 7.087805379041843e-05,
     "uLinfi": 0.0005953953441902941,
-    "pL2i": 5.038433288675662e-05,
-    "pLinfi": 0.00046099405731761284
+    "pL2i": 5.038433289520425e-05,
+    "pLinfi": 0.00046099405734182123
    },
    {
     "name": "hiemenz_t0_f0.1_N20_ma0_c1",
@@ -1701,21 +1701,21 @@
     "ma": 0,
     "conv": true,
     "converged": true,
-    "uL2": 0.01576563481855484,
-    "uLinf": 0.09647967009596176,
-    "pL2": 0.005399797932033052,
-    "pLinf": 0.022742455269083885,
-    "uL2i": 0.006593848982272326,
-    "uLinfi": 0.03508835088152008,
-    "pL2i": 0.002874757964479014,
-    "pLinfi": 0.013110284940084118,
-    "eFp": 0.0024205274934485303,
-    "eFvn": -0.041180779506542975,
-    "eFv": 0.031893931616301406,
+    "uL2": 0.01576550568341378,
+    "uLinf": 0.09647796678090692,
+    "pL2": 0.005399735485621315,
+    "pLinf": 0.022742671958490883,
+    "uL2i": 0.00659380311009868,
+    "uLinfi": 0.03508768458204613,
+    "pL2i": 0.002874717753237668,
+    "pLinfi": 0.013110091590491028,
+    "eFp": 0.00242016647347673,
+    "eFvn": -0.04118018013517502,
+    "eFv": 0.03189290075452627,
     "Fv": [
-     0.00477310236153,
-     -0.000203035682072,
-     8.75425405107e-39
+     0.00477310744404,
+     -0.000203032726961,
+     8.74348128209e-39
     ],
     "Fv_exact": [
      0.004930350627280885,
@@ -1723,9 +1723,9 @@
      0.0
     ],
     "Fp": [
-     1.22196588903e-21,
-     0.0239044160387,
-     -2.89286942656e-35
+     1.22163491638e-21,
+     0.0239044298831,
+     -2.89287628111e-35
     ],
     "Fp_exact": [
      0.0,
@@ -1743,21 +1743,21 @@
     "ma": 0.5,
     "conv": false,
     "converged": true,
-    "uL2": 0.01809516432461349,
-    "uLinf": 0.13178007249009654,
-    "pL2": 0.007264057269168121,
-    "pLinf": 0.039179071794420955,
-    "uL2i": 0.008452054159976012,
-    "uLinfi": 0.049021146656066814,
-    "pL2i": 0.0050670035695990845,
-    "pLinfi": 0.025313303683964363,
-    "eFp": 0.015257664804163427,
-    "eFvn": -0.025656620333463644,
-    "eFv": 0.045020797781130995,
+    "uL2": 0.018095164325470127,
+    "uLinf": 0.13178007250379362,
+    "pL2": 0.0072640572648488295,
+    "pLinf": 0.039179071768062956,
+    "uL2i": 0.008452054161006627,
+    "uLinfi": 0.04902114666240194,
+    "pL2i": 0.0050670035669610975,
+    "pLinfi": 0.025313303674606324,
+    "eFp": 0.0152576648270366,
+    "eFvn": -0.025656620325756285,
+    "eFv": 0.04502079778315921,
     "Fv": [
-     0.0047083823087,
-     -0.000126496134155,
-     -1.07941016302e-43
+     0.00470838230869,
+     -0.000126496134117,
+     -1.70887690677e-43
     ],
     "Fv_exact": [
      0.004930350627280885,
@@ -1765,9 +1765,9 @@
      0.0
     ],
     "Fp": [
-     1.79162506943e-21,
-     0.0233733039582,
-     -2.83769498954e-35
+     1.79162505665e-21,
+     0.0233733039584,
+     -2.83769498957e-35
     ],
     "Fp_exact": [
      0.0,
@@ -1785,15 +1785,15 @@
     "ma": 0,
     "conv": false,
     "converged": true,
-    "uL2": 0.015765743793695827,
+    "uL2": 0.015765743793695847,
     "uLinf": 0.09649081415914448,
-    "pL2": 0.005400023419679701,
-    "pLinf": 0.02273436672623641,
-    "uL2i": 0.006594004119846665,
+    "pL2": 0.0054000234196799465,
+    "pLinf": 0.02273436672623838,
+    "uL2i": 0.006594004119846791,
     "uLinfi": 0.03509139438932466,
-    "pL2i": 0.0028747070575845554,
-    "pLinfi": 0.013108825486236599,
-    "eFp": 0.002422932225147912,
+    "pL2i": 0.002874707057585661,
+    "pLinfi": 0.013108825486238566,
+    "eFp": 0.002422932225155789,
     "eFvn": -0.04118196110141126,
     "eFv": 0.03194343293141056,
     "Fv": [
@@ -1827,21 +1827,21 @@
     "ma": 0,
     "conv": true,
     "converged": true,
-    "uL2": 0.0025230310634259115,
-    "uLinf": 0.018767117809324677,
-    "pL2": 0.0015342405280552344,
-    "pLinf": 0.007882817665504556,
-    "uL2i": 0.0010881423971271205,
-    "uLinfi": 0.007653265114133383,
-    "pL2i": 0.0007433808474400698,
-    "pLinfi": 0.004749672909237361,
-    "eFp": 0.0011708495229683846,
-    "eFvn": -0.021528302145102797,
-    "eFv": 0.008486727789573394,
+    "uL2": 0.0025230303252203544,
+    "uLinf": 0.018767108079059968,
+    "pL2": 0.0015342392717652912,
+    "pLinf": 0.00788281657476739,
+    "uL2i": 0.0010881419141412435,
+    "uLinfi": 0.007653267252306773,
+    "pL2i": 0.0007433792835601093,
+    "pLinfi": 0.004749655547974487,
+    "eFp": 0.0011708538861963506,
+    "eFvn": -0.021528241527345036,
+    "eFv": 0.008486696144765212,
     "Fv": [
-     0.0024442540418,
-     -5.30710389927e-05,
-     -1.54770908704e-39
+     0.00244425411981,
+     -5.30708895593e-05,
+     -1.5462928743e-39
     ],
     "Fv_exact": [
      0.0024651753136404426,
@@ -1849,9 +1849,9 @@
      0.0
     ],
     "Fp": [
-     -1.34226096872e-20,
-     0.0124000556638,
-     2.91983364812e-35
+     -1.34226072499e-20,
+     0.0124000557755,
+     2.91983362939e-35
     ],
     "Fp_exact": [
      0.0,
@@ -1869,21 +1869,21 @@
     "ma": 0.5,
     "conv": false,
     "converged": true,
-    "uL2": 0.0027423563580967368,
-    "uLinf": 0.021970287592469953,
-    "pL2": 0.0017996653100170767,
-    "pLinf": 0.016072810869454383,
-    "uL2i": 0.0014074890835486177,
-    "uLinfi": 0.00929561431022502,
-    "pL2i": 0.0010858493812271385,
-    "pLinfi": 0.0071631946081799815,
-    "eFp": 0.0032777656505295675,
-    "eFvn": -0.010664020833260027,
-    "eFv": 0.01085672900111887,
+    "uL2": 0.00274235635849034,
+    "uLinf": 0.021970287597286624,
+    "pL2": 0.0017996653202081104,
+    "pLinf": 0.016072810946616903,
+    "uL2i": 0.001407489084039803,
+    "uLinfi": 0.009295614301342296,
+    "pL2i": 0.001085849395848234,
+    "pLinfi": 0.0071631946773424585,
+    "eFp": 0.003277765683620637,
+    "eFvn": -0.010664020831028947,
+    "eFv": 0.010856729013288513,
     "Fv": [
-     0.00243841157332,
-     -2.62886809023e-05,
-     3.2178329386e-44
+     0.00243841157329,
+     -2.62886808968e-05,
+     5.20536472545e-44
     ],
     "Fv_exact": [
      0.0024651753136404426,
@@ -1891,9 +1891,9 @@
      0.0
     ],
     "Fp": [
-     -1.32562606322e-20,
-     0.0123299887141,
-     2.91804653884e-35
+     -1.325626062e-20,
+     0.0123299887124,
+     2.9180465386e-35
     ],
     "Fp_exact": [
      0.0,
@@ -1911,15 +1911,15 @@
     "ma": 0,
     "conv": false,
     "converged": true,
-    "uL2": 0.0025230287851845824,
+    "uL2": 0.0025230287851848356,
     "uLinf": 0.01876725788947439,
-    "pL2": 0.0015342474250280617,
-    "pLinf": 0.007882820680179113,
-    "uL2i": 0.001088142255764347,
+    "pL2": 0.0015342474250190229,
+    "pLinf": 0.007882820680204777,
+    "uL2i": 0.0010881422557650717,
     "uLinfi": 0.00765327943378881,
-    "pL2i": 0.0007433793013049064,
-    "pLinfi": 0.004749605346562749,
-    "eFp": 0.0011706730284060357,
+    "pL2i": 0.0007433793013075226,
+    "pLinfi": 0.004749605346537084,
+    "eFp": 0.001170673028510119,
     "eFvn": -0.02152833739054742,
     "eFv": 0.008489909291495942,
     "Fv": [
@@ -1953,21 +1953,21 @@
     "ma": 0,
     "conv": true,
     "converged": true,
-    "uL2": 0.0004589795352430668,
-    "uLinf": 0.003935500028277902,
-    "pL2": 0.00048678955281186465,
-    "pLinf": 0.003903858654102886,
-    "uL2i": 0.00027821451191977593,
-    "uLinfi": 0.002185702849071381,
-    "pL2i": 0.0001935036139152875,
-    "pLinfi": 0.001425211064053834,
-    "eFp": 0.0012796080778296008,
-    "eFvn": -0.01090032030018912,
-    "eFv": 0.0022908940508992092,
+    "uL2": 0.0004589795198434473,
+    "uLinf": 0.003935500012304499,
+    "pL2": 0.00048678951868775464,
+    "pLinf": 0.003903858672363329,
+    "uL2i": 0.00027821449860940365,
+    "uLinfi": 0.0021857029228235505,
+    "pL2i": 0.00019350356287184238,
+    "pLinfi": 0.0014252100877933784,
+    "eFp": 0.0012796073864531684,
+    "eFvn": -0.010900313342387821,
+    "eFv": 0.002290892679800034,
     "Fv": [
-     0.00122976392909,
-     -1.34356002574e-05,
-     3.960694626e-39
+     0.00122976393078,
+     -1.34355916813e-05,
+     3.96069805431e-39
     ],
     "Fv_exact": [
      0.0012325876568202213,
@@ -1975,9 +1975,9 @@
      0.0
     ],
     "Fp": [
-     -2.22756136487e-20,
-     0.00618196748902,
-     3.22931517506e-36
+     -2.22756136453e-20,
+     0.00618196748555,
+     3.22931517499e-36
     ],
     "Fp_exact": [
      0.0,
@@ -1995,21 +1995,21 @@
     "ma": 0.5,
     "conv": false,
     "converged": true,
-    "uL2": 0.000493711858296649,
-    "uLinf": 0.004430928610864963,
-    "pL2": 0.000518826605103592,
-    "pLinf": 0.007863029515355004,
-    "uL2i": 0.00032279051698260944,
-    "uLinfi": 0.002693643722916274,
-    "pL2i": 0.0002350216829935278,
-    "pLinfi": 0.0016499523604892616,
-    "eFp": 0.0004812666920945051,
-    "eFvn": -0.004521560922261353,
-    "eFv": 0.0028270819855609913,
+    "uL2": 0.0004937118575011994,
+    "uLinf": 0.004430928609325606,
+    "pL2": 0.0005188266055237273,
+    "pLinf": 0.007863029491062308,
+    "uL2i": 0.00032279051570721434,
+    "uLinfi": 0.0026936437219635817,
+    "pL2i": 0.00023502168345474302,
+    "pLinfi": 0.001649952357196545,
+    "eFp": 0.0004812667103670507,
+    "eFvn": -0.004521560925336184,
+    "eFv": 0.002827082009900105,
     "Fv": [
-     0.00122910303046,
-     -5.57322018234e-06,
-     4.27978535064e-45
+     0.00122910303043,
+     -5.57322018613e-06,
+     6.92325331743e-45
     ],
     "Fv_exact": [
      0.0012325876568202213,
@@ -2017,9 +2017,9 @@
      0.0
     ],
     "Fp": [
-     -2.22003568503e-20,
-     0.00617013303121,
-     3.20646998182e-36
+     -2.22003568495e-20,
+     0.00617013303144,
+     3.20646998157e-36
     ],
     "Fp_exact": [
      0.0,
@@ -2037,21 +2037,21 @@
     "ma": 0,
     "conv": false,
     "converged": true,
-    "uL2": 0.0004589794189806991,
-    "uLinf": 0.003935500025983022,
-    "pL2": 0.0004867897144264634,
-    "pLinf": 0.0039038587629767504,
-    "uL2i": 0.000278214439002257,
-    "uLinfi": 0.0021857023872885505,
-    "pL2i": 0.00019350354983017676,
-    "pLinfi": 0.0014252103761800109,
-    "eFp": 0.0012795969586695318,
-    "eFvn": -0.010900322034589096,
+    "uL2": 0.00045897941897860066,
+    "uLinf": 0.003935500025927049,
+    "pL2": 0.00048678971689277204,
+    "pLinf": 0.0039038587682984293,
+    "uL2i": 0.00027821443894521057,
+    "uLinfi": 0.0021857023862898927,
+    "pL2i": 0.00019350355526067629,
+    "pLinfi": 0.0014252103928582894,
+    "eFp": 0.001279596949433114,
+    "eFvn": -0.010900322034507965,
     "eFv": 0.002291099642768163,
     "Fv": [
      0.00122976367568,
-     -1.34356023952e-05,
-     3.96069465801e-39
+     -1.34356023951e-05,
+     3.96069465809e-39
     ],
     "Fv_exact": [
      0.0012325876568202213,
@@ -2059,9 +2059,9 @@
      0.0
     ],
     "Fp": [
-     -2.22756199967e-20,
-     0.00618196741923,
-     3.22931517597e-36
+     -2.22756199969e-20,
+     0.00618196741904,
+     3.22931517558e-36
     ],
     "Fp_exact": [
      0.0,
@@ -2079,21 +2079,21 @@
     "ma": 0,
     "conv": true,
     "converged": true,
-    "uL2": 9.218338899945352e-05,
+    "uL2": 9.218338038899551e-05,
     "uLinf": 0.00085615655569578,
-    "pL2": 0.0001702139933505177,
-    "pLinf": 0.0023100472389053755,
-    "uL2i": 7.037193895955576e-05,
-    "uLinfi": 0.0005893834553533698,
-    "pL2i": 5.0222345078651066e-05,
-    "pLinfi": 0.00045201798547267653,
-    "eFp": 0.0008436096174358261,
-    "eFvn": -0.005479156571827521,
-    "eFv": 0.0006247650493336131,
+    "pL2": 0.0001702140554897296,
+    "pLinf": 0.0023100468493600294,
+    "uL2i": 7.037192606277408e-05,
+    "uLinfi": 0.0005893834505153777,
+    "pL2i": 5.0222559486470846e-05,
+    "pLinfi": 0.00045201838101788987,
+    "eFp": 0.0008436096549548005,
+    "eFvn": -0.005479155742012298,
+    "eFv": 0.0006247652456685311,
     "Fv": [
-     0.000615908789566,
-     -3.37677038011e-06,
-     1.27166961198e-39
+     0.000615908789445,
+     -3.3767698687e-06,
+     1.27166156258e-39
     ],
     "Fv_exact": [
      0.0006162938284101107,
@@ -2101,9 +2101,9 @@
      0.0
     ],
     "Fp": [
-     -3.99466779733e-21,
-     0.00307531719444,
-     -9.22621335682e-36
+     -3.99466768258e-21,
+     0.0030753171943,
+     -9.22621334727e-36
     ],
     "Fp_exact": [
      0.0,
@@ -2121,21 +2121,21 @@
     "ma": 0.5,
     "conv": false,
     "converged": true,
-    "uL2": 9.79646124108923e-05,
-    "uLinf": 0.0010423715312427955,
-    "pL2": 0.0001737403410718757,
-    "pLinf": 0.003954222343900734,
-    "uL2i": 7.6674104948943e-05,
-    "uLinfi": 0.0007276242802661885,
-    "pL2i": 5.402390042558844e-05,
-    "pLinfi": 0.0004011518563261505,
-    "eFp": 4.671845191055669e-05,
-    "eFvn": -0.00202610169345891,
-    "eFv": 0.0007629043476283802,
+    "uL2": 9.796461259410786e-05,
+    "uLinf": 0.00104237153139459,
+    "pL2": 0.00017374030559429512,
+    "pLinf": 0.003954222136873545,
+    "uL2i": 7.667410525317666e-05,
+    "uLinfi": 0.0007276242818942242,
+    "pL2i": 5.402378063356182e-05,
+    "pLinfi": 0.00040115164629902806,
+    "eFp": 4.6718424452931545e-05,
+    "eFvn": -0.0020261016932966495,
+    "eFv": 0.0007629043735900309,
     "Fv": [
-     0.000615823655169,
-     -1.24867396941e-06,
-     6.01921368269e-45
+     0.000615823655153,
+     -1.24867396931e-06,
+     9.45466077683e-45
     ],
     "Fv_exact": [
      0.0006162938284101107,
@@ -2143,9 +2143,9 @@
      0.0
     ],
     "Fp": [
-     -4.1217712768e-21,
-     0.00307279919012,
-     -9.23673879368e-36
+     -4.1217712786e-21,
+     0.00307279918991,
+     -9.23673879543e-36
     ],
     "Fp_exact": [
      0.0,
@@ -2163,21 +2163,21 @@
     "ma": 0,
     "conv": false,
     "converged": true,
-    "uL2": 9.218338367480712e-05,
+    "uL2": 9.21833703452728e-05,
     "uLinf": 0.00085615655569578,
-    "pL2": 0.00017021405904895094,
-    "pLinf": 0.002310046851495351,
-    "uL2i": 7.037193412435983e-05,
-    "uLinfi": 0.0005893834052539247,
-    "pL2i": 5.022255183171015e-05,
-    "pLinfi": 0.0004520184048826593,
-    "eFp": 0.0008436090700981723,
-    "eFvn": -0.005479156671536453,
-    "eFv": 0.0006247784228246081,
+    "pL2": 0.0001702140617577708,
+    "pLinf": 0.0023100468492287226,
+    "uL2i": 7.037191368395115e-05,
+    "uLinfi": 0.0005893833998541011,
+    "pL2i": 5.0222561545494886e-05,
+    "pLinfi": 0.0004520184511492024,
+    "eFp": 0.000843609083611715,
+    "eFvn": -0.005479156671747392,
+    "eFv": 0.0006247788852663584,
     "Fv": [
-     0.000615908781324,
-     -3.37677044156e-06,
-     1.2716639079e-39
+     0.000615908781039,
+     -3.37677044169e-06,
+     1.2716639077e-39
     ],
     "Fv_exact": [
      0.0006162938284101107,
@@ -2185,9 +2185,9 @@
      0.0
     ],
     "Fp": [
-     -3.99467143314e-21,
-     0.00307531719247,
-     -9.22621348099e-36
+     -3.99467143231e-21,
+     0.00307531719229,
+     -9.22621348023e-36
     ],
     "Fp_exact": [
      0.0,
@@ -2205,21 +2205,21 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.012984506480414111,
-    "uLinf": 0.042003179185766196,
-    "pL2": 0.011354934183301666,
-    "pLinf": 0.040690856896094627,
-    "uL2i": 0.0027828347305440784,
-    "uLinfi": 0.00714505106300267,
-    "pL2i": 0.004461143642492569,
-    "pLinfi": 0.010474851537854336,
-    "eFp": 0.032623024897401036,
-    "eFvn": -0.1455668243290777,
-    "eFv": 0.04300381387284249,
+    "uL2": 0.012980476196084108,
+    "uLinf": 0.04195337481069126,
+    "pL2": 0.011353267147008302,
+    "pLinf": 0.04069447641767431,
+    "uL2i": 0.0027804549662385244,
+    "uLinfi": 0.007111501660742861,
+    "pL2i": 0.004462873642034711,
+    "pLinfi": 0.010472943321274695,
+    "eFp": 0.03261072589893037,
+    "eFvn": -0.14469079674178056,
+    "eFv": 0.04281790194639018,
     "Fv": [
-     0.0125551664215,
-     0.00627765140058,
-     -0.00213516098054
+     0.012557601877,
+     0.00627887811307,
+     -0.00212231148732
     ],
     "Fv_exact": [
      0.013119376938798388,
@@ -2227,9 +2227,9 @@
      0.0
     ],
     "Fp": [
-     -9.84488461346e-16,
-     -1.08521388863e-16,
-     0.0868477384257
+     -9.84502423274e-16,
+     -1.0847615515e-16,
+     0.0868559524274
     ],
     "Fp_exact": [
      0.0,
@@ -2247,21 +2247,21 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.0027510251589222693,
-    "uLinf": 0.011197273954663469,
-    "pL2": 0.0037053527037867124,
-    "pLinf": 0.017709137643372792,
-    "uL2i": 0.0007246909108546738,
-    "uLinfi": 0.002928210776343495,
-    "pL2i": 0.0008639749208814633,
-    "pLinfi": 0.0027499086365155526,
-    "eFp": 0.003090099555877197,
-    "eFvn": -0.0763766286024481,
-    "eFv": 0.01229235025834352,
+    "uL2": 0.0027509483363896566,
+    "uLinf": 0.01119727404548078,
+    "pL2": 0.003705265987586837,
+    "pLinf": 0.01770887258885187,
+    "uL2i": 0.0007246701350934315,
+    "uLinfi": 0.002930193170832836,
+    "pL2i": 0.0008639751545186403,
+    "pLinfi": 0.00274571458703654,
+    "eFp": 0.0030982243017859653,
+    "eFvn": -0.07625723339207809,
+    "eFv": 0.01228050999603703,
     "Fv": [
-     0.01295810105,
-     0.00647907030768,
-     -0.00112028546318
+     0.0129582561512,
+     0.00647914844756,
+     -0.00111853418506
     ],
     "Fv_exact": [
      0.013119376938798388,
@@ -2269,9 +2269,9 @@
      0.0
     ],
     "Fp": [
-     -5.89472007641e-16,
-     -1.36748808193e-16,
-     0.0900758174906
+     -5.89519034885e-16,
+     -1.36769296244e-16,
+     0.0900753742573
     ],
     "Fp_exact": [
      0.0,
@@ -2289,21 +2289,21 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.0005674944933603874,
-    "uLinf": 0.003343179803790595,
-    "pL2": 0.0012249157125933377,
-    "pLinf": 0.008219861978317833,
-    "uL2i": 0.00020808461472804292,
-    "uLinfi": 0.001013141264508909,
-    "pL2i": 0.00020861824763651954,
-    "pLinfi": 0.0008873393283488402,
-    "eFp": 0.001944524881090196,
-    "eFvn": -0.03890686448160369,
-    "eFv": 0.0035023472413443636,
+    "uL2": 0.0005674921912193347,
+    "uLinf": 0.003343179803718393,
+    "pL2": 0.001224910860757381,
+    "pLinf": 0.008219851802625688,
+    "uL2i": 0.0002080848568534981,
+    "uLinfi": 0.0010132273425859613,
+    "pL2i": 0.00020861136474150787,
+    "pLinfi": 0.0008869502610409356,
+    "eFp": 0.0019426794899228775,
+    "eFvn": -0.03889106573988764,
+    "eFv": 0.0035015754741404216,
     "Fv": [
-     0.0130734259223,
-     0.00653671896895,
-     -0.000570682360484
+     0.0130734360327,
+     0.00653672406092,
+     -0.000570450625973
     ],
     "Fv_exact": [
      0.013119376938798388,
@@ -2311,9 +2311,9 @@
      0.0
     ],
     "Fp": [
-     -2.9855895103e-16,
-     4.56799637898e-18,
-     0.0903651504978
+     -2.98563364292e-16,
+     4.56580591467e-18,
+     0.0903649959322
     ],
     "Fp_exact": [
      0.0,
@@ -2331,31 +2331,31 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.014044823220208098,
-    "uLinf": 0.05503747488551976,
-    "pL2": 0.009997159683041159,
-    "pLinf": 0.039768914341568984,
-    "uL2i": 0.004441012669208934,
-    "uLinfi": 0.011941043610209739,
-    "pL2i": 0.003975490896028033,
-    "pLinfi": 0.011035312638562975,
-    "eFp": 0.039482868852435626,
-    "eFvn": -0.13634364443320346,
-    "eFv": 0.048902114254749156,
+    "uL2": 0.013995813060128048,
+    "uLinf": 0.05503399382533117,
+    "pL2": 0.009979596030762178,
+    "pLinf": 0.03971023646425424,
+    "uL2i": 0.0044014473498751325,
+    "uLinfi": 0.012467100128489653,
+    "pL2i": 0.003984119739348009,
+    "pLinfi": 0.010838635539863566,
+    "eFp": 0.03913844111929161,
+    "eFvn": -0.13322461506530645,
+    "eFv": 0.04807646749435124,
     "Fv": [
-     0.0112877082828,
-     0.0109456677747,
-     0.00137409322157
+     0.0113042605313,
+     0.0109312646081,
+     0.00142132331129
     ],
     "Fv_exact": [
      0.011934459393824115,
      0.009860103763379535,
-     0.0032867012544598446
+     0.003286701254459845
     ],
     "Fp": [
-     -3.91343084001e-22,
-     -0.0319778591641,
-     0.0959335774924
+     -4.63398112134e-22,
+     -0.0320113822663,
+     0.0960341467988
     ],
     "Fp_exact": [
      0.0,
@@ -2373,31 +2373,31 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.0028069664220135727,
-    "uLinf": 0.011253832509643501,
-    "pL2": 0.00335918533119819,
-    "pLinf": 0.020534670933215378,
-    "uL2i": 0.0009193535731918372,
-    "uLinfi": 0.003764277819428288,
-    "pL2i": 0.0008405118708862728,
-    "pLinfi": 0.0034438277213495096,
-    "eFp": 0.0022236770682563865,
-    "eFvn": -0.08456236557114642,
-    "eFv": 0.011816487965281088,
+    "uL2": 0.0028058312696822843,
+    "uLinf": 0.011253832777001012,
+    "pL2": 0.003358238111881262,
+    "pLinf": 0.020532035444500905,
+    "uL2i": 0.0009178127311225236,
+    "uLinfi": 0.0037788464698746303,
+    "pL2i": 0.0008405539370274723,
+    "pLinfi": 0.003397156324064324,
+    "eFp": 0.002223136036823161,
+    "eFvn": -0.08408837399769285,
+    "eFv": 0.011768828920493586,
     "Fv": [
-     0.0117732263216,
-     0.0103731745353,
-     0.00204706909069
+     0.011774227308,
+     0.0103710037614,
+     0.00205425255043
     ],
     "Fv_exact": [
      0.011934459393824115,
      0.009860103763379535,
-     0.0032867012544598446
+     0.003286701254459845
     ],
     "Fp": [
-     4.07219034529e-20,
-     -0.0296247236416,
-     0.0888741709247
+     4.07236870301e-20,
+     -0.0296257085316,
+     0.0888771255949
     ],
     "Fp_exact": [
      0.0,
@@ -2415,31 +2415,31 @@
     "ma": 0.5,
     "conv": true,
     "converged": true,
-    "uL2": 0.0005659119566064126,
-    "uLinf": 0.003481507546217583,
-    "pL2": 0.0011334388399644355,
-    "pLinf": 0.010167441761364804,
-    "uL2i": 0.00023325556273916305,
-    "uLinfi": 0.0011670980888111176,
-    "pL2i": 0.00020883302421112894,
-    "pLinfi": 0.0010402813462275515,
-    "eFp": 0.0020921210533196557,
-    "eFvn": -0.04106396419078331,
-    "eFv": 0.0037645891718455097,
+    "uL2": 0.0005658707644373778,
+    "uLinf": 0.003481507545778904,
+    "pL2": 0.0011333937006818267,
+    "pLinf": 0.010167328219064745,
+    "uL2i": 0.00023321119951760398,
+    "uLinfi": 0.0011680441047250733,
+    "pL2i": 0.00020882879406578168,
+    "pLinfi": 0.0010353084165275984,
+    "eFp": 0.0020866943065399033,
+    "eFvn": -0.04099665581044922,
+    "eFv": 0.0037616612035583385,
     "Fv": [
-     0.0118862260676,
-     0.0100987877365,
-     0.00268124014606
+     0.0118862962999,
+     0.0100984678512,
+     0.00268225634518
     ],
     "Fv_exact": [
      0.011934459393824115,
      0.009860103763379535,
-     0.0032867012544598446
+     0.003286701254459845
     ],
     "Fp": [
-     -5.92089323936e-20,
-     -0.0327120078194,
-     0.0981360234582
+     -5.92145838382e-20,
+     -0.0327118772956,
+     0.0981356318868
     ],
     "Fp_exact": [
      0.0,
@@ -2449,128 +2449,128 @@
    }
   ],
   "metrics": {
-   "hiemenz_t0_f0.1_N20_ma0.5_c1_uL2": 0.01788504558350158,
-   "hiemenz_t0_f0.1_N20_ma0.5_c1_pL2i": 0.0050239045035931846,
-   "hiemenz_t0_f0.1_N20_ma0.5_c1_eFv": 0.04625941271983528,
-   "hiemenz_t0_f0.1_N40_ma0.5_c1_uL2": 0.0027348034860897414,
-   "hiemenz_t0_f0.1_N40_ma0.5_c1_pL2i": 0.0010795634363417394,
-   "hiemenz_t0_f0.1_N40_ma0.5_c1_eFv": 0.011162198152068667,
-   "hiemenz_t0_f0.1_N80_ma0.5_c1_uL2": 0.0004930272739748454,
-   "hiemenz_t0_f0.1_N80_ma0.5_c1_pL2i": 0.00023448507234206782,
-   "hiemenz_t0_f0.1_N80_ma0.5_c1_eFv": 0.0028838285865942304,
-   "hiemenz_t0_f0.1_N160_ma0.5_c1_uL2": 9.790798114216736e-05,
-   "hiemenz_t0_f0.1_N160_ma0.5_c1_pL2i": 5.398578921163055e-05,
-   "hiemenz_t0_f0.1_N160_ma0.5_c1_eFv": 0.0007715576307771166,
-   "hiemenz_t0_f0.5_N20_ma0.5_c1_uL2": 0.015427414173975034,
-   "hiemenz_t0_f0.5_N20_ma0.5_c1_pL2i": 0.0025941217845104523,
-   "hiemenz_t0_f0.5_N20_ma0.5_c1_eFv": 0.03233159044690475,
-   "hiemenz_t0_f0.5_N40_ma0.5_c1_uL2": 0.002464899997835157,
-   "hiemenz_t0_f0.5_N40_ma0.5_c1_pL2i": 0.0006990911705018592,
-   "hiemenz_t0_f0.5_N40_ma0.5_c1_eFv": 0.00884707789736682,
-   "hiemenz_t0_f0.5_N80_ma0.5_c1_uL2": 0.0004484403509537104,
-   "hiemenz_t0_f0.5_N80_ma0.5_c1_pL2i": 0.000185570087515952,
-   "hiemenz_t0_f0.5_N80_ma0.5_c1_eFv": 0.002346241051676466,
-   "hiemenz_t0_f0.5_N160_ma0.5_c1_uL2": 9.044867371649848e-05,
-   "hiemenz_t0_f0.5_N160_ma0.5_c1_pL2i": 4.790828441296609e-05,
-   "hiemenz_t0_f0.5_N160_ma0.5_c1_eFv": 0.0006296880647203721,
-   "hiemenz_t0_f0.9_N20_ma0.5_c1_uL2": 0.015576840328662214,
-   "hiemenz_t0_f0.9_N20_ma0.5_c1_pL2i": 0.002745596146263538,
-   "hiemenz_t0_f0.9_N20_ma0.5_c1_eFv": 0.029303752301398846,
-   "hiemenz_t0_f0.9_N40_ma0.5_c1_uL2": 0.002488434749881248,
-   "hiemenz_t0_f0.9_N40_ma0.5_c1_pL2i": 0.0007040374267116284,
-   "hiemenz_t0_f0.9_N40_ma0.5_c1_eFv": 0.008199171157768156,
-   "hiemenz_t0_f0.9_N80_ma0.5_c1_uL2": 0.00045082532433968133,
-   "hiemenz_t0_f0.9_N80_ma0.5_c1_pL2i": 0.0001830579406192129,
-   "hiemenz_t0_f0.9_N80_ma0.5_c1_eFv": 0.002236521520370354,
-   "hiemenz_t0_f0.9_N160_ma0.5_c1_uL2": 9.030644945051687e-05,
-   "hiemenz_t0_f0.9_N160_ma0.5_c1_pL2i": 4.6580221209397565e-05,
-   "hiemenz_t0_f0.9_N160_ma0.5_c1_eFv": 0.0006100935329510748,
-   "hiemenz_t1-3_f0.5_N20_ma0.5_c1_uL2": 0.01697077714363199,
-   "hiemenz_t1-3_f0.5_N20_ma0.5_c1_pL2i": 0.005268655318631404,
-   "hiemenz_t1-3_f0.5_N20_ma0.5_c1_eFv": 0.02031240640673515,
-   "hiemenz_t1-3_f0.5_N40_ma0.5_c1_uL2": 0.002702332233154399,
-   "hiemenz_t1-3_f0.5_N40_ma0.5_c1_pL2i": 0.0012207242775401626,
-   "hiemenz_t1-3_f0.5_N40_ma0.5_c1_eFv": 0.006666459066317647,
-   "hiemenz_t1-3_f0.5_N80_ma0.5_c1_uL2": 0.0005556477779843597,
-   "hiemenz_t1-3_f0.5_N80_ma0.5_c1_pL2i": 0.0002983592404604739,
-   "hiemenz_t1-3_f0.5_N80_ma0.5_c1_eFv": 0.001975094119901954,
-   "hiemenz_t1-3_f0.5_N160_ma0.5_c1_uL2": 0.00012286270316380255,
-   "hiemenz_t1-3_f0.5_N160_ma0.5_c1_pL2i": 7.414119006305777e-05,
-   "hiemenz_t1-3_f0.5_N160_ma0.5_c1_eFv": 0.0004909341878649075,
-   "hiemenz_t1_f0.5_N20_ma0.5_c1_uL2": 0.011152625548257878,
-   "hiemenz_t1_f0.5_N20_ma0.5_c1_pL2i": 0.003938748012512561,
-   "hiemenz_t1_f0.5_N20_ma0.5_c1_eFv": 0.08297577914800695,
-   "hiemenz_t1_f0.5_N40_ma0.5_c1_uL2": 0.0019412444487504072,
-   "hiemenz_t1_f0.5_N40_ma0.5_c1_pL2i": 0.0006531611022198942,
-   "hiemenz_t1_f0.5_N40_ma0.5_c1_eFv": 0.015561952679018715,
-   "hiemenz_t1_f0.5_N80_ma0.5_c1_uL2": 0.0004295960184434308,
-   "hiemenz_t1_f0.5_N80_ma0.5_c1_pL2i": 0.0001949567277411698,
-   "hiemenz_t1_f0.5_N80_ma0.5_c1_eFv": 0.00640725939281313,
-   "hiemenz_t1_f0.5_N160_ma0.5_c1_uL2": 8.538626515572042e-05,
-   "hiemenz_t1_f0.5_N160_ma0.5_c1_pL2i": 3.829911333607839e-05,
-   "hiemenz_t1_f0.5_N160_ma0.5_c1_eFv": 0.0012930407858127658,
-   "hiemenz_t0_f0.5_N20_bf_ma0.5_c1_uL2": 0.015938131550423125,
-   "hiemenz_t0_f0.5_N20_bf_ma0.5_c1_pL2i": 0.0030393950816330023,
-   "hiemenz_t0_f0.5_N40_bf_ma0.5_c1_uL2": 0.0025429819280501633,
-   "hiemenz_t0_f0.5_N40_bf_ma0.5_c1_pL2i": 0.0007639502150372193,
-   "hiemenz_t0_f0.5_N80_bf_ma0.5_c1_uL2": 0.00046201807861453585,
-   "hiemenz_t0_f0.5_N80_bf_ma0.5_c1_pL2i": 0.00019575072078548386,
-   "hiemenz_t0_f0.5_N160_bf_ma0.5_c1_uL2": 9.259627270507837e-05,
-   "hiemenz_t0_f0.5_N160_bf_ma0.5_c1_pL2i": 5.038433288675662e-05,
-   "hiemenz_t0_f0.1_N20_ma0_c1_uL2": 0.01576563481855484,
-   "hiemenz_t0_f0.1_N20_ma0_c1_pL2i": 0.002874757964479014,
-   "hiemenz_t0_f0.1_N20_ma0_c1_eFv": 0.031893931616301406,
-   "hiemenz_t0_f0.1_N20_ma0.5_c0_uL2": 0.01809516432461349,
-   "hiemenz_t0_f0.1_N20_ma0.5_c0_pL2i": 0.0050670035695990845,
-   "hiemenz_t0_f0.1_N20_ma0.5_c0_eFv": 0.045020797781130995,
-   "hiemenz_t0_f0.1_N20_ma0_c0_uL2": 0.015765743793695827,
-   "hiemenz_t0_f0.1_N20_ma0_c0_pL2i": 0.0028747070575845554,
+   "hiemenz_t0_f0.1_N20_ma0.5_c1_uL2": 0.01744240129939386,
+   "hiemenz_t0_f0.1_N20_ma0.5_c1_pL2i": 0.004594428874416072,
+   "hiemenz_t0_f0.1_N20_ma0.5_c1_eFv": 0.04351454226272866,
+   "hiemenz_t0_f0.1_N40_ma0.5_c1_uL2": 0.002723299837171545,
+   "hiemenz_t0_f0.1_N40_ma0.5_c1_pL2i": 0.0010551216367509187,
+   "hiemenz_t0_f0.1_N40_ma0.5_c1_eFv": 0.010963721115854327,
+   "hiemenz_t0_f0.1_N80_ma0.5_c1_uL2": 0.000492637988183035,
+   "hiemenz_t0_f0.1_N80_ma0.5_c1_pL2i": 0.000233625664830161,
+   "hiemenz_t0_f0.1_N80_ma0.5_c1_eFv": 0.002871390022963319,
+   "hiemenz_t0_f0.1_N160_ma0.5_c1_uL2": 9.789483435050777e-05,
+   "hiemenz_t0_f0.1_N160_ma0.5_c1_pL2i": 5.3956916784483964e-05,
+   "hiemenz_t0_f0.1_N160_ma0.5_c1_eFv": 0.0007707429041371998,
+   "hiemenz_t0_f0.5_N20_ma0.5_c1_uL2": 0.015404315255323865,
+   "hiemenz_t0_f0.5_N20_ma0.5_c1_pL2i": 0.0025706668566403967,
+   "hiemenz_t0_f0.5_N20_ma0.5_c1_eFv": 0.03215118556959668,
+   "hiemenz_t0_f0.5_N40_ma0.5_c1_uL2": 0.002464577060049094,
+   "hiemenz_t0_f0.5_N40_ma0.5_c1_pL2i": 0.0006981076145075637,
+   "hiemenz_t0_f0.5_N40_ma0.5_c1_eFv": 0.008836148516461861,
+   "hiemenz_t0_f0.5_N80_ma0.5_c1_uL2": 0.0004484302786166812,
+   "hiemenz_t0_f0.5_N80_ma0.5_c1_pL2i": 0.00018553718420787497,
+   "hiemenz_t0_f0.5_N80_ma0.5_c1_eFv": 0.0023455246563798588,
+   "hiemenz_t0_f0.5_N160_ma0.5_c1_uL2": 9.044845332967644e-05,
+   "hiemenz_t0_f0.5_N160_ma0.5_c1_pL2i": 4.790692985395819e-05,
+   "hiemenz_t0_f0.5_N160_ma0.5_c1_eFv": 0.0006296380317675742,
+   "hiemenz_t0_f0.9_N20_ma0.5_c1_uL2": 0.015529723499733498,
+   "hiemenz_t0_f0.9_N20_ma0.5_c1_pL2i": 0.002713271032823163,
+   "hiemenz_t0_f0.9_N20_ma0.5_c1_eFv": 0.028825538576201657,
+   "hiemenz_t0_f0.9_N40_ma0.5_c1_uL2": 0.002487817831832608,
+   "hiemenz_t0_f0.9_N40_ma0.5_c1_pL2i": 0.0007024504984020288,
+   "hiemenz_t0_f0.9_N40_ma0.5_c1_eFv": 0.008171810349136435,
+   "hiemenz_t0_f0.9_N80_ma0.5_c1_uL2": 0.00045080710069384666,
+   "hiemenz_t0_f0.9_N80_ma0.5_c1_pL2i": 0.00018300298808030725,
+   "hiemenz_t0_f0.9_N80_ma0.5_c1_eFv": 0.0022347718435923305,
+   "hiemenz_t0_f0.9_N160_ma0.5_c1_uL2": 9.030577827285873e-05,
+   "hiemenz_t0_f0.9_N160_ma0.5_c1_pL2i": 4.657858271339676e-05,
+   "hiemenz_t0_f0.9_N160_ma0.5_c1_eFv": 0.0006099795191530932,
+   "hiemenz_t1-3_f0.5_N20_ma0.5_c1_uL2": 0.01665381478173429,
+   "hiemenz_t1-3_f0.5_N20_ma0.5_c1_pL2i": 0.004931887369313437,
+   "hiemenz_t1-3_f0.5_N20_ma0.5_c1_eFv": 0.018587124984214737,
+   "hiemenz_t1-3_f0.5_N40_ma0.5_c1_uL2": 0.002695315086297492,
+   "hiemenz_t1-3_f0.5_N40_ma0.5_c1_pL2i": 0.0012048319812553718,
+   "hiemenz_t1-3_f0.5_N40_ma0.5_c1_eFv": 0.006540501130558441,
+   "hiemenz_t1-3_f0.5_N80_ma0.5_c1_uL2": 0.00055529866905252,
+   "hiemenz_t1-3_f0.5_N80_ma0.5_c1_pL2i": 0.00029770149858306187,
+   "hiemenz_t1-3_f0.5_N80_ma0.5_c1_eFv": 0.0019671492291843903,
+   "hiemenz_t1-3_f0.5_N160_ma0.5_c1_uL2": 0.00012284068585672475,
+   "hiemenz_t1-3_f0.5_N160_ma0.5_c1_pL2i": 7.41155429602868e-05,
+   "hiemenz_t1-3_f0.5_N160_ma0.5_c1_eFv": 0.0004902383450169452,
+   "hiemenz_t1_f0.5_N20_ma0.5_c1_uL2": 0.01095214429747949,
+   "hiemenz_t1_f0.5_N20_ma0.5_c1_pL2i": 0.003713520914458866,
+   "hiemenz_t1_f0.5_N20_ma0.5_c1_eFv": 0.0810700102854908,
+   "hiemenz_t1_f0.5_N40_ma0.5_c1_uL2": 0.001939858191633061,
+   "hiemenz_t1_f0.5_N40_ma0.5_c1_pL2i": 0.0006466507228057239,
+   "hiemenz_t1_f0.5_N40_ma0.5_c1_eFv": 0.01544027440976867,
+   "hiemenz_t1_f0.5_N80_ma0.5_c1_uL2": 0.0004296027257233609,
+   "hiemenz_t1_f0.5_N80_ma0.5_c1_pL2i": 0.0001945567857746633,
+   "hiemenz_t1_f0.5_N80_ma0.5_c1_eFv": 0.006394138931620419,
+   "hiemenz_t1_f0.5_N160_ma0.5_c1_uL2": 8.539040003160759e-05,
+   "hiemenz_t1_f0.5_N160_ma0.5_c1_pL2i": 3.8290569944767164e-05,
+   "hiemenz_t1_f0.5_N160_ma0.5_c1_eFv": 0.0012922300041147085,
+   "hiemenz_t0_f0.5_N20_bf_ma0.5_c1_uL2": 0.015938131550422646,
+   "hiemenz_t0_f0.5_N20_bf_ma0.5_c1_pL2i": 0.003039395081632772,
+   "hiemenz_t0_f0.5_N40_bf_ma0.5_c1_uL2": 0.0025429819280499174,
+   "hiemenz_t0_f0.5_N40_bf_ma0.5_c1_pL2i": 0.000763950215038829,
+   "hiemenz_t0_f0.5_N80_bf_ma0.5_c1_uL2": 0.00046201807861359146,
+   "hiemenz_t0_f0.5_N80_bf_ma0.5_c1_pL2i": 0.00019575072039767003,
+   "hiemenz_t0_f0.5_N160_bf_ma0.5_c1_uL2": 9.259627270467605e-05,
+   "hiemenz_t0_f0.5_N160_bf_ma0.5_c1_pL2i": 5.038433289520425e-05,
+   "hiemenz_t0_f0.1_N20_ma0_c1_uL2": 0.01576550568341378,
+   "hiemenz_t0_f0.1_N20_ma0_c1_pL2i": 0.002874717753237668,
+   "hiemenz_t0_f0.1_N20_ma0_c1_eFv": 0.03189290075452627,
+   "hiemenz_t0_f0.1_N20_ma0.5_c0_uL2": 0.018095164325470127,
+   "hiemenz_t0_f0.1_N20_ma0.5_c0_pL2i": 0.0050670035669610975,
+   "hiemenz_t0_f0.1_N20_ma0.5_c0_eFv": 0.04502079778315921,
+   "hiemenz_t0_f0.1_N20_ma0_c0_uL2": 0.015765743793695847,
+   "hiemenz_t0_f0.1_N20_ma0_c0_pL2i": 0.002874707057585661,
    "hiemenz_t0_f0.1_N20_ma0_c0_eFv": 0.03194343293141056,
-   "hiemenz_t0_f0.1_N40_ma0_c1_uL2": 0.0025230310634259115,
-   "hiemenz_t0_f0.1_N40_ma0_c1_pL2i": 0.0007433808474400698,
-   "hiemenz_t0_f0.1_N40_ma0_c1_eFv": 0.008486727789573394,
-   "hiemenz_t0_f0.1_N40_ma0.5_c0_uL2": 0.0027423563580967368,
-   "hiemenz_t0_f0.1_N40_ma0.5_c0_pL2i": 0.0010858493812271385,
-   "hiemenz_t0_f0.1_N40_ma0.5_c0_eFv": 0.01085672900111887,
-   "hiemenz_t0_f0.1_N40_ma0_c0_uL2": 0.0025230287851845824,
-   "hiemenz_t0_f0.1_N40_ma0_c0_pL2i": 0.0007433793013049064,
+   "hiemenz_t0_f0.1_N40_ma0_c1_uL2": 0.0025230303252203544,
+   "hiemenz_t0_f0.1_N40_ma0_c1_pL2i": 0.0007433792835601093,
+   "hiemenz_t0_f0.1_N40_ma0_c1_eFv": 0.008486696144765212,
+   "hiemenz_t0_f0.1_N40_ma0.5_c0_uL2": 0.00274235635849034,
+   "hiemenz_t0_f0.1_N40_ma0.5_c0_pL2i": 0.001085849395848234,
+   "hiemenz_t0_f0.1_N40_ma0.5_c0_eFv": 0.010856729013288513,
+   "hiemenz_t0_f0.1_N40_ma0_c0_uL2": 0.0025230287851848356,
+   "hiemenz_t0_f0.1_N40_ma0_c0_pL2i": 0.0007433793013075226,
    "hiemenz_t0_f0.1_N40_ma0_c0_eFv": 0.008489909291495942,
-   "hiemenz_t0_f0.1_N80_ma0_c1_uL2": 0.0004589795352430668,
-   "hiemenz_t0_f0.1_N80_ma0_c1_pL2i": 0.0001935036139152875,
-   "hiemenz_t0_f0.1_N80_ma0_c1_eFv": 0.0022908940508992092,
-   "hiemenz_t0_f0.1_N80_ma0.5_c0_uL2": 0.000493711858296649,
-   "hiemenz_t0_f0.1_N80_ma0.5_c0_pL2i": 0.0002350216829935278,
-   "hiemenz_t0_f0.1_N80_ma0.5_c0_eFv": 0.0028270819855609913,
-   "hiemenz_t0_f0.1_N80_ma0_c0_uL2": 0.0004589794189806991,
-   "hiemenz_t0_f0.1_N80_ma0_c0_pL2i": 0.00019350354983017676,
+   "hiemenz_t0_f0.1_N80_ma0_c1_uL2": 0.0004589795198434473,
+   "hiemenz_t0_f0.1_N80_ma0_c1_pL2i": 0.00019350356287184238,
+   "hiemenz_t0_f0.1_N80_ma0_c1_eFv": 0.002290892679800034,
+   "hiemenz_t0_f0.1_N80_ma0.5_c0_uL2": 0.0004937118575011994,
+   "hiemenz_t0_f0.1_N80_ma0.5_c0_pL2i": 0.00023502168345474302,
+   "hiemenz_t0_f0.1_N80_ma0.5_c0_eFv": 0.002827082009900105,
+   "hiemenz_t0_f0.1_N80_ma0_c0_uL2": 0.00045897941897860066,
+   "hiemenz_t0_f0.1_N80_ma0_c0_pL2i": 0.00019350355526067629,
    "hiemenz_t0_f0.1_N80_ma0_c0_eFv": 0.002291099642768163,
-   "hiemenz_t0_f0.1_N160_ma0_c1_uL2": 9.218338899945352e-05,
-   "hiemenz_t0_f0.1_N160_ma0_c1_pL2i": 5.0222345078651066e-05,
-   "hiemenz_t0_f0.1_N160_ma0_c1_eFv": 0.0006247650493336131,
-   "hiemenz_t0_f0.1_N160_ma0.5_c0_uL2": 9.79646124108923e-05,
-   "hiemenz_t0_f0.1_N160_ma0.5_c0_pL2i": 5.402390042558844e-05,
-   "hiemenz_t0_f0.1_N160_ma0.5_c0_eFv": 0.0007629043476283802,
-   "hiemenz_t0_f0.1_N160_ma0_c0_uL2": 9.218338367480712e-05,
-   "hiemenz_t0_f0.1_N160_ma0_c0_pL2i": 5.022255183171015e-05,
-   "hiemenz_t0_f0.1_N160_ma0_c0_eFv": 0.0006247784228246081,
-   "homann_t0_f0.5_N20_ma0.5_c1_uL2": 0.012984506480414111,
-   "homann_t0_f0.5_N20_ma0.5_c1_pL2i": 0.004461143642492569,
-   "homann_t0_f0.5_N20_ma0.5_c1_eFv": 0.04300381387284249,
-   "homann_t0_f0.5_N40_ma0.5_c1_uL2": 0.0027510251589222693,
-   "homann_t0_f0.5_N40_ma0.5_c1_pL2i": 0.0008639749208814633,
-   "homann_t0_f0.5_N40_ma0.5_c1_eFv": 0.01229235025834352,
-   "homann_t0_f0.5_N80_ma0.5_c1_uL2": 0.0005674944933603874,
-   "homann_t0_f0.5_N80_ma0.5_c1_pL2i": 0.00020861824763651954,
-   "homann_t0_f0.5_N80_ma0.5_c1_eFv": 0.0035023472413443636,
-   "homann_t1-3_f0.5_N20_ma0.5_c1_uL2": 0.014044823220208098,
-   "homann_t1-3_f0.5_N20_ma0.5_c1_pL2i": 0.003975490896028033,
-   "homann_t1-3_f0.5_N20_ma0.5_c1_eFv": 0.048902114254749156,
-   "homann_t1-3_f0.5_N40_ma0.5_c1_uL2": 0.0028069664220135727,
-   "homann_t1-3_f0.5_N40_ma0.5_c1_pL2i": 0.0008405118708862728,
-   "homann_t1-3_f0.5_N40_ma0.5_c1_eFv": 0.011816487965281088,
-   "homann_t1-3_f0.5_N80_ma0.5_c1_uL2": 0.0005659119566064126,
-   "homann_t1-3_f0.5_N80_ma0.5_c1_pL2i": 0.00020883302421112894,
-   "homann_t1-3_f0.5_N80_ma0.5_c1_eFv": 0.0037645891718455097
+   "hiemenz_t0_f0.1_N160_ma0_c1_uL2": 9.218338038899551e-05,
+   "hiemenz_t0_f0.1_N160_ma0_c1_pL2i": 5.0222559486470846e-05,
+   "hiemenz_t0_f0.1_N160_ma0_c1_eFv": 0.0006247652456685311,
+   "hiemenz_t0_f0.1_N160_ma0.5_c0_uL2": 9.796461259410786e-05,
+   "hiemenz_t0_f0.1_N160_ma0.5_c0_pL2i": 5.402378063356182e-05,
+   "hiemenz_t0_f0.1_N160_ma0.5_c0_eFv": 0.0007629043735900309,
+   "hiemenz_t0_f0.1_N160_ma0_c0_uL2": 9.21833703452728e-05,
+   "hiemenz_t0_f0.1_N160_ma0_c0_pL2i": 5.0222561545494886e-05,
+   "hiemenz_t0_f0.1_N160_ma0_c0_eFv": 0.0006247788852663584,
+   "homann_t0_f0.5_N20_ma0.5_c1_uL2": 0.012980476196084108,
+   "homann_t0_f0.5_N20_ma0.5_c1_pL2i": 0.004462873642034711,
+   "homann_t0_f0.5_N20_ma0.5_c1_eFv": 0.04281790194639018,
+   "homann_t0_f0.5_N40_ma0.5_c1_uL2": 0.0027509483363896566,
+   "homann_t0_f0.5_N40_ma0.5_c1_pL2i": 0.0008639751545186403,
+   "homann_t0_f0.5_N40_ma0.5_c1_eFv": 0.01228050999603703,
+   "homann_t0_f0.5_N80_ma0.5_c1_uL2": 0.0005674921912193347,
+   "homann_t0_f0.5_N80_ma0.5_c1_pL2i": 0.00020861136474150787,
+   "homann_t0_f0.5_N80_ma0.5_c1_eFv": 0.0035015754741404216,
+   "homann_t1-3_f0.5_N20_ma0.5_c1_uL2": 0.013995813060128048,
+   "homann_t1-3_f0.5_N20_ma0.5_c1_pL2i": 0.003984119739348009,
+   "homann_t1-3_f0.5_N20_ma0.5_c1_eFv": 0.04807646749435124,
+   "homann_t1-3_f0.5_N40_ma0.5_c1_uL2": 0.0028058312696822843,
+   "homann_t1-3_f0.5_N40_ma0.5_c1_pL2i": 0.0008405539370274723,
+   "homann_t1-3_f0.5_N40_ma0.5_c1_eFv": 0.011768828920493586,
+   "homann_t1-3_f0.5_N80_ma0.5_c1_uL2": 0.0005658707644373778,
+   "homann_t1-3_f0.5_N80_ma0.5_c1_pL2i": 0.00020882879406578168,
+   "homann_t1-3_f0.5_N80_ma0.5_c1_eFv": 0.0037616612035583385
   }
  },
  "figures": []
