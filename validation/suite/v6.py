@@ -393,7 +393,7 @@ def evaluate(res, out, jobs):
             n["e_eq"], e_ref, 0.01)
     # R4: sign and value of f at eps/eps* 0.1
     for d in (0.6, 0.8):
-        for r in sel("rigid", d, 2.0, fin):
+        for r in [r for r in sel("rigid", d, 2.0, fin) if abs(r["epsr"] - 0.1) < 1e-9]:   # not R3's secant
             fr = float(ref.f1("rigid", d, r["e"]))
             res.ge("R4 d %g eps/eps* 0.1, d/h %d: sign of f/Re as the fit (%+.4f)" % (d, fin, fr),
                    float(np.sign(r["fRe"])*np.sign(fr)), 1.0, "f/Re %+.5f" % r["fRe"])
