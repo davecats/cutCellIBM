@@ -721,6 +721,11 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   summed Fx equals gradient × fluid volume before and after); the spanwise moment of the
   symmetric free-slip cylinder −3.4e-16 -> −3.9e-10 (1e-8 of its scale, solver tolerance); 11
   out-of-plane round-off values (≤ 1e-18) from 361c23c. G1–G6, G8, G9 bit-identical.
+- **G7, G9, V2, V5, V12, V13 re-accepted from 8c6cc10** (2026-11-19, user decision; dc26911):
+  ibmConvection upwind implicit on the corrected faces (finding 19, merged 34f4e3d). Every
+  accuracy check passes; the regression shifts come from the convective diagonal in Rhie–Chow
+  (rAU = α_U/A steady, 1/A transient) and fall about tenfold per refinement (finding 19 lists
+  them). G1–G6, G8, V1, V3, V4, V7, V15 pass against their baselines.
 - **G8**: cylinder drag (the lift is zero by symmetry, solver noise) and the channel driving
   gradient u_τ², each run required stationary (the gradient changes ≤ 1e-10 over the last 100
   iterations): `residualControl` cannot trigger in this 1-D problem (the Uy and p residuals are
@@ -1030,8 +1035,9 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    regression, by shifts that fall about tenfold per refinement (V2 free slip 4.5e-5 at N 41 to
    6.5e-8 at N 321; V5 Re 100 C_L 6.6e-4, 3e-5 at D/h 40, 80, Re 20 C_D 4e-6 to 3e-9 at D/h 160;
    V12 α 2 C_D −6.7e-3, −2.8e-4, −2.2e-5 at D/h 40, 80, 160, worst metric the near-zero α 2
-   C_L rms at D/h 40, −10 %; V13 c_d −5.3e-4, −4.3e-5, 1.4e-5). Merged 34f4e3d (user,
-   2026-11-19); re-acceptance of the six baselines and the V6 R2conv Re 128 reruns with the user.
+   C_L rms at D/h 40, −10 %; V13 c_d −5.3e-4, −4.3e-5, 1.4e-5). Merged 34f4e3d and the six
+   baselines re-accepted from 8c6cc10 (dc26911, user, 2026-11-19, §12 amendments); open: the V6
+   R2conv Re 128 reruns with the fixed code.
 20. **V10 SPH: the digitised J&P references, not the solver** (2026-11-18, 2190505,
    `~/runs/suite/2190505/V10.1`, report §V10). Against J&P's figure values four checks failed at
    the finest mesh: C_D Re 150 −1.7 %, Re 200 −2.2 %, x_s Re 200 −0.033 D, St Re 300 −2.3 %. All
