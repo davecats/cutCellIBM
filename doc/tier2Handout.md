@@ -122,18 +122,24 @@ Next:
   from arXiv:1708.01114). Cases R1–R4, S1, S2 ran on HoreKa (9 single-node jobs `v6_job1..9.sh`,
   driver `v6_hk.py` = `~/runs/v6/scripts/v6_hk.py`, root `<ws>/suite/2190505/V6/cases`), all done
   on 2026-11-18 except R2conv Re 128 at d/h 32 and 48: ibmConvection diverged there (finding 19).
-  Do not run `suite.py run V6 --reuse` before those two have result.json files: it would start
-  them locally with the old code. Order: tier 1 of the fix (HoreKa job 5246487, key 8c6cc10,
-  results `<ws>/convup/validation/suite/results/8c6cc10`, runs `<ws>/suite/8c6cc10`), merge of
-  `convection_upwind` and re-acceptance of G7, G9 with the user, the two R2conv runs with the fixed
-  code on HoreKa, then copy `cases/` (result.json files and logs, no processor*) into
-  `~/runs/suite/2190505/V6/cases`, evaluate, write the V6 report section (figure `flow3d.v6`).
+  After the merge of the fix (user, 2026-11-19) the whole Re 128 triplet (d/h 32, 48, 64 at
+  eps/eps* 0.4) and the mergeAlpha 0 point at d/h 48 rerun with 8c6cc10 (user decisions): HoreKa job
+  `v6_fix.sh` / `v6_fix.py` (job 5250315), clone `<ws>/convup`, root `<ws>/suite/8c6cc10/V6`
+  (d = 0.4 meshes identical to the 2190505 ones). Then move the old copies of these four points
+  (and their `_pipe` runs) aside in `<ws>/suite/2190505/V6/cases` (mv, never rm), copy the new ones
+  in, copy `cases/` (result.json files and logs, no processor*) into `~/runs/suite/2190505/V6/cases`,
+  run `suite.py run V6 --reuse ~/runs/suite/2190505/V6` (only post-processing: every point has its
+  result.json), write the V6 report section (figure `flow3d.v6`, the code versions of the points
+  stated) and ask about the V6 baseline. Do not run V6 --reuse earlier: it would start missing
+  points locally.
 - ibmConvection fix (finding 19 in the branch's `doc/validationSuite.md`): branch
   `convection_upwind`, worktree `openFoam.ibm.docs/convup` (code 8c6cc10, docs to fe86bec), HoreKa
   clone `<ws>/convup` (build `build_convup.sh`, tier 1 `tier1_convup.sh`). Implicit upwind on the
   corrected faces, the value-point face value as the explicit correction phiC (e − v_U), −Sp(div
   phiC) for a bounded scheme. Gates: G7 and G9 fail only their regression (Rhie–Chow rAU = α_U/A
-  shift, ∝ α_U). The α_U dependence of steady solutions (also in the old code, 1.6–2.6 % max|U| at
+  shift, ∝ α_U). Tier 1 on HoreKa: G7, G9, V2, V5, V12, V13 fail only their regression (shifts
+  falling tenfold per refinement), the rest PASS; merged 34f4e3d and the six baselines re-accepted
+  from 8c6cc10 (dc26911, user, 2026-11-19). The α_U dependence of steady solutions (also in the old code, 1.6–2.6 % max|U| at
   G9 N 20) stays a documented property for now (user, 2026-11-17); remedy if wanted later:
   relaxation-independent Rhie–Chow.
 - V10 done (2026-11-18, finding 20): the missing Re 150 D/h 64 ran on HoreKa (job 5246721, 17 min);
