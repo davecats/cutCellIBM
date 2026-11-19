@@ -936,6 +936,42 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    (D/h 15.6), −0.17 % (23.4); 2-D slice −0.56 / −0.81, −0.055 / −0.091, −0.002 / −0.006 % at
    D/h 15.6, 31.2, 62.4: the same in 2-D and 3-D, order ≥ 3 in h, both solvers share the limit.
    Δt from |u| = 3.75; c_D,max and c_L,min judged at D/h 46.8 (user).
+18. **V14 3D-3Z at D/h 46.8** (2026-11-17, 2190505, 8.5 M cells, 304 ranks on HoreKa, job
+   5242766, 18.6 h; runs `~/runs/suite/2190505/V14.2`; the partial draco fallback moved to
+   `3z_n48_dt1/draco_partial_aside`). c_D,max 3.4454, 3.3729, 3.3108 at D/h 15.6, 23.4, 46.8
+   (+0.40 % against 3.2978, order 1.30); c_L,min −0.0062, −0.0162, −0.0127 against −0.0110
+   (+15.6 % at 46.8; D/h 15.6 has the wrong shape: c_L > 0 until t ≈ 3.4); the C_L(t) curve at
+   46.8 has the reference shape and the minimum at t ≈ 3.9 (reference 3.895), L2 difference of
+   c_L(t) 1.43, 0.54, 0.147 and of c_D(t) 0.041, 0.020, 0.0040. Decision (user, 2026-11-17):
+   c_L,min judged on the extrapolation (formal order 2, as the 3D-1Z lift: observed 1.95):
+   −0.01155 (+5.0 %; order 1.5 / 2.5: −0.01080 / −0.01196), the finest mesh reported. V14 PASS;
+   baseline accepted from 2190505 (user, 2026-11-17).
+16. **Cost of the immersed wall against body-fitted runs** (2026-11-16, `timing.py`, report
+   §Cost). Host and load dominate the stored times: the same work took 4.5–6.5× longer in the
+   tier-1 run on eridanus than on io2/hydra (V4 vs V2). Same mesh and solver (G9): 0.8–1.5× per
+   iteration, 11–25 % fewer SIMPLE iterations, 0.7–1.3× in total; V15 same grid 1.04× per
+   iteration (2026-11-11: 3.9×, then 1.34× with the cached gradient); V7 (100 cells) 1.45×.
+   Same host (cetus, v2412, continued from the final states): V12 α = 1 immersed D/h 80 21–22 µs
+   per cell and step against body-fitted M 64 38 µs (829 against 1838 pressure iterations: the
+   stretched O-grid), V5 2D-2 1.0×. Equal accuracy is what differs: steady cylinders (V2, V4)
+   2–2.5× the CPU time of the O-grid; V12 mean C_L −1.20 % (α = 1, D/h 80, 27 core-h) and
+   −0.30 % (α = 2, D/h 160, 286 core-h) against −0.04 % and −0.007 % of body-fitted M 64
+   (35, 38 core-h). The steady immersed cases G9, V2, V4 use PCG/DIC, whose iterations double
+   with N (V2: 21 … 208 per step), where V15 with a GAMG base needs 2: a case setting. Decision (user, 2026-11-16): the GAMG
+   base stays as it is (V5, V13, V15), G9/V2/V4 and their baselines are not changed; the
+   immersed cost is to come down with AMR (degrees of freedom only where needed).
+
+17. **V11 BUB: the zero-shear free slip gives the clean-bubble drag in 3-D** (2026-11-17, 2190505,
+   `~/runs/suite/2190505/V11.1`, report §V11). C_D at D/h 24, 32, 48: Re 50 0.6825, 0.6774,
+   0.6748; Re 100 0.3978, 0.3858, 0.3782; Re 200 0.2403, 0.2229, 0.2102; Re 300 0.1841, 0.1645,
+   0.1498; orders 3.1, 2.4, 1.9, 1.9; extrapolated +1.5, +1.2, −0.2, −1.0 % from Blanco &
+   Magnaudet (PASS, user decision above). Max tangential stress (μU/a) at D/h 48: 0.095, 0.21,
+   0.43, 0.64, order 0.9–1.5; surface vorticity/(2u_θ/a) at the equator 0.95 … 0.80; no reversed
+   flow on the axis. Lateral 15 D −0.02 % (Re 50), ibmConvection off −0.07 %, zeroShear off
+   C_D 0.216 (−44 %, vorticity ratio 0.41: the former free slip). mergeAlpha 0 (unlinked,
+   alphaMin 0.02, 264 slivers absorbed) cycles with period 2 between 0.3787 and 0.3868 (mean
+   −0.8 %) through 20000 iterations: finding 13 in 3-D, reported, not judged. Baseline accepted from
+   2190505 (user, 2026-11-17).
 19. **ibmConvection diverged in steady SIMPLE at high wall cut-cell Péclet numbers: implicit
    part now upwind on the corrected faces** (2026-11-17, branch `convection_upwind`; runs and the
    stability model in `~/runs/v6/re128div`, `model/stab.py`). V6 MIG R2conv at Re 128, d 0.4,
@@ -988,44 +1024,14 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    start is 3e-7 noise of the moving geometry (the same at dt/2 and with 30 correctors; at Re 1
    the viscous diagonal outweighs 1/dt, so dt does not test the mechanism). Re 128, d/h 32 now
    converges in 590 iterations. Gates on 8c6cc10 (eridanus): G1–G6, G8 PASS; G7 and G9 FAIL
-   only their regression against the baselines, by these shifts; tier 1 on HoreKa pending
-   (job 5246487); merge, re-acceptance of G7/G9 and the V6 R2conv Re 128 reruns with the user.
-18. **V14 3D-3Z at D/h 46.8** (2026-11-17, 2190505, 8.5 M cells, 304 ranks on HoreKa, job
-   5242766, 18.6 h; runs `~/runs/suite/2190505/V14.2`; the partial draco fallback moved to
-   `3z_n48_dt1/draco_partial_aside`). c_D,max 3.4454, 3.3729, 3.3108 at D/h 15.6, 23.4, 46.8
-   (+0.40 % against 3.2978, order 1.30); c_L,min −0.0062, −0.0162, −0.0127 against −0.0110
-   (+15.6 % at 46.8; D/h 15.6 has the wrong shape: c_L > 0 until t ≈ 3.4); the C_L(t) curve at
-   46.8 has the reference shape and the minimum at t ≈ 3.9 (reference 3.895), L2 difference of
-   c_L(t) 1.43, 0.54, 0.147 and of c_D(t) 0.041, 0.020, 0.0040. Decision (user, 2026-11-17):
-   c_L,min judged on the extrapolation (formal order 2, as the 3D-1Z lift: observed 1.95):
-   −0.01155 (+5.0 %; order 1.5 / 2.5: −0.01080 / −0.01196), the finest mesh reported. V14 PASS;
-   baseline accepted from 2190505 (user, 2026-11-17).
-16. **Cost of the immersed wall against body-fitted runs** (2026-11-16, `timing.py`, report
-   §Cost). Host and load dominate the stored times: the same work took 4.5–6.5× longer in the
-   tier-1 run on eridanus than on io2/hydra (V4 vs V2). Same mesh and solver (G9): 0.8–1.5× per
-   iteration, 11–25 % fewer SIMPLE iterations, 0.7–1.3× in total; V15 same grid 1.04× per
-   iteration (2026-11-11: 3.9×, then 1.34× with the cached gradient); V7 (100 cells) 1.45×.
-   Same host (cetus, v2412, continued from the final states): V12 α = 1 immersed D/h 80 21–22 µs
-   per cell and step against body-fitted M 64 38 µs (829 against 1838 pressure iterations: the
-   stretched O-grid), V5 2D-2 1.0×. Equal accuracy is what differs: steady cylinders (V2, V4)
-   2–2.5× the CPU time of the O-grid; V12 mean C_L −1.20 % (α = 1, D/h 80, 27 core-h) and
-   −0.30 % (α = 2, D/h 160, 286 core-h) against −0.04 % and −0.007 % of body-fitted M 64
-   (35, 38 core-h). The steady immersed cases G9, V2, V4 use PCG/DIC, whose iterations double
-   with N (V2: 21 … 208 per step), where V15 with a GAMG base needs 2: a case setting. Decision (user, 2026-11-16): the GAMG
-   base stays as it is (V5, V13, V15), G9/V2/V4 and their baselines are not changed; the
-   immersed cost is to come down with AMR (degrees of freedom only where needed).
-
-17. **V11 BUB: the zero-shear free slip gives the clean-bubble drag in 3-D** (2026-11-17, 2190505,
-   `~/runs/suite/2190505/V11.1`, report §V11). C_D at D/h 24, 32, 48: Re 50 0.6825, 0.6774,
-   0.6748; Re 100 0.3978, 0.3858, 0.3782; Re 200 0.2403, 0.2229, 0.2102; Re 300 0.1841, 0.1645,
-   0.1498; orders 3.1, 2.4, 1.9, 1.9; extrapolated +1.5, +1.2, −0.2, −1.0 % from Blanco &
-   Magnaudet (PASS, user decision above). Max tangential stress (μU/a) at D/h 48: 0.095, 0.21,
-   0.43, 0.64, order 0.9–1.5; surface vorticity/(2u_θ/a) at the equator 0.95 … 0.80; no reversed
-   flow on the axis. Lateral 15 D −0.02 % (Re 50), ibmConvection off −0.07 %, zeroShear off
-   C_D 0.216 (−44 %, vorticity ratio 0.41: the former free slip). mergeAlpha 0 (unlinked,
-   alphaMin 0.02, 264 slivers absorbed) cycles with period 2 between 0.3787 and 0.3868 (mean
-   −0.8 %) through 20000 iterations: finding 13 in 3-D, reported, not judged. Baseline accepted from
-   2190505 (user, 2026-11-17).
+   only their regression against the baselines, by these shifts. Tier 1 on HoreKa (jobs
+   5246487, 5247961, 5249471, 2026-11-18/19; runs `<ws>/suite/8c6cc10`): G1–G6, G8, V1, V3, V4,
+   V7, V15 PASS; G7, G9, V2, V5, V12, V13 pass every accuracy check and FAIL only their
+   regression, by shifts that fall about tenfold per refinement (V2 free slip 4.5e-5 at N 41 to
+   6.5e-8 at N 321; V5 Re 100 C_L 6.6e-4, 3e-5 at D/h 40, 80, Re 20 C_D 4e-6 to 3e-9 at D/h 160;
+   V12 α 2 C_D −6.7e-3, −2.8e-4, −2.2e-5 at D/h 40, 80, 160, worst metric the near-zero α 2
+   C_L rms at D/h 40, −10 %; V13 c_d −5.3e-4, −4.3e-5, 1.4e-5). Merged 34f4e3d (user,
+   2026-11-19); re-acceptance of the six baselines and the V6 R2conv Re 128 reruns with the user.
 20. **V10 SPH: the digitised J&P references, not the solver** (2026-11-18, 2190505,
    `~/runs/suite/2190505/V10.1`, report §V10). Against J&P's figure values four checks failed at
    the finest mesh: C_D Re 150 −1.7 %, Re 200 −2.2 %, x_s Re 200 −0.033 D, St Re 300 −2.3 %. All
