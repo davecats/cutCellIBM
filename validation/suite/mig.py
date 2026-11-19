@@ -204,6 +204,11 @@ class Point:
         f = d / "result.json"
         if f.exists():
             r = json.loads(f.read_text())
+            # a cached solve is found by its index only: it must be the state asked for (a replay
+            # along another path, e.g. a chain point run alone, would pair solves and states wrongly)
+            if abs(r["V"] - V) > 1e-9*max(1.0, abs(V)) or abs(r["Om"] - Om) > 1e-9*max(1.0, abs(Om)):
+                raise RuntimeError("%s: cached V, Omega %r, %r but %r, %r asked for"
+                                   % (d, r["V"], r["Om"], V, Om))
         else:
             ref = self.empty()
             d.mkdir(parents=True, exist_ok=True)
