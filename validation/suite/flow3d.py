@@ -227,7 +227,7 @@ def v14(out, r):
 
 def v6_case(r, dh=None, epsr=0.4):
     """the last (balanced) solve of the rigid d 0.4, Re 2 point at eps/eps* epsr on the finest mesh"""
-    pts = [p for p in r.get("points", []) if p["interface"] == "rigid" and p["d"] == 0.4 and p["Re"] == 2.0
+    pts = [p for p in r["data"]["points"] if p["interface"] == "rigid" and p["d"] == 0.4 and p["Re"] == 2.0
            and not p["tag"] and abs(p["epsr"] - epsr) < 1e-6]
     p = max(pts, key=lambda p: p["dh"]) if dh is None else [p for p in pts if p["dh"] == dh][0]
     d = Path(r["cases"]) / "cases" / p["name"]

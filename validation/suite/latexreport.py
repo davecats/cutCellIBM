@@ -8,6 +8,7 @@ note). The narrative (results/<commit>/report/report.tex) includes them.
 Diagnostic runs outside the suite (V5 time step / outer correctors, V12 outer correctors) are
 read from ~/runs/suite/diag_V5 and diag_V12 when present."""
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -81,13 +82,14 @@ def series(ax, i, x, y, label, ls="-", **kw):
 
 # ---------------------------------------------------------------------------------------- tables
 
+TEX = {"\\": r"\textbackslash{}", "&": r"\&", "%": r"\%", "#": r"\#", "_": r"\_", "^": r"\^{}", "~": r"\~{}",
+       "{": r"\{", "}": r"\}", "|": r"\textbar{}", "<=": r"$\le$", ">=": r"$\ge$", "±": r"$\pm$", "<": r"$<$",
+       ">": r"$>$"}
+
+
 def tex(s):
-    s = str(s)
-    for a, b in (("\\", r"\textbackslash{}"), ("&", r"\&"), ("%", r"\%"), ("#", r"\#"), ("_", r"\_"),
-                 ("^", r"\^{}"), ("~", r"\~{}"), ("{", r"\{"), ("}", r"\}"), ("|", r"\textbar{}"),
-                 ("<=", r"$\le$"), (">=", r"$\ge$"), ("±", r"$\pm$"), ("<", r"$<$"), (">", r"$>$")):
-        s = s.replace(a, b)
-    return s
+    # one pass: a replacement must not be escaped again (the braces of \^{} were)
+    return re.sub(r"<=|>=|[\\&%#_^~{}|±<>]", lambda m: TEX[m.group()], str(s))
 
 
 def brk(s):
@@ -741,7 +743,7 @@ def main():
     flowfield.figures(out, R)
     cost(out, R, commit, other)
     T2 = {}
-    for k, fn in (("V10", v10), ("V11", v11), ("V14", None)):   # tier-2 cases from the commit given as ID=commit
+    for k, fn in (("V6", None), ("V10", v10), ("V11", v11), ("V14", None)):   # tier-2 cases from the commit given as ID=commit
         f = common.SUITE / "results" / other.get(k, commit) / ("%s.json" % k)
         if f.exists():
             r = T2[k] = json.loads(f.read_text())
