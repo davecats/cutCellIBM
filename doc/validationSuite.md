@@ -287,7 +287,7 @@ Not involved: turbulence, wall functions, moving geometry, scalars.
   solves. R1 (d/h 64) f/Re within 0.0034 of figure 9 up to eps/eps* 0.75, V, Ω, β within 0.2, 0.7,
   1 % of figure 4 up to 0.9; f/Re order 1.85 (0.4), 2.04 (0.9), 2.53 (Re 128, 0.4); R2 within 0.003
   up to 0.75; R3 ε_eq within 0.001, S2 within 0.004; R4 signs as the fit; S1 f/Re within 0.0036 up
-  to 0.75, V within 0.5 %. f/Re at eps/eps* 0.9 is REPORT (finding 21). Baseline: open (user).
+  to 0.75, V within 0.5 %. f/Re at eps/eps* 0.9 is REPORT (finding 21). Baseline accepted from 8c6cc10 (user, 2026-11-20).
 
 ### Cases
 
@@ -732,6 +732,10 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   accuracy check passes; the regression shifts come from the convective diagonal in Rhie–Chow
   (rAU = α_U/A steady, 1/A transient) and fall about tenfold per refinement (finding 19 lists
   them). G1–G6, G8, V1, V3, V4, V7, V15 pass against their baselines.
+- **V6 accepted from 8c6cc10** (2026-11-20, user decision): PASS, f/Re at eps/eps* 0.9 REPORT
+  (finding 21). Mixed code versions: the points from 2190505, the Re 128 triplet (d/h 32, 48, 64,
+  eps/eps* 0.4) and its mergeAlpha 0 point from 8c6cc10 (the fix moved f/Re there by ~1e-5
+  relative); runs `~/runs/suite/2190505/V6`.
 - **G8**: cylinder drag (the lift is zero by symmetry, solver noise) and the channel driving
   gradient u_τ², each run required stationary (the gradient changes ≤ 1e-10 over the last 100
   iterations): `residualControl` cannot trigger in this 1-D problem (the Uy and p residuals are

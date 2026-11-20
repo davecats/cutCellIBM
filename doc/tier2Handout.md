@@ -124,7 +124,7 @@ Next:
   the same f/Re as L = 3 (HoreKa job 5253243, results `~/runs/suite/8c6cc10_horeka/V6_L4`), so f/Re
   at 0.9 is REPORT (user, e9746a3). `suite.py run V6 --reuse ~/runs/suite/2190505/V6` evaluates PASS
   (key 8c6cc10, post-processing only: every point has its result.json; full fields only for the
-  figure case). Report §V6 written. **Open: the V6 baseline (ask the user).** MIG cache check:
+  figure case). Report §V6 written; baseline accepted from 8c6cc10 (user, 2026-11-20). MIG cache check:
   a cached solve must be the (V, Ω) asked for (d85fb9c).
 - ibmConvection fix (finding 19 in the branch's `doc/validationSuite.md`): branch
   `convection_upwind`, worktree `openFoam.ibm.docs/convup` (code 8c6cc10, docs to fe86bec), HoreKa
