@@ -166,7 +166,10 @@ fraction, tilt, wall function), V15 complete (cut-fraction sweep, wall function)
   consolidated report (`validation/suite/results/<key>/report/report.tex`, hand-written sections
   and the summary of findings, decisions, open items and next; rebuild the PDF and copy it to
   `doc/validationReport.pdf`, linked from the README with its status line) and
-  `doc/validationSuite.md` (user, 2026-11-14).
+  `doc/validationSuite.md` (user, 2026-11-14). Always, every session (user, 2026-11-20): the
+  overview at the beginning of the report (summary table and component matrix, every gate and
+  case of tiers 1 and 2 with the commit of its run and its baseline, `latexreport.py`) and the
+  chapter "Cost: immersed vs body-fitted" (pairs and tier-2 run cost, `timing.py`).
 - Machines istmio2, istmhydra, istmeridanus, istmcetus (shared, keep load moderate), istmdraco;
   shared NFS. One build per worktree (`~/Codes/tools/buildtree_of.sh <tree> v2412`); never rebuild a
   tree whose binaries a running job uses; remote jobs detached (`ssh host 'cd ... || exit 1;

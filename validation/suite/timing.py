@@ -232,6 +232,52 @@ def write_tex(tables, commit, other=None):
     (tables / "timings_bench.tex").write_text("\n".join(L) + "\n")
 
 
+def host_group(h):
+    return "HoreKa 2" if h.startswith("hk2n") else "HoreKa" if h.startswith("hkn") else h
+
+
+def tier2(commit, other=None):
+    """run cost of the tier-2 cases, which have no body-fitted counterpart in the suite: every solver
+    run (directory with a solver log) under the case directory of the result JSON"""
+    other = other or {}
+    out = []
+    for k in ["V%d" % i for i in range(1, 17)]:
+        f = common.SUITE / "results" / other.get(k, commit) / ("%s.json" % k)
+        if not f.exists():
+            continue
+        res = json.loads(f.read_text())
+        if str(res.get("TIER")) != "2":
+            continue
+        root = Path(res["cases"]).expanduser()
+        dirs = sorted({p.parent for p in root.rglob("log.*Foam*")
+                       if re.fullmatch(r"log\.(ibm)?(simple|pimple)Foam(\.\d+)?", p.name, re.I)})
+        recs = [r for r in map(parse, dirs) if r]
+        if not recs:
+            continue
+        out.append(dict(id=k, title=res["TITLE"], root=str(root), runs=len(recs),
+                        coreh=sum(r["exec"]*r["ranks"] for r in recs)/3600,
+                        hosts=sorted({host_group(r["host"]) for r in recs}),
+                        ranks=(min(r["ranks"] for r in recs), max(r["ranks"] for r in recs)),
+                        cells=max(r["fluid"] or 0 for r in recs), steps=sum(r["steps"] for r in recs)))
+    return out
+
+
+def write_tier2(tables, commit, other=None):
+    """tables/timings_tier2.tex: run cost of the tier-2 cases"""
+    T = tier2(commit, other)
+    L = [r"\begin{tabular}{@{}l r r r r l@{}}", r"\toprule",
+         r"case & runs & largest mesh [fluid cells] & ranks & CPU [core-h] & hosts\\", r"\midrule"]
+    for t in T:
+        L.append(r"%s & %d & %s & %s & %s & %s\\" % (
+            t["id"], t["runs"], fmt_n(t["cells"]), "%d--%d" % t["ranks"] if t["ranks"][0] != t["ranks"][1] else t["ranks"][0],
+            fmt_n(round(t["coreh"])), ", ".join(t["hosts"])))
+    if T:
+        L += [r"\midrule", r"total & %d & & & %s &\\" % (sum(t["runs"] for t in T), fmt_n(round(sum(t["coreh"] for t in T))))]
+    L += [r"\bottomrule", r"\end{tabular}"]
+    (tables / "timings_tier2.tex").write_text("\n".join(L) + "\n")
+    return T
+
+
 def show(r, k=""):
     print("  %-3s %-34s %-14s %-9s %-6s %-8s %3d ranks %9s cells %7d steps %10.1f s CPU %7.3g us %7.1f p-it"
           % (k, r["name"], r["app"], r["p"], r["version"], r["host"], r["ranks"], r["fluid"], r["steps"], r["exec"],

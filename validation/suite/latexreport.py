@@ -3,7 +3,8 @@ results/<commit>/figures/<ID>_<what>.{pdf,png} from the result JSONs and the cas
 they name (flow pictures of the 2-D cases: flowfield.py), results/<commit>/tables/<ID>.tex (every check: status, value, reference, tolerance,
 note). The narrative (results/<commit>/report/report.tex) includes them.
 
-    latexreport.py <commit> [ID=commit ...]   (ID=commit: the timing pairs of that case from another commit's runs)
+    latexreport.py <commit> [ID=commit ...] [status=c]   (ID=commit: that case from another commit's runs;
+    status=c: the newest full run; the overview takes the newest of each gate and case)
 
 Diagnostic runs outside the suite (V5 time step / outer correctors, V12 outer correctors) are
 read from ~/runs/suite/diag_V5 and diag_V12 when present."""
@@ -126,21 +127,52 @@ def table(out, r, name=None, keep=lambda c: True, notes=True):
     (out.d / "tables" / ("%s.tex" % (name or r["id"]))).write_text("\n".join(L) + "\n")
 
 
+def current(commit, other, status):
+    """the newest run of every gate and case (tiers 1 and 2) among the report commit, its ID=commit
+    overrides and the status commit: what the overview shows"""
+    ids = ["G%d" % i for i in range(1, 10)] + ["V%d" % i for i in range(1, 17)]
+    res = []
+    for k in ids:
+        cand = [common.SUITE / "results" / c / ("%s.json" % k) for c in {commit, other.get(k, commit), status or commit}]
+        cand = [json.loads(f.read_text()) for f in cand if f.exists()]
+        if cand:
+            res.append(max(cand, key=lambda r: r["started"]))
+    # gates, then tier 1, then tier 2
+    return sorted(res, key=lambda r: (r["id"][0] == "V", str(r["TIER"]), int(r["id"][1:])))
+
+
 def summary_table(out, res):
-    """status of the checks against exact and reference data, and separately the change against the
-    stored baseline (a FAIL there is a change, intended or not, not a wrong result)"""
-    L = [r"\begin{tabular}{@{}l p{0.36\textwidth} c c r r r r@{}}", r"\toprule",
-         r"id & title & checks & vs.\ baseline & PASS & FAIL & REPORT & time [s]\\", r"\midrule"]
+    """overview: the checks against exact and reference data of the newest run of every gate and case,
+    and separately its baseline (baseline/<ID>.json): accepted from this run, or the change against it
+    (a FAIL there is a change, intended or not, not a wrong result)"""
+    L = [r"\begin{tabular}{@{}l l >{\raggedright\arraybackslash}p{0.33\textwidth} l c r r r >{\raggedright\arraybackslash}p{0.15\textwidth}@{}}", r"\toprule",
+         r"& id & title & run & checks & P & F & R & baseline\\", r"\midrule"]
+    group = None
     for r in res:
-        cs = [c for c in r["checks"] if c["name"] != "baseline"]
+        g = "gates" if r["id"].startswith("G") else "tier %s" % r["TIER"]
+        if group and g != group:
+            L.append(r"\midrule")
+        lab = g if g != group else ""
+        group = g
+        cs = [c for c in r["checks"] if c["name"] != "baseline" and not report.is_regression(c)]
         n = {s: sum(c["status"] == s for c in cs) for s in STATUS}
         st = "\\st" + report.reference_status(r).lower()
-        reg = [c for c in cs if report.is_regression(c)]
-        rst = ("\\st" + report.baseline_status(r).lower()) if reg else "--"
-        base = sorted({m for c in reg for m in __import__("re").findall(r"baseline (\w+)", c["name"] + " " + str(c.get("note") or ""))})
-        L.append(r"\hyperref[sec:%s]{%s} & %s & %s & %s & %d & %d & %d & %.0f\\" % (
-            r["id"], r["id"], tex(r["TITLE"]), st, rst + (r" {\scriptsize %s}" % ", ".join(base) if base else ""),
-            n["PASS"], n["FAIL"], n["REPORT"], r["seconds"]))
+        f = common.SUITE / "baseline" / ("%s.json" % r["id"])
+        b = json.loads(f.read_text()).get("commit") if f.exists() else None
+        if b is None:
+            base = "none"
+        elif b == r["commit"]:
+            base = r"accepted from this run"
+        elif not any(report.is_regression(c) for c in r["checks"]):
+            base = r"\texttt{%s}, not compared" % b
+        else:
+            bs = report.baseline_status(r)   # against the baseline at evaluation time, which may since have changed
+            was = sorted({m for c in r["checks"] if report.is_regression(c)
+                          for m in re.findall(r"baseline (\w+)", c["name"] + " " + str(c.get("note") or ""))})
+            base = (r"\st%s vs.\ \texttt{%s}" % (bs.lower(), ", ".join(was) or "?") if bs else "")
+            base += (r" (now \texttt{%s})" % b) if was != [b] else ""
+        L.append(r"{\scriptsize\itshape %s} & \hyperref[sec:%s]{%s} & %s & \texttt{%s} & %s & %d & %d & %d & {\scriptsize %s}\\" % (
+            lab, r["id"], r["id"], tex(r["TITLE"]), r["commit"], st, n["PASS"], n["FAIL"], n["REPORT"], base))
     L += [r"\bottomrule", r"\end{tabular}"]
     (out.d / "tables" / "summary.tex").write_text("\n".join(L) + "\n")
 
@@ -669,6 +701,7 @@ def cost(out, R, commit, other):
     import timing
     import reference_rotatingCylinder as rot
     timing.write_tex(out.d / "tables", commit, other)
+    timing.write_tier2(out.d / "tables", commit, other)
     runs = common.RUNS
     v2c = other.get("V2", commit)
     v2 = json.loads((common.SUITE / "results" / v2c / "V2.json").read_text()) if v2c != commit else R.get("V2")
@@ -716,11 +749,14 @@ def cost(out, R, commit, other):
 def main():
     commit = sys.argv[1]
     other = dict(a.split("=") for a in sys.argv[2:] if "=" in a)   # ID=commit: that case's runs from another commit
+    status = other.pop("status", None)   # status=c: the newest full run, for the overview
     d = common.SUITE / "results" / commit
     out = Out(d)
     import report
     _, res = report.load(commit)
-    summary_table(out, res)
+    now = current(commit, other, status)
+    summary_table(out, now)
+    report.matrix(d, now)
     R = {r["id"]: r for r in res}
     for r in res:
         if r["id"] == "G9":

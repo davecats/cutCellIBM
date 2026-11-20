@@ -84,6 +84,14 @@ def matrix(d, res):
                 ax.add_patch(Rectangle((j, i), 0.92, 0.92, color=COLOURS[reference_status(r)]))
             elif k in r.get("RELIES_K", []):
                 ax.add_patch(Rectangle((j, i), 0.92, 0.92, color="#e0e0e0"))
+    ax.grid(False)
+    groups = ["gates" if r["id"].startswith("G") else "tier %s" % r.get("TIER") for r in res]
+    for j in range(1, len(res)):   # separators between gates, tier 1 and tier 2
+        if groups[j] != groups[j - 1]:
+            ax.axvline(j - 0.04, color="#555555", lw=1.0)
+    for g in dict.fromkeys(groups):
+        js = [j for j, x in enumerate(groups) if x == g]
+        ax.text((js[0] + js[-1] + 0.92)/2, -0.25, g, ha="center", va="bottom", fontsize=8, color="#555555")
     ax.set_xlim(0, len(res))
     ax.set_ylim(len(COMPONENTS), 0)
     ax.set_xticks([j + 0.46 for j in range(len(res))])
@@ -94,7 +102,7 @@ def matrix(d, res):
     for s in ax.spines.values():
         s.set_visible(False)
     ax.set_title("components stressed, by the checks against exact and reference data\n"
-                 "(green PASS, red FAIL, grey REPORT; the change against the baseline not included)", fontsize=9)
+                 "(green PASS, red FAIL, grey REPORT; the change against the baseline not included)", fontsize=9, pad=16)
     fig.tight_layout()
     fig.savefig(d / "matrix.png", dpi=130)
     plt.close(fig)
