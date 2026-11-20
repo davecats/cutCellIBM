@@ -164,7 +164,8 @@ fraction, tilt, wall function), V15 complete (cut-fraction sweep, wall function)
 - Ask the user decisions one at a time, with context.
 - At the end of every session, update the validation documents if anything changed: the
   consolidated report (`validation/suite/results/<key>/report/report.tex`, hand-written sections
-  and the summary of findings, decisions, open items and next; rebuild the PDF) and
+  and the summary of findings, decisions, open items and next; rebuild the PDF and copy it to
+  `doc/validationReport.pdf`, linked from the README with its status line) and
   `doc/validationSuite.md` (user, 2026-11-14).
 - Machines istmio2, istmhydra, istmeridanus, istmcetus (shared, keep load moderate), istmdraco;
   shared NFS. One build per worktree (`~/Codes/tools/buildtree_of.sh <tree> v2412`); never rebuild a
