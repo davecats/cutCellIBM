@@ -186,7 +186,7 @@ Not involved: turbulence, wall functions, moving geometry, scalars.
 
 ### Setup
 
-- Mesh: Cartesian, x periodic (L = 3, checked with L = 2, 4 at the worst case Re = 128), half
+- Mesh: Cartesian, x periodic (L = 3; checked with L = 4 at Re = 2, ε/ε* = 0.9, finding 21), half
   domain z ≥ 0 with a symmetry plane through the sphere centre (as in the paper), mirror-symmetric
   in x about the sphere centre (so the creeping-flow lift vanishes discretely too). Base
   h = 1/32 (refined near the pipe wall if G1 asks for it), static refinement (refineMesh, hanging
@@ -1049,6 +1049,20 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    ibmConvection off +0.08 %, mergeAlpha 0 −0.22 % (D/h 32). With the tabulated references (above,
    user) V10 passes; baseline accepted from 2190505 (user, 2026-11-18). The Re 150 D/h 64 run was
    missing from the HoreKa chain and ran there on 2026-11-18 (304 ranks, 17 min).
+21. **V6 MIG: the paper's f/Re at ε/ε* = 0.9 is inconsistent with its own V, Ω, β** (2026-11-20,
+   points from 2190505, Re 128 triplet and chain from 8c6cc10, key 8c6cc10,
+   `~/runs/suite/2190505/V6`). Every V6 check passes except f/Re at ε/ε* = 0.9 (d/h 64): R1 rigid
+   Re 2 −0.5660 against figure 9 −0.5953 (tolerance ±0.0089 = 3 % of max f/Re); R2 Re 8 −0.5538
+   against −0.5832, Re 32 −0.4362 against −0.4555 (Re 128 −0.2352 against −0.2435 passes); S1
+   stress-free 0.3029 against the fit 0.3317. At the same points V, Ω and β agree with figure 4
+   (R1: V 1.0531 against 1.051, Ω 1.7675 against 1.7554, β 3.2805 against 3.2937), and the paper's
+   own fit (−0.536) and figure 9 (−0.5953) differ there by twice the tolerance; ours lies between.
+   f/Re falls at about −6 per unit ε/ε* there, so 0.005 in ε/ε* is 0.03. Our f/Re converges:
+   −0.55483, −0.56313, −0.56600 at d/h 32, 48, 64, order 2.04, extrapolated −0.5696. The period is
+   not the cause: L = 4 against L = 3 at Re 2, ε/ε* 0.9 (8c6cc10, HoreKa job 5253243) gives f/Re
+   −0.554838, −0.563150 at d/h 32, 48 (L = 3: −0.55483, −0.56313), V and Ω equal to 6 digits.
+   ibmConvection off and mergeAlpha 0 move f/Re by ∓0.0011 (d/h 48). Decision (user, 2026-11-20):
+   f/Re at ε/ε* = 0.9 is REPORT (R1, R2, S1); V, Ω, β there stay judged.
 
 ### Decisions (2026-11-07)
 

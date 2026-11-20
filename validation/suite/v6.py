@@ -339,12 +339,21 @@ def evaluate(res, out, jobs):
                                                  r["Re"] == Re and r["dh"] == dh and r["tag"] == tag],
                                                 key=lambda r: r["epsr"])
     fin = max(r["dh"] for r in pts)
+
+    def fRe(lab, r, fr, atol, note=""):
+        # at eps/eps* 0.9 the paper's f/Re (figure 9 and the fit) does not match its own V, Omega, beta
+        # (figure 4), which we match; L = 4 gives the same f/Re as L = 3 (finding 21, user 2026-11-20)
+        if r["epsr"] > 0.85:
+            res.report(lab, r["fRe"], fr, "%s%sREPORT at eps/eps* 0.9, finding 21 (judged: +-%.4f)"
+                       % (note, "; " if note else "", atol))
+        else:
+            res.absolute(lab, r["fRe"], fr, atol, note)
     # R1: f/Re against figure 9 (linear), V, Omega, beta against figure 4 (fit in the notes)
     for r in sel("rigid", 0.4, 2.0, fin):
         s = r["epsr"]
         lab = "R1 d 0.4 eps/eps* %.2f Re 2, d/h %d" % (s, fin)
         fl, ff = float(np.interp(s, s9, F9["lin"])), float(ref.f1("rigid", 0.4, r["e"]))
-        res.absolute(lab + ": f/Re (figure 9, linear)", r["fRe"], fl, 0.03*fmax("rigid", 0.4), "fit %.4f" % ff)
+        fRe(lab + ": f/Re (figure 9, linear)", r, fl, 0.03*fmax("rigid", 0.4), "fit %.4f" % ff)
         V4, b4, O4 = (float(np.interp(s, F4[:, 0], F4[:, i])) for i in (1, 2, 3))
         res.rel(lab + ": V (figure 4b)", r["V"], V4, 0.005, "fit %.5f" % float(ref.V0("rigid", 0.4, r["e"])))
         if s > 0:
@@ -382,8 +391,8 @@ def evaluate(res, out, jobs):
     # R2: f/Re against figure 9
     for Re in RES2:
         for r in sel("rigid", 0.4, Re, fin):
-            res.absolute("R2 d 0.4 Re %g eps/eps* %.2f, d/h %d: f/Re (figure 9)" % (Re, r["epsr"], fin), r["fRe"],
-                     float(np.interp(r["epsr"], s9, F9[Re])), 0.03*fmax("rigid", 0.4), "V %.5f" % r["V"])
+            fRe("R2 d 0.4 Re %g eps/eps* %.2f, d/h %d: f/Re (figure 9)" % (Re, r["epsr"], fin), r,
+                float(np.interp(r["epsr"], s9, F9[Re])), 0.03*fmax("rigid", 0.4), "V %.5f" % r["V"])
     # R3, S2: neutral positions
     for n in res.data["neutral"]:
         e_ref = n["e_ref"]
@@ -401,8 +410,7 @@ def evaluate(res, out, jobs):
     # S1: stress-free d 0.4 against the fit; beta reported
     for r in sel("stressFree", 0.4, 2.0, fin):
         lab = "S1 d 0.4 eps/eps* %.2f Re 2, d/h %d" % (r["epsr"], fin)
-        res.absolute(lab + ": f/Re (fit)", r["fRe"], float(ref.f1("stressFree", 0.4, r["e"])),
-                 0.03*fmax("stressFree", 0.4))
+        fRe(lab + ": f/Re (fit)", r, float(ref.f1("stressFree", 0.4, r["e"])), 0.03*fmax("stressFree", 0.4))
         res.rel(lab + ": V (fit)", r["V"], float(ref.V0("stressFree", 0.4, r["e"])), 0.005)
         res.report(lab + ": beta (fit, table 4)", r["beta"], float(ref.beta0("stressFree", 0.4, r["e"])),
                    "beta alpha_G %.2e" % r["beta_aG"])
