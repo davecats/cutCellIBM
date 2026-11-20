@@ -116,22 +116,16 @@ Next:
 - Finding 13 (unlinked free slip with alphaMin > 0: absorbed slivers block the slip flow).
 - V14 PASS (2026-11-17, finding 18: D/h 46.8 on HoreKa, c_L,min judged on the extrapolation, user decision; baseline accepted 2026-11-17).
 - V11 BUB done (2026-11-17, finding 17, PASS with C_D judged on the extrapolation, user decision; baseline accepted 2026-11-17); MIG-G2 stress-free sphere in V6.
-- V6 MIG (2026-11-17): driver `mig.py`, module `v6.py`; gates G1, G2 PASS (doc §8 "Gate results",
-  runs `~/runs/suite/2190505/V6`). β reference: the paper's "100 β0" columns hold β0 and the rigid
-  fit is ~1.23× below its own figure 4c; MIG-R1 judges β on figure 4c (`fig4_rigid_d0.4.dat`,
-  from arXiv:1708.01114). Cases R1–R4, S1, S2 ran on HoreKa (9 single-node jobs `v6_job1..9.sh`,
-  driver `v6_hk.py` = `~/runs/v6/scripts/v6_hk.py`, root `<ws>/suite/2190505/V6/cases`), all done
-  on 2026-11-18 except R2conv Re 128 at d/h 32 and 48: ibmConvection diverged there (finding 19).
-  After the merge of the fix (user, 2026-11-19) the whole Re 128 triplet (d/h 32, 48, 64 at
-  eps/eps* 0.4) and the mergeAlpha 0 point at d/h 48 rerun with 8c6cc10 (user decisions): HoreKa job
-  `v6_fix.sh` / `v6_fix.py` (job 5250315), clone `<ws>/convup`, root `<ws>/suite/8c6cc10/V6`
-  (d = 0.4 meshes identical to the 2190505 ones). Then move the old copies of these four points
-  (and their `_pipe` runs) aside in `<ws>/suite/2190505/V6/cases` (mv, never rm), copy the new ones
-  in, copy `cases/` (result.json files and logs, no processor*) into `~/runs/suite/2190505/V6/cases`,
-  run `suite.py run V6 --reuse ~/runs/suite/2190505/V6` (only post-processing: every point has its
-  result.json), write the V6 report section (figure `flow3d.v6`, the code versions of the points
-  stated) and ask about the V6 baseline. Do not run V6 --reuse earlier: it would start missing
-  points locally.
+- V6 MIG done (2026-11-20, finding 21): driver `mig.py`, module `v6.py`; gates G1, G2 PASS; cases
+  R1–R4, S1, S2 ran on HoreKa with 2190505 (9 single-node jobs, driver `~/runs/v6/scripts/v6_hk.py`),
+  the Re 128 triplet (d/h 32, 48, 64 at eps/eps* 0.4) and its mergeAlpha 0 point with 8c6cc10
+  (finding 19). β is judged on figure 4c (the paper's fit is ~1.23× below it). At eps/eps* 0.9 the
+  paper's f/Re (figure 9 and its fit) does not match its own V, Ω, β, which we match; L = 4 gives
+  the same f/Re as L = 3 (HoreKa job 5253243, results `~/runs/suite/8c6cc10_horeka/V6_L4`), so f/Re
+  at 0.9 is REPORT (user, e9746a3). `suite.py run V6 --reuse ~/runs/suite/2190505/V6` evaluates PASS
+  (key 8c6cc10, post-processing only: every point has its result.json; full fields only for the
+  figure case). Report §V6 written. **Open: the V6 baseline (ask the user).** MIG cache check:
+  a cached solve must be the (V, Ω) asked for (d85fb9c).
 - ibmConvection fix (finding 19 in the branch's `doc/validationSuite.md`): branch
   `convection_upwind`, worktree `openFoam.ibm.docs/convup` (code 8c6cc10, docs to fe86bec), HoreKa
   clone `<ws>/convup` (build `build_convup.sh`, tier 1 `tier1_convup.sh`). Implicit upwind on the
@@ -177,8 +171,9 @@ fraction, tilt, wall function), V15 complete (cut-fraction sweep, wall function)
   tree whose binaries a running job uses; remote jobs detached (`ssh host 'cd ... || exit 1;
   setsid nohup ... &'`, istmio2 rebooted once and killed an attached run). Stop runs by session or
   PID, never a machine-wide pkill.
-- Runs expected to take longer than 4 h go to the HPC system (HoreKa; legacy access until
-  2026-11-20 noon, ask the user what follows), not the workstations (user, 2026-11-17).
+- Runs expected to take longer than 4 h go to an HPC system, not the workstations (user,
+  2026-11-17). HoreKa access ended 2026-11-20 (results and logs copied to `~/runs/suite/8c6cc10_horeka`,
+  `~/runs/horeka_final`); ask the user which system to use.
 - Every case section of the report has a description of the flow case and a picture of the flow
   with the immersed wall (`flow3d.py` for the 3-D cases, `flowfield.py` for 2-D; user, 2026-11-17).
 

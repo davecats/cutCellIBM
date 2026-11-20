@@ -282,6 +282,12 @@ Not involved: turbulence, wall functions, moving geometry, scalars.
   meshes (the rigid error crosses zero between d/h 32 and 48). Stress-free runs: the U residual
   of the zero-shear free slip has a floor at ~2e-10, the U smoother is capped at 50 sweeps and
   the residual control is 1e-9 (or a stationary G).
+- **Case results (2026-11-20, points 2190505, Re 128 triplet and its mergeAlpha 0 point 8c6cc10,
+  key 8c6cc10, runs `~/runs/suite/2190505/V6`, report §V6): PASS.** 65 balanced points, 229
+  solves. R1 (d/h 64) f/Re within 0.0034 of figure 9 up to eps/eps* 0.75, V, Ω, β within 0.2, 0.7,
+  1 % of figure 4 up to 0.9; f/Re order 1.85 (0.4), 2.04 (0.9), 2.53 (Re 128, 0.4); R2 within 0.003
+  up to 0.75; R3 ε_eq within 0.001, S2 within 0.004; R4 signs as the fit; S1 f/Re within 0.0036 up
+  to 0.75, V within 0.5 %. f/Re at eps/eps* 0.9 is REPORT (finding 21). Baseline: open (user).
 
 ### Cases
 
