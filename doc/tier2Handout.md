@@ -172,9 +172,12 @@ fraction, tilt, wall function), V15 complete (cut-fraction sweep, wall function)
   tree whose binaries a running job uses; remote jobs detached (`ssh host 'cd ... || exit 1;
   setsid nohup ... &'`, istmio2 rebooted once and killed an attached run). Stop runs by session or
   PID, never a machine-wide pkill.
-- Runs expected to take longer than 4 h go to an HPC system, not the workstations (user,
-  2026-11-17). HoreKa access ended 2026-11-20 (results and logs copied to `~/runs/suite/8c6cc10_horeka`,
-  `~/runs/horeka_final`); ask the user which system to use.
+- Runs expected to take longer than 4 h go to HoreKa 2 (`hk2x86`, user 2026-11-17 / 2026-11-20), not
+  the workstations. Legacy HoreKa ended 2026-11-20; its workspace `xt8786-ibm` (342 GB) is copied to
+  `/hfs2/work/workspace/scratch/ka_xt8786-ibm`. Code `$PROJECT/cutCellIBM` (clone of a git bundle), built
+  against `OpenFOAM/v2506-foss-2025b` (no v2412 module); jobs `$PROJECT/ibmjobs/` (`build.sh`, `gates.sh`:
+  `module load OpenFOAM/v2506-foss-2025b`, `IBM_SUITE_FOAM="source $FOAM_BASH"`, the module's `python3`),
+  suite runs `ka_xt8786-ibm/suite_hk2`. Gates G1–G9 PASS there (2026-11-20, job 137684). Notes `~/HOREKA.md`.
 - Every case section of the report has a description of the flow case and a picture of the flow
   with the immersed wall (`flow3d.py` for the 3-D cases, `flowfield.py` for 2-D; user, 2026-11-17).
 
