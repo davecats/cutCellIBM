@@ -6,8 +6,9 @@ Tier 2 (--tier2, doc/validationSuite.md §4 and §5): the cut-fraction sweep f =
 and unlinked, wall-resolved and on uniform wall-function meshes (h+ ~ 10, 30, 90, against the
 body-fitted channel with nutUSpaldingWallFunction on the same mesh and the wall-resolved
 body-fitted solution); walls inclined to the grid at tan(alpha) = 1/8, 1/4, 1/2, 1 (uniform square
-cells, three lattice offsets, initialised from the body-fitted profile); the options at f = 0.3:
-ibmConvection off (x mergeAlpha 0.5, 0), wallFunction none, ibmConvectionWallLaw on. The tier-2
+cells, three lattice offsets, initialised from the body-fitted profile, 200000 iterations judged by
+stationarity); the options on the wall inclined at 1/4: ibmConvection off (x mergeAlpha 0.5, 0),
+wallFunction none, ibmConvectionWallLaw on (wallFunction none also aligned at f = 0.3). The tier-2
 runs are REPORT until their tolerances are decided."""
 import math
 import re
@@ -27,6 +28,7 @@ REGRESSION = (1e-4,)
 MAKE = common.TUTORIALS / "turbulence" / "channelSA" / "makeCase.py"
 NU = 1e-4
 END = 60000
+END_INCLINED = 200000   # uniform fine cells develop slowly from the body-fitted profile
 
 # tier 2
 HPLUS = {10: 54, 30: 18, 90: 6}         # wall-function meshes: h+ (at u_tau ~ 0.0545) -> cells per half channel
@@ -34,8 +36,9 @@ FS = (0.01, 0.05, 0.15, 0.3, 0.5)       # wall-resolved cut fractions (the top w
 FS_WF = (0.05, 0.15, 0.3, 0.5)
 TILTS = ((1, 8), (1, 4), (1, 2), (1, 1))
 OFFSETS = (0.1, 0.4, 0.7)
-OPTIONS = {"noConv": dict(ibmConvection=False), "noConv_ma0": dict(ibmConvection=False, ma=0.0),
-           "noLaw": dict(law="none"), "convLaw": dict(ibmConvectionWallLaw=True)}
+OPTIONS = {"noConv": dict(ibmConvection=False), "noLaw": dict(law="none"), "convLaw": dict(ibmConvectionWallLaw=True)}
+OPT_TILT, OPT_OFFSET = (1, 4), 0.4   # ibmConvection and ibmConvectionWallLaw act only on inclined walls
+                                     # (aligned: no flow towards the wall, bit-identical results)
 
 
 def mesh_args(mesh):
@@ -55,7 +58,6 @@ def name_of(kind, mesh="wr", f=None, ma=0.5, opt=None, tilt=None):
 
 def one(ctx, kind, f=None, ma=0.5, mesh="wr", opt=None, tilt=None):
     o = dict(OPTIONS.get(opt, {}))
-    ma = o.pop("ma", ma)
     name = name_of(kind, mesh, f, ma, opt, tilt)
     d = ctx.root / name
     if not (common.REUSE and d.exists()):
@@ -65,7 +67,10 @@ def one(ctx, kind, f=None, ma=0.5, mesh="wr", opt=None, tilt=None):
         if tilt:
             args += ["--incline", str(tilt[0]), str(tilt[1]), "--init", str(ctx.root / "bf_wr")]
         subprocess.run([common.sys.executable, str(MAKE)] + args, check=True, capture_output=True)
-        common.set_keys(d / "system" / "controlDict", endTime=END)
+        common.set_keys(d / "system" / "controlDict", endTime=END_INCLINED if tilt else END)
+        if tilt:   # 2-D: residualControl would stop while u_tau still drifts; judged by stationarity
+            fs = d / "system" / "fvSolution"
+            fs.write_text(re.sub(r"residualControl\s*\{[^}]*\}", "", fs.read_text()))
         if o:
             common.set_keys(d / "constant" / "ibmProperties", **o)
     app = re.search(r"application\s+(\w+)", (d / "system" / "controlDict").read_text()).group(1)
@@ -128,11 +133,15 @@ def tier2_jobs():
         for f in fs:
             for ma in (0.5, 0.0):
                 jobs.append(dict(kind="ibm", mesh=mesh, f=f, ma=ma))
-        jobs += [dict(kind="ibm", mesh=mesh, f=0.3, opt=o) for o in OPTIONS]
+        jobs.append(dict(kind="ibm", mesh=mesh, f=0.3, opt="noLaw"))
     for mesh in ["wr"] + ["h%d" % h for h in HPLUS]:
         for tilt in TILTS:
             for f in OFFSETS:
                 jobs += [dict(kind="ibm", mesh=mesh, f=f, ma=ma, tilt=tilt) for ma in ((0.5, 0.0) if mesh == "wr" else (0.5,))]
+        # the options on an inclined wall; ibmConvection x mergeAlpha where unlinked runs converge
+        jobs += [dict(kind="ibm", mesh=mesh, f=OPT_OFFSET, ma=ma, tilt=OPT_TILT, opt="noConv")
+                 for ma in ((0.5, 0.0) if mesh == "wr" else (0.5,))]
+        jobs += [dict(kind="ibm", mesh=mesh, f=OPT_OFFSET, tilt=OPT_TILT, opt=o) for o in ("noLaw", "convLaw")]
     jobs = [j for j in jobs if name_of(j["kind"], j.get("mesh", "wr"), j.get("f"), j.get("ma", 0.5),
                                        j.get("opt"), j.get("tilt")) not in TIER1_NAMES]
     return bf, jobs
