@@ -28,6 +28,7 @@ REGRESSION = (1e-4,)
 MAKE = common.TUTORIALS / "turbulence" / "channelSA" / "makeCase.py"
 NU = 1e-4
 END = 60000
+CYCLE = 1000
 END_INCLINED = 200000   # uniform fine cells develop slowly from the body-fitted profile
 
 # tier 2
@@ -95,7 +96,11 @@ def one(ctx, kind, f=None, ma=0.5, mesh="wr", opt=None, tilt=None):
     out = {"name": name, "kind": kind, "f": f, "ma": ma, "utau": float(r["utau"]), "G": float(g[-1]),
            "change": change(), "converged": change() <= 1e-10}
     if ctx.tier2:
-        out.update(mesh=mesh, opt=opt, tilt=tilt)
+        # h+ ~ 10 has no steady state, body-fitted alike (finding 22): mean and half range of
+        # u_tau over the last CYCLE iterations, reported without a tolerance (user, 2026-11-21)
+        u = np.sqrt(np.abs(g[-CYCLE:]))
+        out.update(mesh=mesh, opt=opt, tilt=tilt, utau_mean=float(np.sqrt(np.mean(g[-CYCLE:]))),
+                   utau_amp=float(np.ptp(u)/2))
     for side, m in (("bottom", r["bottom"]), ("top", ~r["bottom"])):
         o_ = np.argsort(r["yp"][m])
         for q in (5, 30, 100, 300):
@@ -155,7 +160,7 @@ def run(ctx, res):
         jobs.sort(key=lambda j: (j.get("tilt") is None, j["mesh"] != "wr"))
         rows += common.pmap(lambda j: one(ctx, **j), bf + jobs, ctx.jobs)
     res.data["rows"] = rows
-    res.data["metrics"] = {r["name"] + "_utau": r["utau"] for r in rows if np.isfinite(r["utau"])}
+    res.data["metrics"] = {r["name"] + "_utau": value_of(r) for r in rows if np.isfinite(r["utau"])}
     t1 = [r for r in rows if r["name"] in TIER1_NAMES]
     res.le("runs not stationary (driving gradient over the last 100 iterations > 1e-10)", sum(not r["converged"] for r in t1), 0)
     bf = [r for r in rows if r["name"] == "bf_wr"][0]
@@ -175,17 +180,25 @@ def tier2_report(res, rows, bfwr):
     wall-function meshes against the body-fitted wall-function solution on the same mesh"""
     bfm = {r["mesh"]: r for r in rows if r["kind"] == "bf" and r.get("mesh")}
     t2 = [r for r in rows if r["name"] not in TIER1_NAMES and r["kind"] == "ibm"]
-    res.report("tier 2: runs not stationary or failed", sum(not r["converged"] for r in t2),
-               note=", ".join(r["name"] for r in t2 if not r["converged"]) or "-")
-    for r in t2:
-        e = 100*(r["utau"]/bfwr["utau"] - 1)
-        note = "vs wall-resolved body-fitted %+.2f %%" % e
-        if r["mesh"] != "wr" and r["mesh"] in bfm:
-            note += "; body-fitted wall function on this mesh %+.2f %%" % (100*(bfm[r["mesh"]]["utau"]/bfwr["utau"] - 1))
-        if not r["converged"]:
-            note += "; NOT stationary" + (" (%s)" % r["error"][:80] if r.get("error") else "")
-        res.report("tier 2 u_tau %s" % r["name"], r["utau"], bfwr["utau"], note)
-    for m, r in sorted(bfm.items()):
-        if m != "wr":
-            res.report("tier 2 u_tau %s" % r["name"], r["utau"], bfwr["utau"],
-                       "vs wall-resolved body-fitted %+.2f %%" % (100*(r["utau"]/bfwr["utau"] - 1)))
+    bad = [r for r in t2 if not r["converged"] and r.get("mesh") != "h10"]
+    res.report("tier 2: runs not stationary or failed (h+ 10 excluded: no steady state)", len(bad),
+               note=", ".join(r["name"] for r in bad) or "-")
+    for r in t2 + [r for m, r in sorted(bfm.items()) if m != "wr"]:
+        res.report("tier 2 u_tau %s" % r["name"], value_of(r), bfwr["utau"], note_of(r, bfwr, bfm))
+
+
+def value_of(r):
+    """u_tau; on h+ ~ 10 the mean over the cycle"""
+    return r.get("utau_mean", r["utau"]) if r.get("mesh") == "h10" else r["utau"]
+
+
+def note_of(r, bfwr, bfm):
+    note = "vs wall-resolved body-fitted %+.2f %%" % (100*(value_of(r)/bfwr["utau"] - 1))
+    if r["kind"] == "ibm" and r["mesh"] != "wr" and r["mesh"] in bfm:
+        note += "; body-fitted wall function on this mesh %+.2f %%" % (100*(value_of(bfm[r["mesh"]])/bfwr["utau"] - 1))
+    if r.get("mesh") == "h10" and "utau_amp" in r and not r["converged"]:
+        note += "; mean over the last %d iterations, cycle half range %.2f %% (no steady state at h+ 10, " \
+                "body-fitted alike: no tolerance)" % (CYCLE, 100*r["utau_amp"]/value_of(r))
+    elif not r["converged"]:
+        note += "; NOT stationary" + (" (%s)" % r["error"][:80] if r.get("error") else "")
+    return note
