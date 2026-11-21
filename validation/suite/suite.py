@@ -2,7 +2,7 @@
 """Driver of the validation suite (doc/validationSuite.md §6).
 
     suite.py list
-    suite.py run G1 G2 ...|gates|tier1 [--jobs 8] [--quick]
+    suite.py run G1 G2 ...|gates|tier1 [--jobs 8] [--quick] [--tier2]
     suite.py accept G1 ...|all [--commit c]     results/<c>/<id>.json -> baseline/<id>.json
     suite.py report [--commit c]                results/<c>/report.md, matrix.png, report.html
 
@@ -41,6 +41,7 @@ class Ctx:
         self.root = Path(args.reuse) if args.reuse else common.fresh_dir(common.RUNS / self.commit / cid)
         self.jobs = args.jobs
         self.quick = args.quick
+        self.tier2 = getattr(args, "tier2", False)
         self.figdir = common.SUITE / "results" / self.commit / "figures"
         self.figdir.mkdir(parents=True, exist_ok=True)
 
@@ -104,6 +105,7 @@ def main():
     ap.add_argument("ids", nargs="*")
     ap.add_argument("--jobs", type=int, default=8, help="concurrent OpenFOAM processes")
     ap.add_argument("--quick", action="store_true", help="coarse meshes only (driver test)")
+    ap.add_argument("--tier2", action="store_true", help="tier-1 modules with their tier-2 runs as well")
     ap.add_argument("--commit", default=None)
     ap.add_argument("--reuse", default=None, help="case root of an earlier run of ONE id: re-evaluate, "
                     "skipping the commands whose log ends with End (same commit only)")
