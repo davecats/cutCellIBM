@@ -34,6 +34,10 @@ Order fixed by the plan: the prerequisites C2 and the zero-shear free-slip wall 
 shear the default since 2190505, G7 and V2 re-accepted from it), each accepted by its gates; then V14 before V10, V10 and V11 before V6, the V7 sweeps, V15 complete and V16
 before V8, V9, V12 complete. Decision D5 (junction pressure before V14–V16) is done (finding 2).
 
+Cost (user, 2026-11-21): the same-host benchmark of every immersed/body-fitted pair waits for AMR
+(V9); the timing of immersed against body-fitted is judged with AMR. Until then the cost chapter
+reports the stored runs as they are. V7 tier 2 runs with `suite.py run V7 --tier2` (365f197).
+
 ### 1. C2: tangential wall velocity on a static geometry — DONE (8108c14, 2026-11-14)
 
 Implemented and accepted as below; results in `doc/validationSuite.md` §8 (C2 entry), scripts
