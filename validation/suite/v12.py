@@ -18,7 +18,22 @@ from common import write_dict
 ID, KIND, TIER = "V12", "case", 1
 TITLE = "ROT: rotating cylinder in a stream, Re 200 (Mittal & Kumar 2003)"
 STRESSES, RELIES = ["K3", "K7", "K8"], ["V2", "V5"]
-REGRESSION = (1e-4,)
+RTOL = 1e-4
+
+
+def load_atol(b):
+    """absolute tolerance of the force and moment coefficients: RTOL times the load scale of their
+    run, max |C_D|, |C_L|, |C_M| of the baseline (like G7). The alpha = 0 mean C_L and C_M are zero
+    by symmetry; a relative tolerance on them measures round-off. St keeps the relative tolerance."""
+    scale = {}
+    for k, v in b.items():
+        if v is not None and k.endswith(("_C_L", "_C_D", "_C_M")):
+            run = k[:k.index("_C_")]
+            scale[run] = max(scale.get(run, 0.0), abs(v))
+    return {k: RTOL*scale.get(k[:k.index("_C_")], 0.0) for k in b if "_C_" in k}
+
+
+REGRESSION = (RTOL, None, load_atol)
 
 L, H0, NU = 102.4, 3.2, 1/200.0
 CENTRE = (0.0123, 0.0071, 0.0)   # off the mesh lines

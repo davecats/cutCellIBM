@@ -296,19 +296,21 @@ def _plain(v):
 
 def regression(res, baseline, rtol, keys=None, atol=0.0):
     """add a check per stored metric (flat dict of numbers in res.data['metrics']) against the
-    baseline: |value - base| <= rtol |base| + atol, atol a number or {metric: atol}; REPORT if
-    there is no baseline"""
+    baseline: |value - base| <= rtol |base| + atol, atol a number, {metric: atol} or a function of
+    the baseline metrics returning {metric: atol}; REPORT if there is no baseline"""
     m = res.data.get("metrics", {})
     if baseline is None:
         res.report("baseline", len(m), note="no stored baseline: this run can be accepted as one")
         return
     b = baseline.get("data", {}).get("metrics", {})
+    if callable(atol):
+        atol = atol(b)
     worst, wname, missing = 0.0, "", []
     for k in (keys or m):
         if k not in b or b[k] is None or m.get(k) is None:
             missing.append(k)
             continue
-        a = atol[k] if isinstance(atol, dict) else atol
+        a = atol.get(k, 0.0) if isinstance(atol, dict) else atol
         d = abs(m[k] - b[k])/(rtol*abs(b[k]) + a) if (rtol*abs(b[k]) + a) > 0 else 0.0
         if d > worst:
             worst, wname = d, k
