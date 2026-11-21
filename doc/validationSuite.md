@@ -1085,6 +1085,14 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
    −0.554838, −0.563150 at d/h 32, 48 (L = 3: −0.55483, −0.56313), V and Ω equal to 6 digits.
    ibmConvection off and mergeAlpha 0 move f/Re by ∓0.0011 (d/h 48). Decision (user, 2026-11-20):
    f/Re at ε/ε* = 0.9 is REPORT (R1, R2, S1); V, Ω, β there stay judged.
+22. **V7 SA channel at h⁺ ≈ 10: no steady state, body-fitted alike** (2026-11-21, key 8c6cc10,
+   `~/runs/suite/8c6cc10/V7`, relaxation tests `~/runs/v7t2/relax`). On the uniform wall-function
+   mesh of 54 cells per half channel (first cell centre y⁺ ≈ 5) the body-fitted channel with
+   nutUSpaldingWallFunction ends in a two-iteration cycle of the driving gradient, u_τ +12.7 % mean,
+   half range 3.9 %; immersed walls cycle at f = 0.5 (half range 2.4 %) and unlinked at f = 0.05–0.3
+   (0.3–2 %), linked f = 0.05–0.3 converge (+0.9…+1.1 %). Relaxation U 0.7 or 0.5, ν̃ 0.5 (instead
+   of 0.9, 0.7) keeps the cycle in both. Decision (user, 2026-11-21): h⁺ ≈ 10 stays in V7 tier 2,
+   REPORT only: the mean u_τ over the last 1000 iterations and the cycle half range, no tolerance.
 
 ### Decisions (2026-11-07)
 
