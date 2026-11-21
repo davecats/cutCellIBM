@@ -84,7 +84,9 @@ def accept(ids, c):
     for cid in ids:
         f = src / ("%s.json" % cid)
         if f.exists():
-            shutil.copy2(f, dst / f.name)
+            r = json.loads(f.read_text())
+            r["accepted_from"] = c   # the results directory: a commit, or a commit with a platform suffix
+            (dst / f.name).write_text(json.dumps(r, indent=1))
             print("accepted %s from %s" % (cid, c))
 
 

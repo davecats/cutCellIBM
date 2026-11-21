@@ -4,7 +4,7 @@ they name (flow pictures of the 2-D cases: flowfield.py), results/<commit>/table
 note). The narrative (results/<commit>/report/report.tex) includes them.
 
     latexreport.py <commit> [ID=commit ...] [status=c]   (ID=commit: that case from another commit's runs;
-    status=c: the newest full run; the overview takes the newest of each gate and case)
+    status=c[,c...]: the newest full runs; the overview takes the newest of each gate and case)
 
 Diagnostic runs outside the suite (V5 time step / outer correctors, V12 outer correctors) are
 read from ~/runs/suite/diag_V5 and diag_V12 when present."""
@@ -133,12 +133,21 @@ def current(commit, other, status):
     ids = ["G%d" % i for i in range(1, 10)] + ["V%d" % i for i in range(1, 17)]
     res = []
     for k in ids:
-        cand = [common.SUITE / "results" / c / ("%s.json" % k) for c in {commit, other.get(k, commit), status or commit}]
-        cand = [json.loads(f.read_text()) for f in cand if f.exists()]
+        cand = [common.SUITE / "results" / c / ("%s.json" % k)
+                for c in {commit, other.get(k, commit), *(status or commit).split(",")}]
+        cand = [dict(json.loads(f.read_text()), _dir=f.parent.name) for f in cand if f.exists()]
         if cand:
             res.append(max(cand, key=lambda r: r["started"]))
     # gates, then tier 1, then tier 2
     return sorted(res, key=lambda r: (r["id"][0] == "V", str(r["TIER"]), int(r["id"][1:])))
+
+
+def run_label(r):
+    """the commit of a run, and the platform of a results directory <commit>_<platform> (hk2v2506: HoreKa 2,
+    OpenFOAM v2506)"""
+    d = r.get("_dir", r["commit"])
+    plat = {"hk2v2506": "HK2 v2506"}.get(d[len(r["commit"]) + 1:], tex(d[len(r["commit"]) + 1:]))
+    return r"\texttt{%s}%s" % (r["commit"], r" {\scriptsize %s}" % plat if d != r["commit"] else "")
 
 
 def summary_table(out, res):
@@ -158,10 +167,11 @@ def summary_table(out, res):
         n = {s: sum(c["status"] == s for c in cs) for s in STATUS}
         st = "\\st" + report.reference_status(r).lower()
         f = common.SUITE / "baseline" / ("%s.json" % r["id"])
-        b = json.loads(f.read_text()).get("commit") if f.exists() else None
+        bj = json.loads(f.read_text()) if f.exists() else {}
+        b = bj.get("commit")
         if b is None:
             base = "none"
-        elif b == r["commit"]:
+        elif bj.get("accepted_from", b) == r["_dir"]:
             base = r"accepted from this run"
         elif not any(report.is_regression(c) for c in r["checks"]):
             base = r"\texttt{%s}, not compared" % b
@@ -171,8 +181,8 @@ def summary_table(out, res):
                           for m in re.findall(r"baseline (\w+)", c["name"] + " " + str(c.get("note") or ""))})
             base = (r"\st%s vs.\ \texttt{%s}" % (bs.lower(), ", ".join(was) or "?") if bs else "")
             base += (r" (now \texttt{%s})" % b) if was != [b] else ""
-        L.append(r"{\scriptsize\itshape %s} & \hyperref[sec:%s]{%s} & %s & \texttt{%s} & %s & %d & %d & %d & {\scriptsize %s}\\" % (
-            lab, r["id"], r["id"], tex(r["TITLE"]), r["commit"], st, n["PASS"], n["FAIL"], n["REPORT"], base))
+        L.append(r"{\scriptsize\itshape %s} & \hyperref[sec:%s]{%s} & %s & %s & %s & %d & %d & %d & {\scriptsize %s}\\" % (
+            lab, r["id"], r["id"], tex(r["TITLE"]), run_label(r), st, n["PASS"], n["FAIL"], n["REPORT"], base))
     L += [r"\bottomrule", r"\end{tabular}"]
     (out.d / "tables" / "summary.tex").write_text("\n".join(L) + "\n")
 

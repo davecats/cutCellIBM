@@ -181,6 +181,10 @@ fraction, tilt, wall function), V15 complete (cut-fraction sweep, wall function)
   against `OpenFOAM/v2506-foss-2025b` (no v2412 module); jobs `$PROJECT/ibmjobs/` (`build.sh`, `gates.sh`:
   `module load OpenFOAM/v2506-foss-2025b`, `IBM_SUITE_FOAM="source $FOAM_BASH"`, the module's `python3`),
   suite runs `ka_xt8786-ibm/suite_hk2`. Gates G1–G9 PASS there (2026-11-20, job 137684). Notes `~/HOREKA.md`.
+  Tier 1 there (`ibmjobs/tier1.sh ID ...`, one job per long case, `python3 -u`): every accuracy check
+  passes; V12 re-accepted from it (user 2026-11-21: tier 2 on v2506); results copied home to
+  `validation/suite/results/8c6cc10_hk2v2506` (V5.json still to copy). The ssh master expires: if
+  "Permission denied", ask the owner to renew it, never retry in a loop.
 - Every case section of the report has a description of the flow case and a picture of the flow
   with the immersed wall (`flow3d.py` for the 3-D cases, `flowfield.py` for 2-D; user, 2026-11-17).
 

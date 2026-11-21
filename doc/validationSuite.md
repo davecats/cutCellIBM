@@ -736,6 +736,13 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   (finding 21). Mixed code versions: the points from 2190505, the Re 128 triplet (d/h 32, 48, 64,
   eps/eps* 0.4) and its mergeAlpha 0 point from 8c6cc10 (the fix moved f/Re there by ~1e-5
   relative); runs `~/runs/suite/2190505/V6`.
+- **Tier 1 on HoreKa 2, OpenFOAM v2506; V12 re-accepted from it** (2026-11-21, user decision: tier 2
+  runs on v2506). Every check against exact and reference data passes; regression PASS for G1–G9,
+  V1–V5, V7, V13, V15 against the v2412 baselines (V1 0.97, identical to the v2412 run). V12 differs
+  from v2412 by ~1e-3 relative in the shedding statistics (α = 2 C_L,rms 11× the rtol 1e-4) and in
+  the α = 0 mean C_L, C_M (zero by symmetry, ~1e-4, relative tolerance). Baseline V12 from
+  `results/8c6cc10_hk2v2506` (`accepted_from` in the baseline JSON); runs
+  `hk2x86:/hfs2/work/workspace/scratch/ka_xt8786-ibm/suite_hk2/8c6cc10`.
 - **G8**: cylinder drag (the lift is zero by symmetry, solver noise) and the channel driving
   gradient u_τ², each run required stationary (the gradient changes ≤ 1e-10 over the last 100
   iterations): `residualControl` cannot trigger in this 1-D problem (the Uy and p residuals are
