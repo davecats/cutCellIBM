@@ -743,6 +743,11 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   the α = 0 mean C_L, C_M (zero by symmetry, ~1e-4, relative tolerance). Baseline V12 from
   `results/8c6cc10_hk2v2506` (`accepted_from` in the baseline JSON); runs
   `hk2x86:/hfs2/work/workspace/scratch/ka_xt8786-ibm/suite_hk2/8c6cc10`.
+- **V12 regression tolerance on the load scale** (2026-11-21, user decision, 991193b): the force and
+  moment coefficients regress against |c − c_base| ≤ 1e-4 |c_base| + 1e-4 max(|C_D|, |C_L|, |C_M|)
+  of their run, like G7; St keeps the relative 1e-4. The α = 0 mean C_L, C_M are zero by symmetry and
+  a relative tolerance on them measured round-off. With it the v2412 run against the HoreKa 2
+  baseline and the reverse both PASS (0.93, worst α = 0 D/h 80 St).
 - **G8**: cylinder drag (the lift is zero by symmetry, solver noise) and the channel driving
   gradient u_τ², each run required stationary (the gradient changes ≤ 1e-10 over the last 100
   iterations): `residualControl` cannot trigger in this 1-D problem (the Uy and p residuals are
