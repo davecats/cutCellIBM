@@ -29,7 +29,9 @@ MAKE = common.TUTORIALS / "turbulence" / "channelSA" / "makeCase.py"
 NU = 1e-4
 END = 60000
 CYCLE = 1000
-END_INCLINED = 200000   # uniform fine cells develop slowly from the body-fitted profile
+END_INCLINED = 200000   # wall-resolved inclined: uniform fine cells develop slowly from the body-fitted profile
+STATIONARY2 = 1e-4      # tier 2: u_tau changes by at most this (relative) over the last 10 % of the
+                        # iterations (user, 2026-11-21); tier 1 keeps 1e-10 over 100 iterations
 
 # tier 2
 HPLUS = {10: 54, 30: 18, 90: 6}         # wall-function meshes: h+ (at u_tau ~ 0.0545) -> cells per half channel
@@ -68,8 +70,11 @@ def one(ctx, kind, f=None, ma=0.5, mesh="wr", opt=None, tilt=None):
         if tilt:
             args += ["--incline", str(tilt[0]), str(tilt[1]), "--init", str(ctx.root / "bf_wr")]
         subprocess.run([common.sys.executable, str(MAKE)] + args, check=True, capture_output=True)
-        common.set_keys(d / "system" / "controlDict", endTime=END_INCLINED if tilt else END)
-        if tilt:   # 2-D: residualControl would stop while u_tau still drifts; judged by stationarity
+        common.set_keys(d / "system" / "controlDict", endTime=END_INCLINED if tilt and mesh == "wr" else END)
+        if tilt and mesh == "wr":
+            # residualControl would stop while u_tau still drifts. On the wall-function meshes it
+            # stops at the converged state (200000 iterations change nothing; without it the U and
+            # nuTilda solves run 1000 GAMG sweeps against the unreachable tolerance 1e-14)
             fs = d / "system" / "fvSolution"
             fs.write_text(re.sub(r"residualControl\s*\{[^}]*\}", "", fs.read_text()))
         if o:
@@ -86,7 +91,7 @@ def one(ctx, kind, f=None, ma=0.5, mesh="wr", opt=None, tilt=None):
     except common.RunError as e:      # tier 2: a diverged run is a result, not a driver crash
         if ctx.tier2 and name not in TIER1_NAMES:
             return {"name": name, "kind": kind, "mesh": mesh, "f": f, "ma": ma, "opt": opt, "tilt": tilt,
-                    "utau": float("nan"), "converged": False, "error": str(e)[:300]}
+                    "utau": float("nan"), "converged": False, "stationary": False, "error": str(e)[:300]}
         raise
     log = (d / ("log." + app)).read_text()
     r = load(str(d)) if tilt is None else load_inclined(d, tilt)
@@ -99,7 +104,8 @@ def one(ctx, kind, f=None, ma=0.5, mesh="wr", opt=None, tilt=None):
         # h+ ~ 10 has no steady state, body-fitted alike (finding 22): mean and half range of
         # u_tau over the last CYCLE iterations, reported without a tolerance (user, 2026-11-21)
         u = np.sqrt(np.abs(g[-CYCLE:]))
-        out.update(mesh=mesh, opt=opt, tilt=tilt, utau_mean=float(np.sqrt(np.mean(g[-CYCLE:]))),
+        last = np.sqrt(np.abs(g[-max(1, len(g)//10):]))
+        out.update(stationary=bool(np.ptp(last)/last[-1] <= STATIONARY2), drift10=float(np.ptp(last)/last[-1]), mesh=mesh, opt=opt, tilt=tilt, utau_mean=float(np.sqrt(np.mean(g[-CYCLE:]))),
                    utau_amp=float(np.ptp(u)/2))
     for side, m in (("bottom", r["bottom"]), ("top", ~r["bottom"])):
         o_ = np.argsort(r["yp"][m])
@@ -180,8 +186,9 @@ def tier2_report(res, rows, bfwr):
     wall-function meshes against the body-fitted wall-function solution on the same mesh"""
     bfm = {r["mesh"]: r for r in rows if r["kind"] == "bf" and r.get("mesh")}
     t2 = [r for r in rows if r["name"] not in TIER1_NAMES and r["kind"] == "ibm"]
-    bad = [r for r in t2 if not r["converged"] and r.get("mesh") != "h10"]
-    res.report("tier 2: runs not stationary or failed (h+ 10 excluded: no steady state)", len(bad),
+    bad = [r for r in t2 if not r["stationary"] and r.get("mesh") != "h10"]
+    res.report("tier 2: runs not stationary (u_tau over the last 10 %% of the iterations > %g) or failed; "
+               "h+ 10 excluded" % STATIONARY2, len(bad),
                note=", ".join(r["name"] for r in bad) or "-")
     for r in t2 + [r for m, r in sorted(bfm.items()) if m != "wr"]:
         res.report("tier 2 u_tau %s" % r["name"], value_of(r), bfwr["utau"], note_of(r, bfwr, bfm))
@@ -196,9 +203,9 @@ def note_of(r, bfwr, bfm):
     note = "vs wall-resolved body-fitted %+.2f %%" % (100*(value_of(r)/bfwr["utau"] - 1))
     if r["kind"] == "ibm" and r["mesh"] != "wr" and r["mesh"] in bfm:
         note += "; body-fitted wall function on this mesh %+.2f %%" % (100*(value_of(bfm[r["mesh"]])/bfwr["utau"] - 1))
-    if r.get("mesh") == "h10" and "utau_amp" in r and not r["converged"]:
+    if r.get("mesh") == "h10" and "utau_amp" in r and not r["stationary"]:
         note += "; mean over the last %d iterations, cycle half range %.2f %% (no steady state at h+ 10, " \
                 "body-fitted alike: no tolerance)" % (CYCLE, 100*r["utau_amp"]/value_of(r))
-    elif not r["converged"]:
+    elif not r["stationary"]:
         note += "; NOT stationary" + (" (%s)" % r["error"][:80] if r.get("error") else "")
     return note
