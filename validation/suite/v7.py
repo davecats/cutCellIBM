@@ -9,7 +9,10 @@ body-fitted solution); walls inclined to the grid at tan(alpha) = 1/8, 1/4, 1/2,
 cells, three lattice offsets, initialised from the body-fitted profile, 200000 iterations judged by
 stationarity); the options on the wall inclined at 1/4: ibmConvection off (x mergeAlpha 0.5, 0),
 wallFunction none, ibmConvectionWallLaw on (wallFunction none also aligned at f = 0.3). The tier-2
-runs are REPORT until their tolerances are decided."""
+u_tau is judged against the wall-resolved body-fitted solution: wall-resolved runs within 0.5 %,
+the default settings on h+ 30 and 90 within 2 % and closer than the body-fitted wall function on the
+same mesh; h+ 10 (no steady state, finding 22) and off-default options on wall-function meshes
+REPORT (user, 2026-11-21)."""
 import math
 import re
 import subprocess
@@ -30,6 +33,7 @@ NU = 1e-4
 END = 60000
 CYCLE = 1000
 END_INCLINED = 200000   # wall-resolved inclined: uniform fine cells develop slowly from the body-fitted profile
+RTOL_WR, RTOL_WF = 0.005, 0.02   # tier 2 (user, 2026-11-21)
 STATIONARY2 = 1e-4      # tier 2: u_tau changes by at most this (relative) over the last 10 % of the
                         # iterations (user, 2026-11-21); tier 1 keeps 1e-10 over 100 iterations
 
@@ -181,17 +185,34 @@ def run(ctx, res):
         tier2_report(res, rows, bf)
 
 
+def judged(r):
+    """tier-2 runs with a tolerance (user, 2026-11-21): every wall-resolved run (options included),
+    the default settings on the wall-function meshes h+ 30 and 90; the rest REPORT (h+ 10: no steady
+    state, finding 22; off-default options on wall-function meshes: what the defaults buy)"""
+    return r["kind"] == "ibm" and (r["mesh"] == "wr" or (r["mesh"] in ("h30", "h90") and not r.get("opt")))
+
+
 def tier2_report(res, rows, bfwr):
-    """REPORT per tier-2 run: u_tau against the wall-resolved body-fitted solution, and on the
-    wall-function meshes against the body-fitted wall-function solution on the same mesh"""
+    """u_tau against the wall-resolved body-fitted solution; wall-resolved within RTOL_WR, wall
+    functions within RTOL_WF and closer than the body-fitted wall function on the same mesh"""
     bfm = {r["mesh"]: r for r in rows if r["kind"] == "bf" and r.get("mesh")}
     t2 = [r for r in rows if r["name"] not in TIER1_NAMES and r["kind"] == "ibm"]
-    bad = [r for r in t2 if not r["stationary"] and r.get("mesh") != "h10"]
-    res.report("tier 2: runs not stationary (u_tau over the last 10 %% of the iterations > %g) or failed; "
-               "h+ 10 excluded" % STATIONARY2, len(bad),
-               note=", ".join(r["name"] for r in bad) or "-")
-    for r in t2 + [r for m, r in sorted(bfm.items()) if m != "wr"]:
-        res.report("tier 2 u_tau %s" % r["name"], value_of(r), bfwr["utau"], note_of(r, bfwr, bfm))
+    bad = [r for r in t2 if judged(r) and not r["stationary"]]
+    res.le("tier 2: judged runs not stationary (u_tau over the last 10 %% of the iterations > %g) or failed"
+           % STATIONARY2, len(bad), 0, ", ".join(r["name"] for r in bad) or "-")
+    for r in t2:
+        name, v = "tier 2 u_tau %s" % r["name"], value_of(r)
+        if not judged(r) or not np.isfinite(v):
+            res.report(name, v, bfwr["utau"], note_of(r, bfwr, bfm))
+        elif r["mesh"] == "wr":
+            res.rel(name, v, bfwr["utau"], RTOL_WR)
+        else:
+            e, ebf = abs(v/bfwr["utau"] - 1), abs(value_of(bfm[r["mesh"]])/bfwr["utau"] - 1)
+            res.add(name, "PASS" if e <= RTOL_WF and e < ebf else "FAIL", v, bfwr["utau"],
+                    "%g %% and < body-fitted wall function" % (100*RTOL_WF), note_of(r, bfwr, bfm))
+    for m, r in sorted(bfm.items()):
+        if m != "wr":
+            res.report("tier 2 u_tau %s" % r["name"], value_of(r), bfwr["utau"], note_of(r, bfwr, bfm))
 
 
 def value_of(r):
