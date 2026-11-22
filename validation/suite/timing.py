@@ -241,12 +241,15 @@ def tier2(commit, other=None):
     run (directory with a solver log) under the case directory of the result JSON"""
     other = other or {}
     out = []
-    for k in ["V%d" % i for i in range(1, 17)]:
-        f = common.SUITE / "results" / other.get(k, commit) / ("%s.json" % k)
+    keys = [("V%d" % i, "V%d" % i) for i in range(1, 17)]
+    if "V7t2" in other:   # the tier-2 runs of a tier-1 module (suite.py run V7 --tier2)
+        keys.insert(6, ("V7", "V7t2"))
+    for k, key in keys:
+        f = common.SUITE / "results" / other.get(key, commit) / ("%s.json" % k)
         if not f.exists():
             continue
         res = json.loads(f.read_text())
-        if str(res.get("TIER")) != "2":
+        if str(res.get("TIER")) != "2" and key == k:
             continue
         root = Path(res["cases"]).expanduser()
         dirs = sorted({p.parent for p in root.rglob("log.*Foam*")
@@ -254,7 +257,7 @@ def tier2(commit, other=None):
         recs = [r for r in map(parse, dirs) if r]
         if not recs:
             continue
-        out.append(dict(id=k, title=res["TITLE"], root=str(root), runs=len(recs),
+        out.append(dict(id=k if key == k else "%s tier 2" % k, title=res["TITLE"], root=str(root), runs=len(recs),
                         coreh=sum(r["exec"]*r["ranks"] for r in recs)/3600,
                         hosts=sorted({host_group(r["host"]) for r in recs}),
                         ranks=(min(r["ranks"] for r in recs), max(r["ranks"] for r in recs)),

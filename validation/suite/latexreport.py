@@ -154,7 +154,7 @@ def summary_table(out, res):
     """overview: the checks against exact and reference data of the newest run of every gate and case,
     and separately its baseline (baseline/<ID>.json): accepted from this run, or the change against it
     (a FAIL there is a change, intended or not, not a wrong result)"""
-    L = [r"\begin{tabular}{@{}l l >{\raggedright\arraybackslash}p{0.33\textwidth} l c r r r >{\raggedright\arraybackslash}p{0.15\textwidth}@{}}", r"\toprule",
+    L = [r"\begin{tabular}{@{}l l >{\raggedright\arraybackslash}p{0.28\textwidth} l c r r r >{\raggedright\arraybackslash}p{0.15\textwidth}@{}}", r"\toprule",
          r"& id & title & run & checks & P & F & R & baseline\\", r"\midrule"]
     group = None
     for r in res:
@@ -532,6 +532,95 @@ def v7(out, r):
     out.save(fig, "V7_channel")
 
 
+def v7t2(out, r):
+    """V7 tier 2: u_tau error against the wall-resolved body-fitted channel per mesh, wall angle and
+    cut fraction (figure V7_tier2), ranges per mesh (table V7_tier2), the options (table V7_options)"""
+    import v7 as mod
+    rows = [x for x in r["data"]["rows"] if x.get("mesh")]
+    bfwr = [x for x in rows if x["name"] == "bf_wr"][0]["utau"]
+    err = lambda x: 100*(mod.value_of(x)/bfwr - 1)
+    bfm = {x["mesh"]: err(x) for x in rows if x["kind"] == "bf"}
+    tilts = [None] + [tuple(t) for t in mod.TILTS]
+    tl = ["aligned"] + ["%d/%d" % t for t in mod.TILTS]
+    meshes = ["wr", "h10", "h30", "h90"]
+    mlab = {"wr": "resolved ($h^+\\approx$ 1)", "h10": "$h^+\\approx$ 10", "h30": "$h^+\\approx$ 30",
+            "h90": "$h^+\\approx$ 90"}
+    tol = {"wr": 100*mod.RTOL_WR, "h30": 100*mod.RTOL_WF, "h90": 100*mod.RTOL_WF}
+    fig, axs = plt.subplots(1, 4, figsize=(7.2, 2.5), sharey=False)
+    for ax, m in zip(axs, meshes):
+        if m in tol:
+            ax.axhspan(-tol[m], tol[m], color="#e6e6e6", zorder=0, lw=0)
+        if m in bfm and m != "wr":
+            ax.axhline(bfm[m], color=REF, ls="--", lw=0.9, label="body-fitted wall function")
+        ax.axhline(0, color=REF, lw=0.6)
+        for ma, fill, lab in ((0.5, True, "linked"), (0.0, False, "unlinked")):
+            for i, t in enumerate(tilts):
+                xs = [x for x in rows if x["kind"] == "ibm" and x["mesh"] == m and not x.get("opt")
+                      and (tuple(x["tilt"]) if x.get("tilt") else None) == t and x["ma"] == ma]
+                if not xs:
+                    continue
+                fs = sorted({x["f"] for x in xs})
+                for x in xs:
+                    dx = 0.36*(fs.index(x["f"])/max(1, len(fs) - 1) - 0.5) + (0.06 if ma == 0 else -0.06)
+                    st = x.get("stationary", True)
+                    ax.plot(i + dx, err(x), marker="o" if st else "x", ms=3.2, lw=0, color=C[0] if ma else C[1],
+                            mfc=(C[0] if ma else "none") if st else None,
+                            label=lab if (i == 0 or t == mod.TILTS[0]) and x is xs[0] else None)
+        ax.set_xticks(range(len(tilts)))
+        ax.set_xticklabels(tl, rotation=45, fontsize=7)
+        ax.set_title(mlab[m], fontsize=8)
+        ax.set_xlim(-0.6, len(tilts) - 0.4)
+    axs[0].set_ylabel("$u_\\tau/u_{\\tau,bf} - 1$ [\\%]")
+    h, l = [], []
+    for ax in axs:
+        for hh, ll in zip(*ax.get_legend_handles_labels()):
+            if ll not in l:
+                h.append(hh)
+                l.append(ll)
+    fig.legend(h, l, loc="lower center", ncol=3, fontsize=7, frameon=False, bbox_to_anchor=(0.5, -0.04))
+    fig.subplots_adjust(bottom=0.33, wspace=0.42)
+    out.save(fig, "V7_tier2")
+
+    def rng(xs):
+        e = [err(x) for x in xs if np.isfinite(mod.value_of(x))]
+        return "--" if not e else ("$%+.2f$" % e[0] if len(e) == 1 else "$%+.2f\\ldots%+.2f$" % (min(e), max(e)))
+    sel = lambda m, ma, inc: [x for x in rows if x["kind"] == "ibm" and x["mesh"] == m and not x.get("opt")
+                              and x["ma"] == ma and bool(x.get("tilt")) == inc]
+    L = [r"\begin{tabular}{@{}l r l l l l l@{}}", r"\toprule",
+         r"mesh & BF wall & \multicolumn{2}{c}{aligned} & \multicolumn{2}{c}{inclined} & judged \\",
+         r" & function & linked & unlinked & linked & unlinked & \\", r"\midrule"]
+    checks = {c["name"]: c["status"] for c in r["checks"]}
+    for m in meshes:
+        j = [checks.get("tier 2 u_tau %s" % x["name"]) for x in rows if x["kind"] == "ibm" and x["mesh"] == m]
+        npass, nj = sum(s == "PASS" for s in j), sum(s in ("PASS", "FAIL") for s in j)
+        L.append(r"%s & %s & %s & %s & %s & %s & %s\\" % (
+            mlab[m], "--" if m == "wr" else "$%+.2f$" % bfm[m], rng(sel(m, 0.5, False)), rng(sel(m, 0.0, False)),
+            rng(sel(m, 0.5, True)), rng(sel(m, 0.0, True)), "%d/%d" % (npass, nj) if nj else "REPORT"))
+    L += [r"\bottomrule", r"\end{tabular}"]
+    (out.d / "tables" / "V7_tier2.tex").write_text("\n".join(L) + "\n")
+
+    o = [x for x in rows if x["kind"] == "ibm"]
+    ref = {m: [x for x in o if x["mesh"] == m and x.get("tilt") and tuple(x["tilt"]) == mod.OPT_TILT
+               and x["f"] == mod.OPT_OFFSET and x["ma"] == 0.5 and not x.get("opt")] for m in meshes}
+    L = [r"\begin{tabular}{@{}l r r r r@{}}", r"\toprule", r"wall inclined at 1/4, offset %g & %s\\" % (
+        mod.OPT_OFFSET, " & ".join(mlab[m] for m in meshes)), r"\midrule"]
+    for lab, pick in (("defaults", lambda x: not x.get("opt") and x["ma"] == 0.5),
+                      ("\\texttt{ibmConvection} off", lambda x: x.get("opt") == "noConv" and x["ma"] == 0.5),
+                      ("\\texttt{ibmConvection} off, unlinked", lambda x: x.get("opt") == "noConv" and x["ma"] == 0),
+                      ("\\texttt{ibmConvectionWallLaw} on", lambda x: x.get("opt") == "convLaw"),
+                      ("no wall law", lambda x: x.get("opt") == "noLaw")):
+        cells = []
+        for m in meshes:
+            xs = [x for x in o if x["mesh"] == m and x.get("tilt") and tuple(x["tilt"]) == mod.OPT_TILT
+                  and x["f"] == mod.OPT_OFFSET and pick(x)]
+            cells.append("$%+.2f$" % err(xs[0]) if xs else "--")
+        L.append("%s & %s\\\\" % (lab, " & ".join(cells)))
+    xs = {m: [x for x in o if x["mesh"] == m and not x.get("tilt") and x.get("opt") == "noLaw"] for m in meshes}
+    L.append("no wall law, aligned, $f$ = 0.3 & %s\\\\" % " & ".join("$%+.2f$" % err(xs[m][0]) if xs[m] else "--" for m in meshes))
+    L += [r"\bottomrule", r"\end{tabular}"]
+    (out.d / "tables" / "V7_options.tex").write_text("\n".join(L) + "\n")
+
+
 def v12_history(d):
     rows = [np.loadtxt(f, ndmin=2) for f in sorted(Path(d).glob("postProcessing/ibmForces/*/forces.dat"),
                                                    key=lambda p: float(p.parent.name))]
@@ -796,6 +885,12 @@ def main():
             table(out, r)
             if fn:
                 fn(out, r)
+    if "V7t2" in other:   # V7 tier 2: the run with --tier2 (V7t2=commit)
+        f = common.SUITE / "results" / other["V7t2"] / "V7.json"
+        if f.exists():
+            r7 = json.loads(f.read_text())
+            v7t2(out, r7)
+            flowfield.v7t2(out, r7)
     import flow3d
     flow3d.figures(out, T2)   # sections of the 3-D cases: the flow with the immersed wall
     if "V12" in R:

@@ -748,6 +748,23 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   of their run, like G7; St keeps the relative 1e-4. The α = 0 mean C_L, C_M are zero by symmetry and
   a relative tolerance on them measured round-off. With it the v2412 run against the HoreKa 2
   baseline and the reverse both PASS (0.93, worst α = 0 D/h 80 St).
+- **V7 tier 2** (2026-11-21, user decisions; `suite.py run V7 --tier2`, 365f197 … ef15810; run 8c6cc10
+  on io2, v2412, `~/runs/suite/8c6cc10/V7.1`). Cut fractions f = 0.01…0.5 (wall-resolved) and
+  0.05…0.5 (uniform wall-function meshes h⁺ ≈ 10, 30, 90), linked and unlinked; walls inclined at
+  tan α = 1/8, 1/4, 1/2, 1 (three lattice offsets, unlinked only wall-resolved); options on the wall
+  inclined at 1/4 (ibmConvection off, also unlinked; ibmConvectionWallLaw on; wallFunction none,
+  also aligned): aligned, ibmConvection and ibmConvectionWallLaw are bit-identical to the defaults.
+  Tolerances on u_τ against the wall-resolved body-fitted channel: wall-resolved 0.5 % (options
+  included); h⁺ 30 and 90 defaults within 2 % and closer than the body-fitted Spalding wall function
+  on the same mesh; h⁺ 10 (finding 22) and off-default options on wall-function meshes REPORT.
+  Stationary in tier 2: u_τ changes ≤ 1e-4 over the last 10 % of the iterations (tier 1 keeps
+  1e-10 over 100: round-off in 2-D). Inclined wall-resolved runs 200000 iterations without
+  residualControl; the rest 60000 with it (200000 changed nothing on the wall-function meshes and
+  cost 17 h against an unreachable 1e-14 solver tolerance). Result: 75 judged PASS, 35 REPORT;
+  wall-resolved within 0.10 %, wall functions within 1.3 % (body-fitted 8.3 %, 4.3 %), h⁺ 10
+  0.4–5.4 % (body-fitted 12.7 %). ibmConvection on is better on every mesh; ibmConvectionWallLaw
+  helps at h⁺ 10 (+0.85 % against +4.5 %), hurts at h⁺ 30 (−2.84 %), stays off. Baseline: from a
+  rerun on HoreKa 2 (v2506), the user's decision pending. Same-host cost benchmark postponed until AMR.
 - **G8**: cylinder drag (the lift is zero by symmetry, solver noise) and the channel driving
   gradient u_τ², each run required stationary (the gradient changes ≤ 1e-10 over the last 100
   iterations): `residualControl` cannot trigger in this 1-D problem (the Uy and p residuals are

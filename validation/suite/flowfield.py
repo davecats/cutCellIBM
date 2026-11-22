@@ -634,6 +634,30 @@ def v7(out, r):
     out.save(fig, "V7_cells")
 
 
+def v7t2(out, r):
+    """V7 tier 2: the cells at the lower wall inclined to the grid (wall-resolved and wall-function
+    meshes), coloured by the velocity along the channel"""
+    import math
+    root = Path(r["cases"])
+    cases = (("inc_wr_t1-8_f0.4_ma0.5", (1, 8), "wall-resolved, 1/8"), ("inc_h30_t1-4_f0.4_ma0.5", (1, 4), "$h^+\\approx$ 30, 1/4"),
+             ("inc_h90_t1-1_f0.4_ma0.5", (1, 1), "$h^+\\approx$ 90, 1/1"))
+    fig, ax = plt.subplots(1, 3, figsize=(6.6, 2.7), layout="constrained")
+    for a_, (case, (p, q), t) in zip(ax, cases):
+        m = Case2D(root / case)
+        al = math.atan2(p, q)
+        U = m.field("U") @ np.array([math.cos(al), math.sin(al), 0.0])
+        x0, x1, y0, y1 = m.bounds()
+        yw = lambda x: (x*math.sin(al) - 1)/math.cos(al)   # the lower wall, eta = -1
+        w = x1 - x0
+        pc = m.draw(a_, U/U.max(), (x0, x1, yw(x0) - 0.35*w, yw(x1) + 0.35*w), cmap=SEQ,
+                    norm=matplotlib.colors.Normalize(0, 1), edges=True)
+        a_.set_xticks([])
+        a_.set_yticks([])
+        tidy(a_, t, xlabel=False, ylabel=False)
+    colorbar(fig, pc, ax, "$u_t/u_{t,max}$")
+    out.save(fig, "V7_inclined")
+
+
 def v12(out, r):
     root = Path(r["cases"])
     fig, ax = plt.subplots(2, 1, figsize=(6.6, 4.4), layout="constrained")
