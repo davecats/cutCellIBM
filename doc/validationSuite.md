@@ -763,8 +763,9 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   cost 17 h against an unreachable 1e-14 solver tolerance). Result: 75 judged PASS, 35 REPORT;
   wall-resolved within 0.10 %, wall functions within 1.3 % (body-fitted 8.3 %, 4.3 %), h⁺ 10
   0.4–5.4 % (body-fitted 12.7 %). ibmConvection on is better on every mesh; ibmConvectionWallLaw
-  helps at h⁺ 10 (+0.85 % against +4.5 %), hurts at h⁺ 30 (−2.84 %), stays off. Baseline: from a
-  rerun on HoreKa 2 (v2506), the user's decision pending. Same-host cost benchmark postponed until AMR.
+  helps at h⁺ 10 (+0.85 % against +4.5 %), hurts at h⁺ 30 (−2.84 %), stays off. Baseline: rerun on
+  HoreKa 2 (v2506, job 140998, 16 cores, 1 h 57 min): same PASS/REPORT, all 115 u_τ within 1.1e-7
+  relative of io2; V7 baseline (tier 1 + tier 2) accepted from it (user, 2026-11-22, 0d43d84). Same-host cost benchmark postponed until AMR.
 - **G8**: cylinder drag (the lift is zero by symmetry, solver noise) and the channel driving
   gradient u_τ², each run required stationary (the gradient changes ≤ 1e-10 over the last 100
   iterations): `residualControl` cannot trigger in this 1-D problem (the Uy and p residuals are

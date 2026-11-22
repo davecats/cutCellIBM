@@ -38,8 +38,8 @@ Cost (user, 2026-11-21): the same-host benchmark of every immersed/body-fitted p
 (V9); the timing of immersed against body-fitted is judged with AMR. Until then the cost chapter
 reports the stored runs as they are. V7 tier 2 runs with `suite.py run V7 --tier2`: PASS on io2
 (2026-11-21/22, 75 judged PASS, 35 REPORT, tolerances by the user, `doc/validationSuite.md` §12);
-the baseline comes from a rerun on HoreKa 2 (job script `ibmjobs/v7t2.sh`, git bundle of the new
-commits), then the user decides on accepting it. Next: V15 complete, V16.
+rerun on HoreKa 2 (job 140998, `ibmjobs/v7t2.sh`, code sent as a git bundle; 1 h 57 min on 16 cores),
+within 1.1e-7 of io2; V7 baseline accepted from it (user, 2026-11-22, 0d43d84). Next: V15 complete, V16.
 
 ### 1. C2: tangential wall velocity on a static geometry — DONE (8108c14, 2026-11-14)
 
