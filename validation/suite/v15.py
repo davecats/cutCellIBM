@@ -3,7 +3,13 @@ reference_tmr.py; doc/validationSuite.md §11). Body-fitted (simpleFoam + Spalar
 TMR grid) against immersed (the same grid lines with one cell row added below the plate and the
 grid shifted by f dy1: the plate, a box body, cuts that row with fluid fraction f). The body-fitted
 run is the reference; the TMR values check it (REPORT: OpenFOAM's SA is not the TMR SA).
-Tier 1: grid 273 x 193, wall-resolved, f = 0.5."""
+Tier 1: grid 273 x 193, wall-resolved, f = 0.5.
+Tier 2 (--tier2, doc/validationSuite.md §11): the TMR grids 137, 273, 545, f = 0.25, 0.5, 0.75,
+wall law SA and none; options on 273 (mergeAlpha 0 at f 0.25, ibmConvection off,
+ibmConvectionWallLaw on, a freeSlip box ahead of the plate); wall functions on the 273 grid
+coarsened at the wall to a first cell of h+ 30 and 90 at x = 0.97 (as V7), body-fitted with
+Spalding's law at the same first-cell height. C_f(x) of the immersed plate: 2 ibmWallShear, the
+traction the wall cells apply (per cell the term whose sum is the plate force)."""
 import gzip
 import os
 
@@ -21,9 +27,17 @@ REGRESSION = (1e-4,)
 
 NU = 1/5e6
 GRIDS = common.RUNS / "tmr_grids" / "zip"   # flatplategrids.zip of the TMR, extracted
-GRID = {273: "flatplate_clust2_1leveldown_273x193.p2dfmt", 545: "flatplate_clust2.p2dfmt"}
+GRID = {137: "flatplate_clust2_2levelsdown_137x97.p2dfmt", 273: "flatplate_clust2_1leveldown_273x193.p2dfmt",
+        545: "flatplate_clust2.p2dfmt"}
 DZ = 0.01
 XCF = tmr.FLATPLATE["x_cf"]
+XPROF = (0.97008, 1.90334)                    # TMR profile stations
+UTAU097 = (0.002729/2)**0.5                   # TMR incompressible C_f(0.97): the h+ of the wall-function meshes
+HPLUS = (30, 90)
+GRIDS2 = (137, 273, 545)
+FS = (0.25, 0.5, 0.75)
+XWIN = (0.1, 1.9)                             # C_f(x) window: the leading edge excluded
+RTOL_WR, RTOL_CFX, RTOL_NUT, RTOL_SPREAD, RTOL_WF = 0.01, 0.02, 0.02, 0.01, 0.03
 
 
 def read_grid(n):
@@ -36,6 +50,19 @@ def read_grid(n):
     return x[0], y[:, 0]                      # tensor product: x_i, y_j
 
 
+def grid_lines(g):
+    """x_i, y_j of a TMR grid (int) or of a wall-function mesh "h30", "h90": the 273 grid with its
+    lines below the first one spaced >= h replaced by a uniform layer ending on that line, cells of
+    height ~h (within 3 %), h+ = h u_tau/nu at x = 0.97"""
+    if not isinstance(g, str):
+        return read_grid(g)
+    xs, ys = read_grid(273)
+    h = int(g[1:])*NU/UTAU097
+    j = int(np.argmax(np.diff(ys) >= h))      # first spacing >= h
+    k = max(int(round(ys[j]/h)), 1)
+    return xs, np.concatenate([np.linspace(0.0, ys[j], k + 1), ys[j + 1:]])
+
+
 def write_p2d(path, xs, ys):
     X, Y = np.meshgrid(xs, ys)
     with open(path, "w") as fh:
@@ -46,7 +73,7 @@ def write_p2d(path, xs, ys):
 
 
 def mesh(d, n, ibm, f):
-    xs, ys = read_grid(n)
+    xs, ys = grid_lines(n)
     if ibm:
         dy1 = ys[1] - ys[0]
         ys = np.concatenate([[ys[0] - dy1], ys]) + f*dy1
@@ -99,7 +126,7 @@ def build_mesh(d):
     common.sh("createPatch -overwrite", d, "log.createPatch")
 
 
-def case(d, n, ibm, f, ma=0.5, law="spalartAllmaras"):
+def case(d, n, ibm, f, ma=0.5, law="spalartAllmaras", opts=None, lead=False):
     xs, ys = mesh(d, n, ibm, f)
     nut_inf = 3*NU*27/(27 + 7.1**3)          # nu_t = nuTilda fv1, chi = 3
     bc = {"inlet": {"U": "fixedValue; value uniform (1 0 0);", "p": "zeroGradient;",
@@ -128,9 +155,14 @@ def case(d, n, ibm, f, ma=0.5, law="spalartAllmaras"):
         import geometry
         # leading edge half a cell downstream of the mesh line x = 0 (a body face on a mesh line
         # is degenerate for the level set): Re_x at x = 0.97 changes by 0.05 %
-        geometry.ibm_properties(d, {"plate": {"type": "box", "min": (0.5*dxle, -1.0, -1.0), "max": (3.0, 0.0, 1.0),
-                                              "wallType": "noSlip", "wallFunction": law}}, mergeAlpha=ma,
-                                nSubSamples=32)
+        bodies = {"plate": {"type": "box", "min": (0.5*dxle, -1.0, -1.0), "max": (3.0, 0.0, 1.0),
+                            "wallType": "noSlip", "wallFunction": law}}
+        if lead:
+            # variant: a freeSlip box ahead of the plate at its height, touching it (two bodies;
+            # their common face is no wall, G1)
+            bodies["lead"] = {"type": "box", "min": (-1.0, -1.0, -1.0), "max": (0.5*dxle, 0.0, 1.0),
+                              "wallType": "freeSlip"}
+        geometry.ibm_properties(d, bodies, mergeAlpha=ma, nSubSamples=32, **(opts or {}))
     write_dict(d / "system" / "fvSchemes", "dictionary", "fvSchemes", """
 ddtSchemes      { default steadyState; }
 gradSchemes     { default Gauss linear; }
@@ -196,11 +228,49 @@ def cf_bodyfitted(d, t):
     return pc["plate"][:, 0], 2*np.abs(pt["plate"][:, 0])
 
 
-def one(ctx, n, ibm, f=0.5, ma=0.5):
-    name = "%s_%d%s" % ("ibm" if ibm else "bf", n, "_f%g_ma%g" % (f, ma) if ibm else "")
+OPTIONS = {"noConv": dict(ibmConvection=False), "convLaw": dict(ibmConvectionWallLaw=True)}
+
+
+def name_of(n, ibm, f=0.5, ma=0.5, law="spalartAllmaras", opt=None):
+    if not ibm:
+        return "bf_%s" % n
+    return "ibm_%s_f%g_ma%g%s%s" % (n, f, ma, "_noLaw" if law == "none" else "", "_" + opt if opt else "")
+
+
+def column(x, xc):
+    """mask of the cells of the mesh column nearest to x"""
+    return np.abs(x - x[np.argmin(np.abs(x - xc))]) < 1e-9
+
+
+def profiles(C, U, nut, y0, cfx, cf):
+    """u+(y+) at the TMR stations (y from the plate, u_tau from the local C_f) and max nu_t/nu at
+    x = 0.97"""
+    out = {}
+    for xs in XPROF:
+        m = column(C[:, 0], xs)
+        ut = (0.5*float(np.interp(xs, cfx, cf)))**0.5
+        o = np.argsort(C[m, 1])
+        y = C[m, 1][o] - y0
+        out["prof_%g" % xs] = {"yplus": (y*ut/NU).tolist(), "uplus": (U[m, 0][o]/ut).tolist()}
+    out["nut097"] = float(np.max(nut[column(C[:, 0], XCF)])/NU)
+    return out
+
+
+def one(ctx, n, ibm, f=0.5, ma=0.5, law="spalartAllmaras", opt=None):
+    name = name_of(n, ibm, f, ma, law, opt)
     d = ctx.root / name
+    try:
+        return _one(ctx, d, name, n, ibm, f, ma, law, opt)
+    except common.RunError as e:      # tier 2: a diverged run is a result, not a driver crash
+        if ctx.tier2 and name not in TIER1_NAMES:
+            return {"name": name, "n": n, "ibm": ibm, "f": f, "ma": ma, "law": law, "opt": opt,
+                    "C_D": float("nan"), "converged": False, "error": str(e)[:200]}
+        raise
+
+
+def _one(ctx, d, name, n, ibm, f, ma, law, opt):
     if not (common.REUSE and (d / "system").exists()):
-        case(d, n, ibm, f, ma)
+        case(d, n, ibm, f, ma, law, OPTIONS.get(opt), lead=(opt == "lead"))
     (d / "0").mkdir(exist_ok=True)
     common.sh("checkMesh -constant", d, "log.checkMesh")
     common.sh("postProcess -func writeCellCentres -time 0", d, "log.postProcess")
@@ -211,30 +281,88 @@ def one(ctx, n, ibm, f=0.5, ma=0.5):
     log = (d / ("log." + app)).read_text()
     t = latest_time(str(d))
     if ibm:
-        # C_D = F_x per unit depth/(rho U^2 L/2), L = 2; no wall shear field yet for C_f(x)
+        # C_D = F_x per unit depth/(rho U^2 L/2), L = 2
         CD = common.ibm_force(log, "plate")["total"][0]/DZ
-        x, cf = None, None
+        x, cf = cf_ibm(d, t)
     else:
         x, cf = cf_bodyfitted(d, t)
         o = np.argsort(x)
         x, cf = x[o], cf[o]
         dx = np.gradient(x)
         CD = float(np.sum(cf*dx)/2.0)
-    out = {"name": name, "n": n, "ibm": ibm, "f": f, "ma": ma, "C_D": float(CD),
-           "converged": "SIMPLE solution converged" in log}
+    out = {"name": name, "n": n, "ibm": ibm, "f": f, "ma": ma, "law": law, "opt": opt, "C_D": float(CD),
+           "converged": "SIMPLE solution converged" in log,
+           "iterations": int(t) if t.isdigit() else None}
     if x is not None:
         out["cf097"] = float(np.interp(XCF, x, cf))
+        if ctx.tier2:
+            C, _ = read_field(os.path.join(d, "0", "C"))
+            U, _ = read_field(os.path.join(d, t, "U"))
+            nut, _ = read_field(os.path.join(d, t, "nut"))
+            if ibm:
+                a, _ = read_field(os.path.join(d, "0", "ibmAlpha"))
+                off = os.path.join(d, t, "ibmCentroidOffset")
+                if os.path.exists(off):
+                    C = C + read_field(off)[0]
+                m = a > 0
+                C, U, nut = C[m], U[m], nut[m]
+            out.update(profiles(C, U, nut, 0.0, x, cf))
+            out["cfx"], out["cf"] = x.tolist(), cf.tolist()
+    return out
+
+
+def cf_ibm(d, t):
+    """x, C_f = 2 ibmWallShear of the plate's wall cells (one per mesh column)"""
+    tw = os.path.join(d, t, "ibmWallShear")
+    if not os.path.exists(tw):
+        return None, None
+    C, _ = read_field(os.path.join(d, "0", "C"))
+    Sw, _ = read_field(os.path.join(d, "0", "ibmSw"))
+    tau, _ = read_field(tw)
+    m = (np.sum(Sw**2, axis=1) > 0) & (C[:, 0] > 0) & (tau > 0)
+    o = np.argsort(C[m, 0])
+    return C[m, 0][o], 2*tau[m][o]
+
+
+TIER1 = [dict(n=273, ibm=False), dict(n=273, ibm=True, f=0.5)]
+TIER1_NAMES = {name_of(**j) for j in TIER1}
+
+
+def tier2_jobs():
+    bf = [dict(n=g, ibm=False) for g in GRIDS2 + tuple("h%d" % h for h in HPLUS)]
+    jobs = [dict(n=g, ibm=True, f=f, law=law) for g in GRIDS2 for f in FS for law in ("spalartAllmaras", "none")]
+    jobs += [dict(n=273, ibm=True, f=0.25, ma=0.0), dict(n=273, ibm=True, f=0.5, opt="noConv"),
+             dict(n=273, ibm=True, f=0.5, opt="convLaw"), dict(n=273, ibm=True, f=0.5, opt="lead")]
+    for h in HPLUS:
+        jobs += [dict(n="h%d" % h, ibm=True, f=f) for f in FS]
+        jobs += [dict(n="h%d" % h, ibm=True, f=0.5, opt=o) for o in ("noConv", "convLaw")]
+    names = set()
+    out = []
+    for j in bf + jobs:                       # tier-1 runs are not repeated
+        nm = name_of(**j)
+        if nm not in TIER1_NAMES and nm not in names:
+            names.add(nm)
+            out.append(j)
     return out
 
 
 def run(ctx, res):
-    jobs = [(273, False), (273, True, 0.5)]
-    rows = common.pmap(lambda j: one(ctx, *j), jobs, ctx.jobs)
+    jobs = list(TIER1)
+    if ctx.tier2:
+        # longest first: the 545 grid
+        jobs += sorted(tier2_jobs(), key=lambda j: j["n"] != 545)
+    rows = common.pmap(lambda j: one(ctx, **j), jobs, ctx.jobs)
     res.data["rows"] = rows
-    res.data["metrics"] = {r["name"] + "_C_D": r["C_D"] for r in rows}
-    res.le("runs not converged (residualControl, 40000 iterations)", sum(not r["converged"] for r in rows), 0)
-    bf = [r for r in rows if not r["ibm"]][0]
-    ib = [r for r in rows if r["ibm"]][0]
+    res.data["metrics"] = {r["name"] + "_C_D": r["C_D"] for r in rows if np.isfinite(r["C_D"])}
+    if ctx.tier2:
+        for r in rows:
+            for k in ("cf097", "nut097"):
+                if r.get(k) is not None:
+                    res.data["metrics"]["%s_%s" % (r["name"], k)] = r[k]
+    t1 = [r for r in rows if r["name"] in TIER1_NAMES]
+    res.le("runs not converged (residualControl, 40000 iterations)", sum(not r["converged"] for r in t1), 0)
+    bf = [r for r in t1 if not r["ibm"]][0]
+    ib = [r for r in t1 if r["ibm"]][0]
     res.rel("plate C_D, IBM f 0.5 vs body-fitted, grid 273 x 193", ib["C_D"], bf["C_D"], 0.01)
     inc = tmr.flatplate_cf()["FUN3D incompressible SA"]
     res.report("body-fitted C_f(0.97) vs TMR incompressible FUN3D (finest grid)", bf["cf097"], float(inc[1][0]),
@@ -242,3 +370,65 @@ def run(ctx, res):
     cd = tmr.flatplate_drag()["CFL3D"]
     res.report("body-fitted C_D vs TMR CFL3D (compressible M 0.2, finest)", bf["C_D"], float(cd[1][0]),
                "deviation %+.2f %%" % (100*(bf["C_D"]/cd[1][0] - 1)))
+    if ctx.tier2:
+        tier2_report(res, rows)
+
+
+def cfx_dev(r, b):
+    """max |C_f,IBM/C_f,BF - 1| over the body-fitted face centres in XWIN"""
+    if r.get("cfx") is None or b.get("cfx") is None:
+        return float("nan")
+    bx, bc = np.array(b["cfx"]), np.array(b["cf"])
+    m = (bx >= XWIN[0]) & (bx <= XWIN[1])
+    return float(np.max(np.abs(np.interp(bx[m], r["cfx"], r["cf"])/bc[m] - 1)))
+
+
+def tier2_report(res, rows):
+    """IBM against body-fitted on the same grid (doc/validationSuite.md §11 V15): wall-resolved
+    C_f(0.97), C_D 1 %, C_f(x) 2 % on 0.1 <= x <= 1.9, max nu_t/nu at 0.97 2 %, spread over f 1 %;
+    wall functions (user, 2026-11-22, as V7): C_f(0.97), C_D within 3 % of the wall-resolved
+    body-fitted 273 run (same x lines) and closer to it than the body-fitted wall function on the
+    same mesh (Spalding's law is 5 % off at h+ 90); off-default options there REPORT"""
+    bf = {r["n"]: r for r in rows if not r["ibm"]}
+    t2 = [r for r in rows if r["name"] not in TIER1_NAMES or r["ibm"]]
+    bad = [r["name"] for r in rows if not r["converged"]]
+    res.le("tier 2: runs not converged (residualControl) or failed", len(bad), 0, ", ".join(bad) or "-")
+    inc = float(tmr.flatplate_cf()["FUN3D incompressible SA"][1][0])
+    for g in GRIDS2:
+        if g in bf and np.isfinite(bf[g].get("cf097", np.nan)):
+            res.report("tier 2 body-fitted %s: C_f(0.97) vs TMR incompressible" % g, bf[g]["cf097"], inc,
+                       "deviation %+.2f %%" % (100*(bf[g]["cf097"]/inc - 1)))
+    for r in t2:
+        if not r["ibm"] or r["n"] not in bf:
+            continue
+        b = bf[r["n"]]
+        wf = isinstance(r["n"], str)
+        tag = "tier 2 %s" % r["name"]
+        if not np.isfinite(r["C_D"]) or r.get("cf097") is None:
+            res.report(tag, float("nan"), None, r.get("error", "no result"))
+            continue
+        if wf:
+            wr = bf[273]
+            for k, lab in (("cf097", "C_f(0.97)"), ("C_D", "C_D")):
+                e, ebf = r[k]/wr[k] - 1, b[k]/wr[k] - 1
+                note = "IBM %+.2f %%, body-fitted wall function %+.2f %%" % (100*e, 100*ebf)
+                if r.get("opt"):
+                    res.report(tag + " %s vs wall-resolved body-fitted (option)" % lab, r[k], wr[k], note)
+                else:
+                    res.add(tag + " %s vs wall-resolved body-fitted" % lab,
+                            "PASS" if abs(e) <= RTOL_WF and abs(e) < abs(ebf) else "FAIL", r[k], wr[k],
+                            "%g %% and < body-fitted wall function" % (100*RTOL_WF), note)
+            res.report(tag + " max C_f(x) deviation from wall-resolved body-fitted, 0.1..1.9", cfx_dev(r, wr), None,
+                       "body-fitted wall function %.2f %%" % (100*cfx_dev(b, wr)))
+        else:
+            res.rel(tag + " C_f(0.97) vs body-fitted", r["cf097"], b["cf097"], RTOL_WR)
+            res.rel(tag + " C_D vs body-fitted", r["C_D"], b["C_D"], RTOL_WR)
+            res.le(tag + " max C_f(x) deviation, 0.1..1.9", cfx_dev(r, b), RTOL_CFX)
+            res.rel(tag + " max nu_t/nu at x 0.97", r["nut097"], b["nut097"], RTOL_NUT)
+    for g in GRIDS2:
+        for law in ("spalartAllmaras", "none"):
+            v = [r["cf097"] for r in rows if r["ibm"] and r["n"] == g and r["law"] == law and not r.get("opt")
+                 and r["ma"] == 0.5 and r.get("cf097") is not None]
+            if len(v) == len(FS) and g in bf:
+                res.le("tier 2 spread of C_f(0.97) over f, grid %s, law %s" % (g, law),
+                       (max(v) - min(v))/bf[g]["cf097"], RTOL_SPREAD)
