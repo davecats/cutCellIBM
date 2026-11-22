@@ -38,6 +38,8 @@ GRIDS2 = (137, 273, 545)
 FS = (0.25, 0.5, 0.75)
 XWIN = (0.1, 1.9)                             # C_f(x) window: the leading edge excluded
 RTOL_WR, RTOL_CFX, RTOL_NUT, RTOL_SPREAD, RTOL_WF = 0.01, 0.02, 0.02, 0.01, 0.03
+END = {545: 80000}                            # SIMPLE iteration cap (residualControl ends the runs):
+                                              # the 545 grid needs ~42000 (Uy 1.5e-8 at 40000, HK2 2026-11-23)
 
 
 def read_grid(n):
@@ -127,6 +129,7 @@ def build_mesh(d):
 
 
 def case(d, n, ibm, f, ma=0.5, law="spalartAllmaras", opts=None, lead=False):
+    end = END.get(n, 40000)
     xs, ys = mesh(d, n, ibm, f)
     nut_inf = 3*NU*27/(27 + 7.1**3)          # nu_t = nuTilda fv1, chi = 3
     bc = {"inlet": {"U": "fixedValue; value uniform (1 0 0);", "p": "zeroGradient;",
@@ -181,10 +184,10 @@ wallDist        { method %s; }
     fv_solution(d, ibm)
     write_dict(d / "system" / "controlDict", "dictionary", "controlDict", """
 application %s;
-%sstartFrom startTime; startTime 0; stopAt endTime; endTime 40000; deltaT 1;
-writeControl timeStep; writeInterval 40000; purgeWrite 0; writeFormat ascii; writePrecision 12;
+%sstartFrom startTime; startTime 0; stopAt endTime; endTime %d; deltaT 1;
+writeControl timeStep; writeInterval %d; purgeWrite 0; writeFormat ascii; writePrecision 12;
 timeFormat general; timePrecision 6; runTimeModifiable false;
-""" % ("ibmSimpleFoam" if ibm else "simpleFoam", 'libs ("libcutCellIBMTurbulence.so");\n' if ibm else ""))
+""" % ("ibmSimpleFoam" if ibm else "simpleFoam", 'libs ("libcutCellIBMTurbulence.so");\n' if ibm else "", end, end))
     if not ibm:
         write_dict(d / "system" / "controlDict", "dictionary", "controlDict",
                    (d / "system" / "controlDict").read_text().split("\n", 1)[1] + """
@@ -282,7 +285,8 @@ def _one(ctx, d, name, n, ibm, f, ma, law, opt):
     t = latest_time(str(d))
     if ibm:
         # C_D = F_x per unit depth/(rho U^2 L/2), L = 2
-        CD = common.ibm_force(log, "plate")["total"][0]/DZ
+        F = common.ibm_force(log, "plate")
+        CD, CDp, CDv = (F[k][0]/DZ for k in ("total", "pressure", "viscous"))
         x, cf = cf_ibm(d, t)
     else:
         x, cf = cf_bodyfitted(d, t)
@@ -290,8 +294,9 @@ def _one(ctx, d, name, n, ibm, f, ma, law, opt):
         x, cf = x[o], cf[o]
         dx = np.gradient(x)
         CD = float(np.sum(cf*dx)/2.0)
+        CDp, CDv = 0.0, CD
     out = {"name": name, "n": n, "ibm": ibm, "f": f, "ma": ma, "law": law, "opt": opt, "C_D": float(CD),
-           "converged": "SIMPLE solution converged" in log,
+           "C_Dp": float(CDp), "C_Dv": float(CDv), "converged": "SIMPLE solution converged" in log,
            "iterations": int(t) if t.isdigit() else None}
     if x is not None:
         out["cf097"] = float(np.interp(XCF, x, cf))
