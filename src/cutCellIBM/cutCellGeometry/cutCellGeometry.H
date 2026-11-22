@@ -340,6 +340,13 @@ class cutCellGeometry
         //- Whether the above belong to the current geometry
         mutable bool wallSamplesDone_;
 
+        //- Diagnostics of wallViscosity, registered and written with the
+        //  solution (also when residualControl ends the run): the kinematic
+        //  wall shear the wall cells apply, nu_w |u_t|/dWall, and the weight
+        //  of the wall law; created on its first call
+        mutable autoPtr<volScalarField> wallShearPtr_;
+        mutable autoPtr<volScalarField> wallLawWeightPtr_;
+
 
     // Least-squares gradient (lsqGrad): its geometric part, demand-driven,
     // rebuilt on the first call after the geometry or the mesh changes

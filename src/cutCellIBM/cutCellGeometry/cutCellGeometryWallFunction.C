@@ -649,24 +649,51 @@ Foam::tmp<Foam::volScalarField> Foam::cutCellGeometry::wallViscosity
             );
     }
 
-    // Diagnostics at write times: the kinematic wall shear the wall cells
-    // apply, nu_w |u_t|/dWall, and the weight of the wall law
-    if (mesh_.time().writeTime())
+    // Diagnostics: the kinematic wall shear the wall cells apply,
+    // nu_w |u_t|/dWall (per cell the tangential part of the traction that
+    // forces() sums), and the weight of the wall law. Registered fields
+    // updated on every call and written with the solution, so that they
+    // exist at the time where residualControl ends the run (written one
+    // step after the converged iteration, which is no write step)
+    if (!wallShearPtr_.valid() || wallShearPtr_().size() != mesh_.nCells())
     {
-        volScalarField tauW
+        // (check the old ones out before registering the new ones)
+        wallShearPtr_.clear();
+        wallLawWeightPtr_.clear();
+        wallShearPtr_.reset
         (
-            IOobject("ibmWallShear", mesh_.time().timeName(), mesh_),
-            mesh_,
-            dimensionedScalar(sqr(dimVelocity), Zero),
-            "zeroGradient"
+            new volScalarField
+            (
+                IOobject
+                (
+                    "ibmWallShear", mesh_.time().timeName(), mesh_,
+                    IOobject::NO_READ, IOobject::AUTO_WRITE
+                ),
+                mesh_,
+                dimensionedScalar(sqr(dimVelocity), Zero),
+                "zeroGradient"
+            )
         );
-        volScalarField weight
+        wallLawWeightPtr_.reset
         (
-            IOobject("ibmWallLawWeight", mesh_.time().timeName(), mesh_),
-            mesh_,
-            dimensionedScalar(dimless, Zero),
-            "zeroGradient"
+            new volScalarField
+            (
+                IOobject
+                (
+                    "ibmWallLawWeight", mesh_.time().timeName(), mesh_,
+                    IOobject::NO_READ, IOobject::AUTO_WRITE
+                ),
+                mesh_,
+                dimensionedScalar(dimless, Zero),
+                "zeroGradient"
+            )
         );
+    }
+    {
+        scalarField& tauW = wallShearPtr_().primitiveFieldRef();
+        scalarField& weight = wallLawWeightPtr_().primitiveFieldRef();
+        tauW = 0;
+        weight = 0;
         for (const label celli : wallCells_)
         {
             vector slip(U[celli]);
@@ -679,8 +706,8 @@ Foam::tmp<Foam::volScalarField> Foam::cutCellGeometry::wallViscosity
                 nuW[celli]*mag(slip - (slip & n)*n)/max(dWall_[celli], VSMALL);
             weight[celli] = w[celli];
         }
-        tauW.write();
-        weight.write();
+        wallShearPtr_().correctBoundaryConditions();
+        wallLawWeightPtr_().correctBoundaryConditions();
     }
 
     tnuW.ref().correctBoundaryConditions();
