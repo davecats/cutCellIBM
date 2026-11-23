@@ -766,6 +766,25 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   helps at h⁺ 10 (+0.85 % against +4.5 %), hurts at h⁺ 30 (−2.84 %), stays off. Baseline: rerun on
   HoreKa 2 (v2506, job 140998, 16 cores, 1 h 57 min): same PASS/REPORT, all 115 u_τ within 1.1e-7
   relative of io2; V7 baseline (tier 1 + tier 2) accepted from it (user, 2026-11-22, 0d43d84). Same-host cost benchmark postponed until AMR.
+- **V15 tier 2** (2026-11-22/23, user decisions; c22eaa6, 37fb138, 843c612; HoreKa 2, v2506, job
+  141216 on 24 cores, 4 h 08 min). C_f(x) of the immersed plate from `ibmWallShear`, now a
+  registered field written with the solution (87d4ddb; before, runs ended by `residualControl` never
+  had it). Tilted plate dropped (user, 2026-11-22: V7's inclined walls and the V16 curved bump cover
+  the wall function on walls not aligned with the mesh). Wall-function meshes: the 273 grid with a
+  uniform layer ending on the first TMR line of spacing ≥ h, h⁺ 29.3 and 87.7 (V7 levels), stretch
+  ≤ 1.069. Wall-function tolerance (user, 2026-11-22, as V7): C_f(0.97) and the drag within 3 % of
+  the wall-resolved body-fitted 273 run and closer to it than body-fitted Spalding on the same mesh;
+  C_f(x) on 0.1–1.9 REPORT. The drag check takes the **viscous** C_D (user, 2026-11-23): the
+  body-fitted C_D is purely viscous, while the immersed plate box adds pressure drag on its
+  leading-edge face, (1 − f)Δy₁ high in the fluid sliver ahead of the plate: 1.23, 0.55, 0.15 % of
+  C_D at h⁺ 90 and f 0.25, 0.5, 0.75 (≤ 0.18 % at h⁺ 30), which made the total C_D at h⁺ 90, f 0.25
+  +3.06 % (viscous +1.83 %). Total C_D with C_Dp and the comparison with body-fitted Spalding are
+  REPORT: immersed and Spalding differ by 4–10 % (immersed C_f(0.97) +0.4–0.8 % against Spalding
+  +5.5 % at h⁺ 90 and +11.8 % at h⁺ 30), a Spalding-on-this-mesh error, so the wall-resolved
+  comparison stays the check (the user's rule: only if immersed and body-fitted wall functions were
+  coherent would the deviation be a wall-function error and the check be against Spalding). The 545
+  runs reached the 40000-iteration cap with Uy 1.5·10⁻⁸ against 10⁻⁸, residuals falling
+  geometrically: cap 80000 on that grid (37fb138), rerun job 141394.
 - **G8**: cylinder drag (the lift is zero by symmetry, solver noise) and the channel driving
   gradient u_τ², each run required stationary (the gradient changes ≤ 1e-10 over the last 100
   iterations): `residualControl` cannot trigger in this 1-D problem (the Uy and p residuals are
