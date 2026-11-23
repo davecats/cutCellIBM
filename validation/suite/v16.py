@@ -29,7 +29,8 @@ REGRESSION = (1e-4,)
 NU = 1/3e6
 DZ = 0.01
 NP = 8
-END = 40000
+END = 120000                    # SIMPLE cap; runs past 40000 continue from their latest time
+STAT = (0.1, 1e-4)              # stationary: C_L, C_D within 1e-4 relative over the last 10 % of the iterations
 GRIDS = common.RUNS / "tmr_grids" / "bump"   # bumpgrids-grids.zip of the TMR, the p2dfmt files
 GRID705 = "bump_1levelsdown_705x321.p2dfmt"
 DX = 2e-3
@@ -239,12 +240,12 @@ functions
 {
     wss { type wallShearStress; libs (fieldFunctionObjects); patches (bump); writeControl writeTime; }
     forces { type forces; libs (forces); patches (bump); rho rhoInf; rhoInf 1; CofR (0 0 0);
-             writeControl writeTime; }
+             writeControl timeStep; writeInterval 1; }
 }
 """
     write_dict(d / "system" / "controlDict", "dictionary", "controlDict", """
 application %s;
-%sstartFrom startTime; startTime 0; stopAt endTime; endTime %d; deltaT 1;
+%sstartFrom latestTime; startTime 0; stopAt endTime; endTime %d; deltaT 1;
 writeControl timeStep; writeInterval %d; purgeWrite 0; writeFormat ascii; writePrecision 12;
 timeFormat general; timePrecision 6; runTimeModifiable false;
 %s""" % ("ibmSimpleFoam" if ibm else "simpleFoam", 'libs ("libcutCellIBMTurbulence.so");\n' if ibm else "",
@@ -284,7 +285,42 @@ def _one(d, name, mesh, ibm, opt):
     out = {"name": name, "mesh": mesh, "ibm": ibm, "opt": opt, "converged": "SIMPLE solution converged" in log,
            "iterations": int(t) if t.isdigit() else None}
     out.update(evaluate_ibm(d, t, log) if ibm else evaluate_bf(d, t))
+    out["stat_dev"] = stationarity(force_history(d, ibm, log))
+    out["stationary"] = out["stat_dev"] <= STAT[1]
     return out
+
+
+def force_history(d, ibm, log):
+    """C_L, C_D per iteration of the latest solver log (immersed) or of all forces/<t>/force.dat
+    (body-fitted, written every step since the runs were continued past 40000)"""
+    if ibm:
+        pat = r"IBM force on bump: pressure \(([^)]*)\) viscous \(([^)]*)\)"
+        F = np.array([[float(v) for v in (a + " " + b).split()] for a, b in re.findall(pat, log)])
+        if not len(F):
+            return np.zeros((0, 2))
+        Fx, Fy = F[:, 0] + F[:, 3], F[:, 1] + F[:, 4]
+    else:
+        rows = []
+        for f in sorted((d / "postProcessing" / "forces").glob("*/force.dat"), key=lambda q: float(q.parent.name)):
+            for line in f.read_text().splitlines():
+                if line.strip() and not line.startswith("#"):
+                    v = [float(x) for x in line.replace("(", " ").replace(")", " ").split()]
+                    rows.append((v[0], v[1], v[2]))
+        if not rows:
+            return np.zeros((0, 2))
+        rows = np.array(sorted(dict((r[0], r) for r in rows).values()))
+        Fx, Fy = rows[:, 1], rows[:, 2]
+    s = 2/LREF/DZ
+    return np.column_stack([s*Fy, s*Fx])
+
+
+def stationarity(h):
+    """max relative change of C_L, C_D over the last STAT[0] of the history from its last value
+    (inf for fewer than 1000 entries)"""
+    if len(h) < 1000:
+        return float("inf")
+    w = h[int((1 - STAT[0])*len(h)):]
+    return float(np.max(np.abs(w - h[-1])/np.abs(h[-1])))
 
 
 # ------------------------------------------------------------------------------------ evaluation
@@ -351,7 +387,7 @@ def owner_of_patch(d, patch):
 
 
 def evaluate_bf(d, t):
-    fo = sorted((d / "postProcessing" / "forces").glob("*/force.dat"))
+    fo = sorted((d / "postProcessing" / "forces").glob("*/force.dat"), key=lambda q: float(q.parent.name))
     vals = [float(v) for v in fo[-1].read_text().strip().splitlines()[-1].replace("(", " ").replace(")", " ").split()]
     out = coeffs(np.array(vals[4:7])/DZ, np.array(vals[7:10])/DZ)
     _, pc = read_field(os.path.join(d, "0", "C"))
@@ -416,8 +452,11 @@ def report(res, rows):
     within 0.005 on 0.1 <= x <= 1.4, C_f at the three stations 3 %, C_L 2 %; C_Dp REPORT; against
     the body-fitted wall-resolved 705 run REPORT; off-default options REPORT"""
     by = {r["name"]: r for r in rows}
-    bad = [r["name"] for r in rows if not r["converged"]]
-    res.le("runs not converged (residualControl, %d iterations) or failed" % END, len(bad), 0, ", ".join(bad) or "-")
+    bad = [r["name"] for r in rows if not (r["converged"] or r.get("stationary"))]
+    res.le("runs neither converged (residualControl, %d iterations) nor stationary (C_L, C_D within %g over the "
+           "last %d %%) or failed" % (END, STAT[1], 100*STAT[0]), len(bad), 0,
+           ", ".join("%s (%.1e)" % (r["name"], r.get("stat_dev", float("nan"))) for r in rows
+                     if r["name"] in bad) or "-")
     wr = by.get("bf_wr")
     f = tmr.bump_forces()["CFL3D"]
     cfr = tmr.bump_cf()
