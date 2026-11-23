@@ -393,7 +393,12 @@ def tier2_report(res, rows):
     C_f(0.97), C_D 1 %, C_f(x) 2 % on 0.1 <= x <= 1.9, max nu_t/nu at 0.97 2 %, spread over f 1 %;
     wall functions (user, 2026-11-22, as V7): C_f(0.97), C_D within 3 % of the wall-resolved
     body-fitted 273 run (same x lines) and closer to it than the body-fitted wall function on the
-    same mesh (Spalding's law is 5 % off at h+ 90); off-default options there REPORT"""
+    same mesh (Spalding's law is 5 % off at h+ 90); off-default options there REPORT. The drag
+    check takes the viscous C_D (user, 2026-11-23): the body-fitted plate's C_D is purely viscous,
+    the immersed plate box adds pressure drag on its leading-edge face, (1 - f) dy1 high in the
+    fluid sliver ahead of the plate (1.2 % of C_D at h+ 90, f 0.25); total C_D and C_Dp REPORT.
+    Immersed vs body-fitted Spalding REPORT (the check would be against Spalding only were the two
+    coherent, i.e. the wall-resolved deviation a wall-function error, not an IBM one)"""
     bf = {r["n"]: r for r in rows if not r["ibm"]}
     t2 = [r for r in rows if r["name"] not in TIER1_NAMES or r["ibm"]]
     bad = [r["name"] for r in rows if not r["converged"]]
@@ -414,15 +419,25 @@ def tier2_report(res, rows):
             continue
         if wf:
             wr = bf[273]
-            for k, lab in (("cf097", "C_f(0.97)"), ("C_D", "C_D")):
+            for k, lab in (("cf097", "C_f(0.97)"), ("C_Dv", "viscous C_D")):
+                if r.get(k) is None or wr.get(k) is None:
+                    res.report(tag + " %s vs wall-resolved body-fitted" % lab, float("nan"), None, "not recorded")
+                    continue
                 e, ebf = r[k]/wr[k] - 1, b[k]/wr[k] - 1
                 note = "IBM %+.2f %%, body-fitted wall function %+.2f %%" % (100*e, 100*ebf)
+                res.report(tag + " %s vs body-fitted Spalding (same mesh)" % lab, r[k], b[k],
+                           "deviation %+.2f %%" % (100*(r[k]/b[k] - 1)))
                 if r.get("opt"):
                     res.report(tag + " %s vs wall-resolved body-fitted (option)" % lab, r[k], wr[k], note)
                 else:
                     res.add(tag + " %s vs wall-resolved body-fitted" % lab,
                             "PASS" if abs(e) <= RTOL_WF and abs(e) < abs(ebf) else "FAIL", r[k], wr[k],
                             "%g %% and < body-fitted wall function" % (100*RTOL_WF), note)
+            if r.get("C_Dp") is not None:
+                res.report(tag + " total C_D vs wall-resolved body-fitted", r["C_D"], wr["C_D"],
+                           "IBM %+.2f %% (pressure drag of the leading-edge face %.2f %%), body-fitted wall "
+                           "function %+.2f %%" % (100*(r["C_D"]/wr["C_D"] - 1), 100*r["C_Dp"]/wr["C_D"],
+                                                  100*(b["C_D"]/wr["C_D"] - 1)))
             res.report(tag + " max C_f(x) deviation from wall-resolved body-fitted, 0.1..1.9", cfx_dev(r, wr), None,
                        "body-fitted wall function %.2f %%" % (100*cfx_dev(b, wr)))
         else:
