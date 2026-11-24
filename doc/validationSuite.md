@@ -784,7 +784,23 @@ unlinked). Evaluating a linked cell at its own centroid shows an O(h) error that
   comparison stays the check (the user's rule: only if immersed and body-fitted wall functions were
   coherent would the deviation be a wall-function error and the check be against Spalding). The 545
   runs reached the 40000-iteration cap with Uy 1.5·10⁻⁸ against 10⁻⁸, residuals falling
-  geometrically: cap 80000 on that grid (37fb138), rerun job 141394.
+  geometrically: cap 80000 on that grid (37fb138), rerun job 141394. HoreKa 2 down until
+  2026-12-05: rerun locally instead (istmeridanus, v2506, code 22942d4, 24 cores, chunked 4 h run /
+  4 h pause by SIGSTOP/SIGCONT, `~/Codes/tools/chunkrun.sh`; 61317 s CPU): all 37 runs converged
+  (545 in 41500–41700 iterations), 110 PASS, 53 REPORT, within 1.4e-5 (C_f(0.97)) and 2.6e-5 (C_D)
+  of job 141216. Baseline accepted from it (user, 2026-11-24, c911ae4).
+- **V16** (2026-11-23/24; 535f80a, af52f90, 3beec86; local, v2506, HoreKa 2 down). The first pass
+  capped SIMPLE at 40000 iterations and left 7 of 9 runs unconverged. Runs now continue from their
+  latest time up to 120000 iterations and count as converged by `residualControl` **or** stationary
+  (C_L and C_D within 1e-4 relative over the last 10 %, as V7 tier 2); the body-fitted forces are
+  written every step for that history. At 120000: bf_h67, ibm_h67 (and its options) and ibm_h133
+  converged; bf_h133 stationary (1e-8). ibm_h33 still converging geometrically (U residual ×0.7 per
+  10000 iterations, C_D fixed to 3e-8, C_L moving 4.2e-4 over the last 10 %, extrapolated +0.3 %):
+  cap 240000 on the h33 band (user, 2026-11-24, 3beec86). bf_h33 is a period-2 cycle of body-fitted
+  `simpleFoam` with Spalding (C_D ±0.11 %, C_L ±3e-5, p residual 1.3e-3 flat). The wall-resolved 705
+  run (bf_wr) is still converging slowly towards its 120000 cap. First-pass comparison: immersed
+  closer to the wall-resolved run than body-fitted Spalding (as V7, V15); the criterion is decided
+  once all runs are converged or stationary.
 - **G8**: cylinder drag (the lift is zero by symmetry, solver noise) and the channel driving
   gradient u_τ², each run required stationary (the gradient changes ≤ 1e-10 over the last 100
   iterations): `residualControl` cannot trigger in this 1-D problem (the Uy and p residuals are
