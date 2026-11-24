@@ -51,7 +51,10 @@ STRESSES, RELIES = ["K9", "K8", "K10", "K1", "K3", "K7"], ["V6", "V13", "G4"]
 REGRESSION = None              # no baseline yet
 
 G_L, G_DH, G_RE = 4.0, 16, 0.01
+GATE_DT = 5e-4                 # the checks: U_t converges ~dt^2 to within 2e-4 of the static drag
 GATE_RUNS = [("implicit", 1.0), ("implicit", 0.5), ("implicit", 0.1), ("explicit", 10.0)]
+GATE_DT_SCAN = [5e-3, 2.5e-3, 1e-3]   # implicit rho_s/rho 1, REPORT (first runs, 2026-11-24:
+                                      # +1.33, +0.32, +0.02 %, -0.02 % at 5e-4)
 GATE_TOL = 0.01
 
 D, DH = 0.4, 32
@@ -248,11 +251,12 @@ def poiseuille(d):
     return "nonuniform List<vector>\n%d\n(\n%s\n)" % (len(u), "\n".join("(%.12g 0 0)" % x for x in u))
 
 
-def free_case(ctx, Re, er, coupling, rho, T=None):
+def free_case(ctx, Re, er, coupling, rho, T=None, dtfac=1.0):
     hf, h0 = v6.mesh_of(D, DH)
     es = float(ref.eps_star(D))
     e = er*es
-    name = "rigid_d%g_e%.4f_Re%g_h%d_%s_rho%g" % (D, e, Re, round(1/hf), coupling, rho)
+    name = "rigid_d%g_e%.4f_Re%g_h%d_%s_rho%g%s" % (D, e, Re, round(1/hf), coupling, rho,
+                                                   "_dtx%g" % dtfac if dtfac != 1.0 else "")
     d = ctx.root / name
     f = d / "result.json"
     if f.exists():
@@ -281,6 +285,7 @@ def free_case(ctx, Re, er, coupling, rho, T=None):
 momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar (%r 0 0); relaxation 1.0;
                  includeMovingBodies yes; }
 """ % mig.J)
+    (d / "0").mkdir(exist_ok=True)
     common.sh("postProcess -func writeCellCentres -time 0", d, "log.writeCellCentres")
     bU = "left { type cyclic; } right { type cyclic; } sym { type symmetryPlane; } outer { type noSlip; }"
     bp = "left { type cyclic; } right { type cyclic; } sym { type symmetryPlane; } outer { type zeroGradient; }"
@@ -291,7 +296,7 @@ momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar 
     (d / "system" / "fvSchemes").write_text(
         (mig.CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default Euler;"))
     write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", pimple_solution((-0.4*L, -0.21, 0.013), NOUTER))
-    dt = 0.4*hf/(2*mig.J)                      # Courant 0.4 on the centre-line velocity
+    dt = 0.4*hf/(2*mig.J)*dtfac                # Courant 0.4 on the centre-line velocity
     dt = float("%.3g" % dt)
     T = T or (3.0 if Re <= 8 else 15.0)
     n = int(round(T/dt))                       # writeInterval counts time steps
@@ -333,21 +338,28 @@ def v6_point(Re, er):
 
 def run(ctx, res):
     st = gate_static(ctx)
-    gates = common.pmap(lambda j: gate_free(ctx, *j, st), GATE_RUNS, max(1, ctx.jobs//NP_GATE))
+    gates = common.pmap(lambda j: gate_free(ctx, *j, st, GATE_DT), GATE_RUNS, max(1, ctx.jobs//NP_GATE))
+    scan = common.pmap(lambda dt: gate_free(ctx, "implicit", 1.0, st, dt), GATE_DT_SCAN,
+                       max(1, ctx.jobs//NP_GATE))
     jobs = [(Re, er, "implicit", 1.0) for Re, er in POINTS]
     jobs += [(POINTS[0][0], POINTS[0][1], c, rho) for c, rho in VARIANTS if (c, rho) != ("implicit", 1.0)]
+    jobs += [(POINTS[0][0], POINTS[0][1], "implicit", 1.0, None, 0.5)]   # time-step error (G1: ~dt^2)
     cases = common.pmap(lambda j: free_case(ctx, *j), jobs, max(1, ctx.jobs//16))
     res.data["gate_static"] = st
     res.data["gate"] = gates
+    res.data["gate_dt_scan"] = scan
     res.data["cases"] = cases
     res.data["metrics"] = {}
     for g in gates:
         res.rel("G1 free sphere, Stokes box, %s rho_s/rho %g: terminal velocity (static drag on the same mesh)"
                 % (g["coupling"], g["rho"]), g["Ut"], 1.0, GATE_TOL,
                 "drift %.1e, std %.1e, force balance %.1e, %d steps" % (g["dUt"], g["sUt"], g["Fbal"], g["steps"]))
+    for g in scan:
+        res.report("G1 implicit rho_s/rho 1, dt %g: terminal velocity" % g["dt"], g["Ut"], 1.0,
+                   "deviation %+.3g %%" % (100*(g["Ut"] - 1)))
     for c in cases:
         p = v6_point(c["Re"], c["epsr"])
-        tag = "Re %g eps/eps* %g %s rho_s/rho %g" % (c["Re"], c["epsr"], c["coupling"], c["rho"])
+        tag = "Re %g eps/eps* %g %s rho_s/rho %g dt %g" % (c["Re"], c["epsr"], c["coupling"], c["rho"], c["dt"])
         res.le("%s: settled (V, Omega over the halves of the last third)" % tag,
                max(abs(c["dV"])/abs(c["V"]), abs(c["dOm"])/max(abs(c["Om"]), 1e-3)), SETTLE)
         if p is None:
