@@ -23,7 +23,7 @@ import common  # noqa: E402
 
 GATES = ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"]
 TIER1 = ["V1", "V2", "V3", "V4", "V5", "V7", "V12", "V13", "V15"]
-ALL = GATES + ["V%d" % i for i in range(1, 17)]
+ALL = GATES + ["V%d" % i for i in range(1, 17)] + ["V6G"]
 
 
 def module(cid):

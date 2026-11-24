@@ -298,6 +298,10 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
             << invarianceTolerance_ << endl;
     }
 
+    // Free bodies: mass properties and the state of a restart, before the
+    // bodies are put in place
+    initFreeBodies();
+
     if (wallVelocity_)
     {
         forAll(bodies_, bodyi)

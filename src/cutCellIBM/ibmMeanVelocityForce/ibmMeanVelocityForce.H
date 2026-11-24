@@ -24,6 +24,16 @@ Description
       accumulated within a time step instead of overwritten;
     - a zero target is allowed ("Ubar (0 0 0); flowDir (1 0 0);"), the
       natural choice for a body moving through an otherwise quiescent fluid.
+    - with "includeMovingBodies yes" Ubar is the mean velocity of the fluid
+      and of the moving bodies together (the total flux through a section
+      of a suspension, J for a body in a pipe): the fluid target is
+      (|Ubar| (Vf + sum V_b) - sum V_b U_b.flowDir)/Vf, V_b the discrete
+      solid volume of a moving body in the domain and U_b the velocity of
+      its centre (selectionMode all; bodies with a geometry that moves);
+    - the current force per unit mass, flowDir*gradP, is registered as the
+      uniformDimensionedVectorField ibmMeanPressureGradient: the periodic
+      pressure of the solver leaves out this mean gradient, and freely
+      moving bodies (freeMotion) add it on their volume.
 
     Usage, in constant/fvOptions:
     \verbatim
@@ -35,6 +45,7 @@ Description
         Ubar            (0.5 0 0);
         flowDir         (1 0 0);    // required when Ubar is zero
         relaxation      1.0;
+        includeMovingBodies no;     // optional (default no)
     }
     \endverbatim
 
@@ -73,6 +84,9 @@ class ibmMeanVelocityForce
         //- True for a steady-state time scheme (no alpha/deltaT floor)
         bool steady_;
 
+        //- Ubar is the mean over the fluid and the moving bodies
+        bool includeMovingBodies_;
+
 
     // Private member functions
 
@@ -81,6 +95,12 @@ class ibmMeanVelocityForce
         scalar magUbarAve(const volVectorField& U) const;
 
         void writeProps(const scalar gradP) const;
+
+        //- Target of the fluid-volume average along flowDir
+        scalar targetUbar() const;
+
+        //- Set the registered ibmMeanPressureGradient to the current force
+        void publishGradient() const;
 
 
 public:

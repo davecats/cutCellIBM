@@ -17,6 +17,14 @@ Description
     its axis, sliding along it) keeps a static geometry and only supplies
     the wall velocity (ibm.wallVelocity()).
 
+    Free bodies (motion type free, see freeMotion) move under the force and
+    moment of the flow: their state is predicted at the start of every time
+    step from the loads at the old time level and, with implicit coupling,
+    corrected at the start of every further PIMPLE outer corrector from the
+    loads of the flow just solved, the geometry rebuilt each time
+    (update(false)); nOuterCorrectors sets the number of coupling
+    iterations.
+
     The transient Rhie-Chow correction (ddtCorr) is available in its Euler
     form, theta- and alpha-consistent; the flux of a coupled face is made
     single-valued after the pressure correction. Turbulence models are constructed for their
@@ -56,6 +64,29 @@ int main(int argc, char *argv[])
 
     turbulence->validate();
 
+    // Loads on the free bodies, with the viscosities of reportForces
+    auto freeBodies = [&](const word& stage) -> scalar
+    {
+        const tmp<volScalarField> tnuMolecular(turbulence->nu());
+        const tmp<volScalarField> tnu
+        (
+            ibmTurbulent
+          ? ibm.wallViscosity(U, turbulence->nu())
+          : turbulence->nuEff()
+        );
+        if (stage == "predict")
+        {
+            ibm.predictFreeBodies(p, U, tnu(), &tnuMolecular());
+            return 0;
+        }
+        else if (stage == "correct")
+        {
+            return ibm.correctFreeBodies(p, U, tnu(), &tnuMolecular());
+        }
+        ibm.reportFreeBodyLoads(p, U, tnu(), &tnuMolecular());
+        return 0;
+    };
+
     Info<< "\nStarting time loop\n" << endl;
 
     while (runTime.run())
@@ -85,6 +116,12 @@ int main(int argc, char *argv[])
                 ibm.moving()
               ? ibm.pressureRefCell(pRefCellUser)
               : pRefCellUser;
+        }
+
+        // Free bodies: the state at the new time from the loads at the old
+        if (ibm.freeBodies())
+        {
+            freeBodies("predict");
         }
 
         if (ibm.moving())
@@ -117,6 +154,20 @@ int main(int argc, char *argv[])
         // --- Pressure-velocity PIMPLE corrector loop
         while (pimple.loop())
         {
+            // Implicit coupling: correct the free bodies from the flow of
+            // the previous outer corrector and rebuild the geometry within
+            // the step (the old geometry of the step is kept)
+            if (ibm.implicitFreeBodies() && !pimple.firstIter())
+            {
+                const scalar change = freeBodies("correct");
+                Info<< "Free bodies: change of the coupling iterate "
+                    << change << endl;
+                ibm.update(false);
+                phi = ibm.flux(U);
+                pRefCell = ibm.pressureRefCell(pRefCellUser);
+                ibm.fillUncovered(p);
+            }
+
             #include "UEqn.H"
 
             // --- Pressure corrector loop
@@ -149,7 +200,13 @@ int main(int argc, char *argv[])
             );
         }
 
+        if (ibm.freeBodies())
+        {
+            freeBodies("final");
+        }
+
         runTime.write();
+        ibm.writeFreeBodies();
 
         runTime.printExecutionTime(Info);
     }

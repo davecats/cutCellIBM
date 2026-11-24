@@ -1,4 +1,5 @@
 #include "ibmBodies.H"
+#include "mathematicalConstants.H"
 #include "fvMesh.H"
 #include "Time.H"
 #include "searchableSurface.H"
@@ -64,6 +65,14 @@ Foam::sphereBody::sphereBody
     centre_(dict.get<point>("centre")),
     radius_(dict.get<scalar>("radius"))
 {}
+
+
+bool Foam::sphereBody::massProperties(scalar& volume, scalar& inertia) const
+{
+    volume = 4.0/3.0*constant::mathematical::pi*pow3(radius_);
+    inertia = 0.4*sqr(radius_)*volume;
+    return true;
+}
 
 
 void Foam::sphereBody::levelSet

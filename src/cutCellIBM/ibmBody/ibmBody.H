@@ -158,6 +158,14 @@ public:
         //  positive in the fluid
         void evaluate(const pointField& pts, scalarField& phi) const;
 
+        //- Volume of the whole body and its moment of inertia per unit
+        //  density, int r_perp^2 dV, about an axis through centre() (for a
+        //  free motion); false if the body cannot give them
+        virtual bool massProperties(scalar& volume, scalar& inertia) const
+        {
+            return false;
+        }
+
         //- Reference point of the body at rest (centre of rotation, and
         //  centre of the periodic image); as given by the body definition
         virtual point centre() const = 0;

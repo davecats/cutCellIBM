@@ -1,8 +1,10 @@
 ibmBody/bodyMotion.C
+ibmBody/freeMotion.C
 ibmBody/ibmBody.C
 ibmBody/ibmBodies.C
 cutCellGeometry/cutCellGeometry.C
 cutCellGeometry/cutCellGeometryMoving.C
+cutCellGeometry/cutCellGeometryFreeMotion.C
 cutCellGeometry/cutCellGeometryWallFunction.C
 ibmMeanVelocityForce/ibmMeanVelocityForce.C
 ibmScalarTransport/ibmScalarTransport.C

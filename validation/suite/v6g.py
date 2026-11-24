@@ -1,0 +1,359 @@
+"""V6G: V6 MIG in the laboratory frame (Galilean invariance). The pipe is still and the sphere moves
+freely along the axis and turns about z under the force and torque of the flow (motion type free,
+src/cutCellIBM/ibmBody/freeMotion.H), its transverse position held, as in V6. In the frame of the
+sphere the flow is the steady V6 flow, so the time-averaged state of a free sphere that has
+settled must reproduce the V6 balance (V, Omega, f/Re, beta) at the same point and mesh; the
+difference is the error of the moving-body discretisation (the sphere crosses the cells) and of
+the free-body coupling. Only the IBM runs of V6 are cloned, at a few points.
+
+Gate V6G-G1, free sphere in the periodic Stokes box (V6 MIG-G2, rigid, L/d = 4, d/h = 16, Re = 0.01):
+a constant external force F_ext along x on the sphere, zero total flux (fluid and sphere,
+ibmMeanVelocityForce includeMovingBodies), mean pressure gradient on the sphere volume. The
+terminal velocity U_t must satisfy F_ext = K 6 pi mu R U_t with K the array drag of the static
+sphere on the same mesh (the G2 configuration: in the frame of the sphere the superficial velocity
+is U_t). F_ext is set to the drag of the static run at U = 1, so U_t = 1. Runs: implicit coupling
+at rho_s/rho = 1, 0.5, 0.1 (below the added mass) and explicit at 10 (explicit coupling in creeping
+flow needs a heavy body: the unsteady viscous load of a step acts as an added mass growing like
+dt^-1/2).
+
+Cases: rigid d = 0.4 at d/h = 32 (V6 h80 meshes, refined over the whole length because the sphere
+travels): Re 2 at eps/eps* = 0.4 and 0.9, Re 128 at 0.4; neutrally buoyant (rho_s/rho = 1,
+implicit); at Re 2, 0.4 also rho_s/rho = 0.5 implicit and 2 explicit (the settled state must not
+depend on the density or the coupling). The flow starts as Poiseuille flow, the sphere with the
+velocity and half the vorticity of the undisturbed flow at its centre. Averages over the last
+AVG of the run; settled if the averages of its two halves agree to SETTLE (V, Omega) and the
+force balance holds.
+
+Units rho = J = d_h = 1 (V6). Forces and volumes of the half domain (z >= 0) are doubled.
+Tolerances (provisional, to be decided): gate U_t within 1 %; V and Omega within 0.5 %, f/Re within
+0.01 absolute and beta within 2 % of V6 at the same point and mesh.
+"""
+import json
+import math
+import re
+import shutil
+from pathlib import Path
+
+import numpy as np
+
+import common
+import geometry
+import meshes
+import mig
+import v6
+import reference_riveroScheid2018 as ref
+from common import write_dict
+from foamio import read_field
+
+ID, KIND, TIER = "V6G", "case", 2
+TITLE = "MIG in the laboratory frame: free sphere in a still pipe (Galilean check of V6)"
+STRESSES, RELIES = ["K9", "K8", "K10", "K1", "K3", "K7"], ["V6", "V13", "G4"]
+REGRESSION = None              # no baseline yet
+
+G_L, G_DH, G_RE = 4.0, 16, 0.01
+GATE_RUNS = [("implicit", 1.0), ("implicit", 0.5), ("implicit", 0.1), ("explicit", 10.0)]
+GATE_TOL = 0.01
+
+D, DH = 0.4, 32
+POINTS = [(2.0, 0.4), (2.0, 0.9), (128.0, 0.4)]
+VARIANTS = [("implicit", 1.0), ("implicit", 0.5), ("explicit", 2.0)]   # at the first point
+AVG = 1/3                      # averaging window: the last third of the run
+SETTLE = 2e-3                  # V, Omega: the two halves of the window agree to this (relative)
+TOL = {"V": 0.005, "Om": 0.005, "fRe": 0.01, "beta": 0.02}
+NOUTER = 3                     # PIMPLE outer correctors = coupling iterations (implicit)
+NP_GATE = 4
+
+
+# ----------------------------------------------------------------------------------- common
+
+def free_lines(log, body="sphere"):
+    """per time step (the 'final' line of the step): t, velocity, angularVelocity, force, moment"""
+    v = r"\(([^)]*)\)"
+    pat = (r"IBM free body %s final: t (\S+) displacement %s velocity %s angularVelocity %s force %s "
+           r"moment %s" % (re.escape(body), v, v, v, v, v))
+    rows = []
+    for m in re.findall(pat, log):
+        rows.append([float(m[0])] + [float(x) for g in m[1:] for x in g.split()])
+    a = np.array(rows)
+    return {"t": a[:, 0], "d": a[:, 1:4], "U": a[:, 4:7], "Om": a[:, 7:10], "F": a[:, 10:13], "M": a[:, 13:16]}
+
+
+def gradients(log):
+    g, _ = common.driving_gradient(log)
+    return g
+
+
+def window(t, q, frac=AVG):
+    """mean over the last frac of the run, and the relative difference of the means of its halves"""
+    t0 = t[-1] - frac*(t[-1] - t[0])
+    m = t >= t0
+    q = np.asarray(q)[m]
+    h = len(q)//2
+    a, b = q[:h].mean(axis=0), q[h:].mean(axis=0)
+    return q.mean(axis=0), (b - a), q.std(axis=0)
+
+
+def pimple_solution(pref, nouter):
+    return """
+solvers { p { solver PCG; preconditioner { preconditioner linkedGroup; base { preconditioner GAMG;
+                smoother DICGaussSeidel; tolerance 0; relTol 0.01; } }
+              tolerance 1e-10; relTol 0.01; }
+          pFinal { $p; relTol 0; }
+          U { solver PBiCGStab; preconditioner { preconditioner linkedGroup; base DILU; } tolerance 1e-12; relTol 0; }
+          UFinal { $U; } }
+PIMPLE { momentumPredictor yes; nOuterCorrectors %d; nCorrectors 2; nNonOrthogonalCorrectors 0;
+         consistent yes; ddtCorr yes; pRefPoint (%r %r %r); pRefValue 0; }
+""" % ((nouter,) + tuple(pref))
+
+
+def run_parallel(d, app, np_):
+    write_dict(d / "system" / "decomposeParDict", "dictionary", "decomposeParDict",
+               "numberOfSubdomains %d;\nmethod scotch;\n" % np_)
+    common.sh("decomposePar -force", d, "log.decomposePar")
+    common.sh(app, d, "log." + app, np_=np_)
+
+
+# ------------------------------------------------------------------------------------- gate
+
+def gate_mesh(d):
+    """the G2 mesh (v6.g2_mesh) with the nested boxes over the whole length in x"""
+    hf = 1.0/G_DH
+    n = int(round(np.log2(G_DH/4.0)))
+    h0 = hf*2**n
+    boxes = []
+    for k in range(1, n + 1):
+        w = 0.5 + 8*h0/2**k
+        boxes.append(((-G_L, -w, -1.0), (G_L, w, w)))
+    patches = {"left": ("cyclic", ["xmin"], "neighbourPatch right;"),
+               "right": ("cyclic", ["xmax"], "neighbourPatch left;"),
+               "front": ("cyclic", ["ymin"], "neighbourPatch back;"),
+               "back": ("cyclic", ["ymax"], "neighbourPatch front;"),
+               "sym": ("symmetryPlane", ["zmin"]), "top": ("symmetryPlane", ["zmax"])}
+    return meshes.refined(d, (-G_L/2, -G_L/2, 0.0), (G_L/2, G_L/2, G_L/2), h0, boxes, patches, two_d=False)
+
+
+def gate_static(ctx):
+    """the static sphere of G2 (rigid, U = 1) on the gate mesh: K and the drag at U = 1"""
+    d = ctx.root / "g1_static"
+    f = d / "result.json"
+    if not f.exists():
+        d.mkdir(parents=True, exist_ok=True)
+        if not (d / "constant" / "polyMesh" / "owner").exists():
+            gate_mesh(d)
+        v6.g2_setup(d, G_L, G_DH, "rigid")
+        Vf = mig.geometry_only(d)
+        r = mig.solve(d)
+        r["Vf"] = 2*Vf
+        f.write_text(json.dumps(r))
+    r = json.loads(f.read_text())
+    mu, R = 1.0/G_RE, 0.5
+    U = r["Vf"]/G_L**3                                   # superficial velocity
+    r["drag"] = 2*r["F"][0] + r["G"]*4*np.pi/3*R**3      # force of the array on one sphere
+    r["K"] = r["drag"]/(6*np.pi*mu*R*U)
+    r["F1"] = r["K"]*6*np.pi*mu*R                        # the drag at U = 1
+    return r
+
+
+def gate_free(ctx, coupling, rho, st, dt=None):
+    d = ctx.root / ("g1_free_%s_rho%g%s" % (coupling, rho, "_dt%g" % dt if dt else ""))
+    f = d / "result.json"
+    if f.exists():
+        return json.loads(f.read_text())
+    d.mkdir(parents=True, exist_ok=True)
+    src = ctx.root / "g1_static"
+    if not (d / "constant" / "polyMesh").exists():
+        shutil.copytree(src / "constant" / "polyMesh", d / "constant" / "polyMesh")
+        shutil.copytree(src / "system", d / "system")
+        shutil.copy(src / "log.checkMesh", d / "log.checkMesh")
+    R = 0.5
+    Vh = 2*np.pi/3*R**3                                  # half sphere in the domain
+    s = {"type": "sphere", "centre": (0, 0, 0), "radius": R, "wallType": "noSlip",
+         "motion": {"type": "free", "density": rho, "translation": (1, 0, 0), "rotation": (0, 0, 0),
+                    "coupling": coupling, "addedMass": 0.5, "volume": Vh,
+                    "externalForce": (st["F1"]/2, 0, 0)}}
+    geometry.ibm_properties(d, {"sphere": s}, periodicLengths=(G_L, G_L, 0))
+    for x in ("transportProperties", "turbulenceProperties"):
+        (d / "constant" / x).write_text((mig.CYL / "constant" / x).read_text())
+    common.set_keys(d / "constant" / "transportProperties", nu=1.0/G_RE)
+    write_dict(d / "constant" / "fvOptions", "dictionary", "fvOptions", """
+momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar (0 0 0); flowDir (1 0 0);
+                 relaxation 1.0; includeMovingBodies yes; }
+""")
+    bc = ("left { type cyclic; } right { type cyclic; } front { type cyclic; } back { type cyclic; } "
+          "sym { type symmetryPlane; } top { type symmetryPlane; }")
+    for name, cls, dims, val in (("U", "volVectorField", "[0 1 -1 0 0 0 0]", "uniform (0 0 0)"),
+                                 ("p", "volScalarField", "[0 2 -2 0 0 0 0]", "uniform 0")):
+        write_dict(d / "0" / name, cls, name, "dimensions %s;\ninternalField %s;\nboundaryField { %s }\n"
+                   % (dims, val, bc))
+    (d / "system" / "fvSchemes").write_text(
+        (mig.CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default Euler;"))
+    write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution",
+               pimple_solution((0.45*G_L, 0.45*G_L, 0.2*G_L), NOUTER))
+    # body relaxation time (m + M_a)/D ~ 5e-4 at rho 1; explicit: dt D/m < 2
+    dt0, T = (0.005, 1.0) if coupling == "implicit" else (0.0005, 0.25)
+    dt = dt or dt0
+    T = min(T, 500*dt) if dt < dt0 else T
+    geometry.control_dict(d, "ibmPimpleFoam", endTime=T, deltaT=dt, writeInterval=int(round(T/dt)))
+    run_parallel(d, "ibmPimpleFoam", NP_GATE)
+    h = free_lines((d / "log.ibmPimpleFoam").read_text())
+    U, dU, sU = window(h["t"], h["U"][:, 0], 0.5)
+    r = {"coupling": coupling, "rho": rho, "dt": dt, "Ut": float(U), "dUt": float(dU), "sUt": float(sU),
+         "Fbal": float(np.abs(h["F"][-20:, 0]).max()/st["F1"]*2), "steps": len(h["t"])}
+    f.write_text(json.dumps(r))
+    return r
+
+
+# ------------------------------------------------------------------------------------ cases
+
+def mesh_full(d, hf, e, L=3.0, h0=None):
+    """mig.mesh with the refinement box over the whole length (the sphere travels)"""
+    h0 = h0 or 2*hf
+    W = mig.RP + 2*h0
+    R = D/2
+    n = int(round(np.log2(h0/hf)))
+    boxes = []
+    for k in range(1, n + 1):
+        m = 8*h0/2**k
+        boxes.append(((-L, max(-W, e - R - m), -1.0), (L, W + 1.0, R + m)))
+    patches = {"left": ("cyclic", ["xmin"], "neighbourPatch right;"),
+               "right": ("cyclic", ["xmax"], "neighbourPatch left;"),
+               "sym": ("symmetryPlane", ["zmin"]), "outer": ("wall", ["ymin", "ymax", "zmax"])}
+    return meshes.refined(d, (-L/2, -W, 0.0), (L/2, W, W), h0, boxes, patches, two_d=False)
+
+
+def empty_pipe(ctx, Re, hf, e, h0):
+    """G0 and Vf0 of the empty pipe on the case mesh"""
+    d = ctx.root / ("pipe_e%.4f_Re%g" % (e, Re))
+    f = d / "result.json"
+    if f.exists():
+        return json.loads(f.read_text())
+    d.mkdir(parents=True, exist_ok=True)
+    if not (d / "constant" / "polyMesh" / "owner").exists():
+        mesh_full(d, hf, e, h0=h0)
+    mig.setup(d, Re, hf, D, e, sphere=False, h0=h0)
+    # judged by stationarity (G to 1e-10 over 200 iterations, mig.extract): on the mesh refined
+    # over the whole length the residual control of mig.setup is not reached
+    common.set_keys(d / "system" / "controlDict", endTime=6000, writeInterval=6000)
+    Vf0 = mig.geometry_only(d)
+    r = dict(mig.solve(d), Vf0=Vf0)
+    f.write_text(json.dumps(r))
+    return r
+
+
+def poiseuille(d):
+    """u = 2 J (1 - 4 r^2) inside the pipe at the cell centres (0/C)"""
+    C, _ = read_field(str(d / "0" / "C"))
+    r2 = C[:, 1]**2 + C[:, 2]**2
+    u = np.where(r2 < mig.RP**2, 2*mig.J*(1 - 4*r2), 0.0)
+    return "nonuniform List<vector>\n%d\n(\n%s\n)" % (len(u), "\n".join("(%.12g 0 0)" % x for x in u))
+
+
+def free_case(ctx, Re, er, coupling, rho, T=None):
+    hf, h0 = v6.mesh_of(D, DH)
+    es = float(ref.eps_star(D))
+    e = er*es
+    name = "rigid_d%g_e%.4f_Re%g_h%d_%s_rho%g" % (D, e, Re, round(1/hf), coupling, rho)
+    d = ctx.root / name
+    f = d / "result.json"
+    if f.exists():
+        return json.loads(f.read_text())
+    pipe = empty_pipe(ctx, Re, hf, e, None if abs(h0 - 2*hf) < 1e-12 else h0)
+    d.mkdir(parents=True, exist_ok=True)
+    src = ctx.root / ("pipe_e%.4f_Re%g" % (e, Re))
+    if not (d / "constant" / "polyMesh").exists():
+        shutil.copytree(src / "constant" / "polyMesh", d / "constant" / "polyMesh")
+        shutil.copytree(src / "system", d / "system")
+        shutil.copy(src / "log.checkMesh", d / "log.checkMesh")
+    L = 3.0
+    R = D/2
+    V0 = 2*mig.J*(1 - 4*e**2)                 # undisturbed flow at the centre
+    Om0 = 8*mig.J*e                           # half its vorticity (-du/dy/2)
+    pipe_b = {"type": "cylinder", "centre": (0, 0, 0), "axis": (1, 0, 0), "radius": mig.RP, "invert": True}
+    s = {"type": "sphere", "centre": (0, e, 0), "radius": R, "wallType": "noSlip",
+         "motion": {"type": "free", "density": rho, "translation": (1, 0, 0), "rotation": (0, 0, 1),
+                    "velocity": (V0, 0, 0), "angularVelocity": (0, 0, Om0), "coupling": coupling,
+                    "addedMass": 0.5, "volume": np.pi*D**3/12}}
+    geometry.ibm_properties(d, {"pipe": pipe_b, "sphere": s}, periodicLengths=(L, 0, 0))
+    for x in ("transportProperties", "turbulenceProperties"):
+        (d / "constant" / x).write_text((mig.CYL / "constant" / x).read_text())
+    common.set_keys(d / "constant" / "transportProperties", nu=1.0/Re)
+    write_dict(d / "constant" / "fvOptions", "dictionary", "fvOptions", """
+momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar (%r 0 0); relaxation 1.0;
+                 includeMovingBodies yes; }
+""" % mig.J)
+    common.sh("postProcess -func writeCellCentres -time 0", d, "log.writeCellCentres")
+    bU = "left { type cyclic; } right { type cyclic; } sym { type symmetryPlane; } outer { type noSlip; }"
+    bp = "left { type cyclic; } right { type cyclic; } sym { type symmetryPlane; } outer { type zeroGradient; }"
+    write_dict(d / "0" / "U", "volVectorField", "U",
+               "dimensions [0 1 -1 0 0 0 0];\ninternalField %s;\nboundaryField { %s }\n" % (poiseuille(d), bU))
+    write_dict(d / "0" / "p", "volScalarField", "p",
+               "dimensions [0 2 -2 0 0 0 0];\ninternalField uniform 0;\nboundaryField { %s }\n" % bp)
+    (d / "system" / "fvSchemes").write_text(
+        (mig.CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default Euler;"))
+    write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", pimple_solution((-0.4*L, -0.21, 0.013), NOUTER))
+    dt = 0.4*hf/(2*mig.J)                      # Courant 0.4 on the centre-line velocity
+    dt = float("%.3g" % dt)
+    T = T or (3.0 if Re <= 8 else 15.0)
+    n = int(round(T/dt))                       # writeInterval counts time steps
+    geometry.control_dict(d, "ibmPimpleFoam", endTime=T, deltaT=dt, writeInterval=max(1, n//4))
+    cells = common.last_match((d / "log.checkMesh").read_text(), r"cells:\s+(\d+)", cast=int)
+    run_parallel(d, "ibmPimpleFoam", mig.ranks(cells))
+    log = (d / "log.ibmPimpleFoam").read_text()
+    h = free_lines(log)
+    g = gradients(log)
+    n = min(len(g), len(h["t"]))
+    t = h["t"][-n:]
+    VB = np.pi*D**3/6
+    V, dV, sV = window(t, h["U"][-n:, 0])
+    Om, dOm, sOm = window(t, h["Om"][-n:, 2])
+    Fy, _, sFy = window(t, h["F"][-n:, 1])
+    G, dG, sG = window(t, g[-n:])
+    aG = VB/(L*np.pi/4)
+    r = {"name": name, "Re": Re, "epsr": er, "e": e, "coupling": coupling, "rho": rho, "T": T, "dt": dt,
+         "steps": len(h["t"]), "cells": cells,
+         "V": float(V), "dV": float(dV), "sV": float(sV), "Om": float(Om), "dOm": float(dOm), "sOm": float(sOm),
+         "fRe": float(2*Fy/VB), "sfRe": float(2*sFy/VB), "G": float(G), "G0": pipe["G"],
+         "beta": float((G/pipe["G"] - 1)/aG), "settled": bool(abs(dV) <= SETTLE*abs(V) and
+                                                               abs(dOm) <= SETTLE*max(abs(Om), 1e-3)),
+         "Fx_res": float(np.abs(h["F"][-n:, 0]).mean()*2/VB), "Mz_res": float(np.abs(h["M"][-n:, 2]).mean()*2/VB)}
+    f.write_text(json.dumps(r))
+    return r
+
+
+def v6_point(Re, er):
+    """the V6 baseline point at this (Re, eps/eps*) on the d/h 32 mesh"""
+    b = common.load_baseline("V6")
+    for p in b["data"]["points"]:
+        if p["interface"] == "rigid" and p["d"] == D and p["Re"] == Re and p["dh"] == DH and abs(p["epsr"] - er) < 1e-6:
+            return p
+    return None
+
+
+# --------------------------------------------------------------------------------------- run
+
+def run(ctx, res):
+    st = gate_static(ctx)
+    gates = common.pmap(lambda j: gate_free(ctx, *j, st), GATE_RUNS, max(1, ctx.jobs//NP_GATE))
+    jobs = [(Re, er, "implicit", 1.0) for Re, er in POINTS]
+    jobs += [(POINTS[0][0], POINTS[0][1], c, rho) for c, rho in VARIANTS if (c, rho) != ("implicit", 1.0)]
+    cases = common.pmap(lambda j: free_case(ctx, *j), jobs, max(1, ctx.jobs//16))
+    res.data["gate_static"] = st
+    res.data["gate"] = gates
+    res.data["cases"] = cases
+    res.data["metrics"] = {}
+    for g in gates:
+        res.rel("G1 free sphere, Stokes box, %s rho_s/rho %g: terminal velocity (static drag on the same mesh)"
+                % (g["coupling"], g["rho"]), g["Ut"], 1.0, GATE_TOL,
+                "drift %.1e, std %.1e, force balance %.1e, %d steps" % (g["dUt"], g["sUt"], g["Fbal"], g["steps"]))
+    for c in cases:
+        p = v6_point(c["Re"], c["epsr"])
+        tag = "Re %g eps/eps* %g %s rho_s/rho %g" % (c["Re"], c["epsr"], c["coupling"], c["rho"])
+        res.le("%s: settled (V, Omega over the halves of the last third)" % tag,
+               max(abs(c["dV"])/abs(c["V"]), abs(c["dOm"])/max(abs(c["Om"]), 1e-3)), SETTLE)
+        if p is None:
+            res.report("%s: no V6 point on this mesh" % tag, c["V"], None)
+            continue
+        res.rel("%s: V vs V6" % tag, c["V"], p["V"], TOL["V"], "std %.1e" % c["sV"])
+        res.rel("%s: Omega vs V6" % tag, c["Om"], p["Om"], TOL["Om"], "std %.1e" % c["sOm"])
+        res.absolute("%s: f/Re vs V6" % tag, c["fRe"], p["fRe"], TOL["fRe"], "std %.1e" % c["sfRe"])
+        res.rel("%s: beta vs V6" % tag, c["beta"], p["beta"], TOL["beta"], "G %.6g G0 %.6g" % (c["G"], c["G0"]))

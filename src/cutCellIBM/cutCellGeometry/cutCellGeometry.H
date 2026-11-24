@@ -113,6 +113,7 @@ namespace Foam
 {
 
 class alphaFieldBody;
+class freeMotion;
 
 class cutCellGeometry
 :
@@ -270,6 +271,33 @@ class cutCellGeometry
 
 
     // Moving bodies only
+
+        //- Free motion of a body (nullptr if its motion is not free)
+        freeMotion* freeMotionOf(const label bodyi);
+        const freeMotion* freeMotionOf(const label bodyi) const;
+
+        //- Mass properties and restart state of the free bodies
+        void initFreeBodies();
+
+        //- Force and moment on every body with, for the free bodies, the
+        //  mean pressure gradient on the body volume and the body forces
+        void freeBodyLoads
+        (
+            const volScalarField& p,
+            const volVectorField& U,
+            const volScalarField& nu,
+            const volScalarField* nuMolecularPtr,
+            List<vector>& F,
+            List<vector>& M
+        ) const;
+
+        //- One line per free body: state, loads, change of the iterate
+        void reportFreeBodies
+        (
+            const word& stage,
+            const List<vector>& F,
+            const List<vector>& M
+        ) const;
 
         //- True if any body moves (the geometry changes)
         bool moving_;
@@ -882,7 +910,10 @@ public:
             //- Move the bodies to the current time and rebuild the
             //  geometry and the moving-wall terms; for invariant bodies
             //  only the wall velocity. No-op for static bodies.
-            void update();
+            //  newStep false: again within the same time step (free bodies,
+            //  implicit coupling): the geometry of the previous time level
+            //  (face fractions, solid cells) is kept.
+            void update(const bool newStep = true);
 
             //- Whether the geometry belongs to the current mesh: false
             //  between a change of the mesh topology (adaptive refinement)
@@ -899,6 +930,61 @@ public:
 
             //- Body velocity at the cell centres
             const volVectorField& Ub() const;
+
+
+        // Free bodies (motion type free, see freeMotion and
+        // cutCellGeometryFreeMotion.C)
+
+            //- True if any body moves freely under the flow
+            bool freeBodies() const;
+
+            //- True if any free body is coupled implicitly (the solver then
+            //  corrects the bodies in every outer corrector)
+            bool implicitFreeBodies() const;
+
+            //- Start of a time step, before update(): keep the old state of
+            //  the free bodies and predict the new one from the loads of the
+            //  fields at the old time level (nu, nuMolecularPtr as forces())
+            void predictFreeBodies
+            (
+                const volScalarField& p,
+                const volVectorField& U,
+                const volScalarField& nu,
+                const volScalarField* nuMolecularPtr = nullptr
+            );
+
+            //- Implicit coupling: correct the state of the free bodies from
+            //  the loads of the current iterate; returns the largest change
+            //  of a body velocity relative to its scale. Follow with
+            //  update(false).
+            scalar correctFreeBodies
+            (
+                const volScalarField& p,
+                const volVectorField& U,
+                const volScalarField& nu,
+                const volScalarField* nuMolecularPtr = nullptr
+            );
+
+            //- Print the loads on the free bodies (end of a time step)
+            void reportFreeBodyLoads
+            (
+                const volScalarField& p,
+                const volVectorField& U,
+                const volScalarField& nu,
+                const volScalarField* nuMolecularPtr = nullptr
+            ) const;
+
+            //- Write the state of the free bodies to
+            //  <time>/uniform/ibmFreeBodies (write times only)
+            void writeFreeBodies() const;
+
+            //- Driving force per unit mass of ibmMeanVelocityForce (minus the
+            //  mean pressure gradient), zero without it
+            vector meanPressureGradient() const;
+
+            //- Discrete solid volume of every body inside the domain,
+            //  sum (1 - alpha) V over the cells the body owns
+            void bodyVolumes(List<scalar>& Vb) const;
 
             //- Mass source per unit volume S/V, to be added to the
             //  right-hand side of the pressure equation

@@ -15,7 +15,7 @@
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void Foam::cutCellGeometry::update()
+void Foam::cutCellGeometry::update(const bool newStep)
 {
     if (!wallVelocity_)
     {
@@ -37,7 +37,8 @@ void Foam::cutCellGeometry::update()
         return;
     }
 
-    Info<< "Cut-cell immersed boundary: moving the bodies to t = " << t << endl;
+    Info<< "Cut-cell immersed boundary: moving the bodies to t = " << t
+        << (newStep ? "" : " (corrected state)") << endl;
 
     forAll(bodies_, bodyi)
     {
@@ -51,16 +52,17 @@ void Foam::cutCellGeometry::update()
     }
 
     // Keep the face fractions of the geometry the carried flux belongs to
+    // (once per time step: a corrected state within the step keeps them)
     if (!thetaOldPtr_)
     {
         thetaOldPtr_.reset(new surfaceScalarField("ibmThetaOld", theta_));
+        solidOld_ = solidCells_;
     }
-    else
+    else if (newStep)
     {
         thetaOldPtr_() = theta_;
+        solidOld_ = solidCells_;
     }
-
-    solidOld_ = solidCells_;
 
     // Geometry at the new time level. The old geometry is never needed: the
     // fluid volume the cells had at the start of the step is recovered from

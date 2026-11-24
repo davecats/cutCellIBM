@@ -4,6 +4,7 @@
 #include "IFstream.H"
 #include "OFstream.H"
 #include "Time.H"
+#include "uniformDimensionedFields.H"
 #include "addToRunTimeSelectionTable.H"
 
 namespace Foam
@@ -32,7 +33,8 @@ Foam::fv::ibmMeanVelocityForce::ibmMeanVelocityForce
     dGradP_(0),
     rAPtr_(nullptr),
     Vfluid_(0),
-    steady_(false)
+    steady_(false),
+    includeMovingBodies_(coeffs_.getOrDefault<bool>("includeMovingBodies", false))
 {
 
     coeffs_.readEntry("fields", fieldNames_);
@@ -90,7 +92,33 @@ Foam::fv::ibmMeanVelocityForce::ibmMeanVelocityForce
     }
     reduce(Vfluid_, sumOp<scalar>());
 
-    Info<< "    Ubar = " << Ubar_ << ", flow direction " << flowDir_ << nl
+    if (!mesh_.foundObject<uniformDimensionedVectorField>("ibmMeanPressureGradient"))
+    {
+        uniformDimensionedVectorField* gPtr = new uniformDimensionedVectorField
+        (
+            IOobject
+            (
+                "ibmMeanPressureGradient",
+                mesh_.time().constant(),
+                mesh_,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            ),
+            dimensionedVector(dimAcceleration, Zero)
+        );
+        gPtr->store();
+    }
+    publishGradient();
+
+    if (includeMovingBodies_ && !mesh_.foundObject<cutCellGeometry>("ibmProperties"))
+    {
+        FatalIOErrorInFunction(coeffs_)
+            << "includeMovingBodies needs the immersed boundary geometry"
+            << exit(FatalIOError);
+    }
+
+    Info<< "    Ubar = " << Ubar_ << ", flow direction " << flowDir_
+        << (includeMovingBodies_ ? " (fluid and moving bodies)" : "") << nl
         << "    initial pressure gradient = " << gradP0_ << nl
         << "    fluid volume of the selection = " << Vfluid_ << nl << endl;
 }
@@ -117,6 +145,42 @@ Foam::scalar Foam::fv::ibmMeanVelocityForce::magUbarAve
     }
     reduce(magUbarAve, sumOp<scalar>());
     return magUbarAve/Vfluid_;
+}
+
+
+Foam::scalar Foam::fv::ibmMeanVelocityForce::targetUbar() const
+{
+    if (!includeMovingBodies_)
+    {
+        return mag(Ubar_);
+    }
+    const cutCellGeometry& ibm =
+        mesh_.lookupObject<cutCellGeometry>("ibmProperties");
+    List<scalar> Vb;
+    ibm.bodyVolumes(Vb);
+    scalar Vbodies = 0;
+    scalar flux = 0;
+    forAll(ibm.bodies(), bodyi)
+    {
+        const ibmBody& b = ibm.bodies()[bodyi];
+        if (b.moving())
+        {
+            Vbodies += Vb[bodyi];
+            flux += Vb[bodyi]*(flowDir_ & b.velocityOfCentre());
+        }
+    }
+    return (mag(Ubar_)*(Vfluid_ + Vbodies) - flux)/Vfluid_;
+}
+
+
+void Foam::fv::ibmMeanVelocityForce::publishGradient() const
+{
+    uniformDimensionedVectorField& g =
+        mesh_.lookupObjectRef<uniformDimensionedVectorField>
+        (
+            "ibmMeanPressureGradient"
+        );
+    g.value() = flowDir_*gradP();
 }
 
 
@@ -193,8 +257,10 @@ void Foam::fv::ibmMeanVelocityForce::correct(volVectorField& U)
 
     // Accumulate: correct() is called after the momentum predictor and
     // after every pressure corrector, and each increment must be kept
-    const scalar dGradPnew = relaxation_*(mag(Ubar_) - magUbarAve)/rAUave;
+    const scalar target = targetUbar();
+    const scalar dGradPnew = relaxation_*(target - magUbarAve)/rAUave;
     dGradP_ += dGradPnew;
+    publishGradient();
 
     forAll(cells_, i)
     {
@@ -204,6 +270,7 @@ void Foam::fv::ibmMeanVelocityForce::correct(volVectorField& U)
     U.correctBoundaryConditions();
 
     Info<< "Pressure gradient source: uncorrected Ubar = " << magUbarAve
+        << (includeMovingBodies_ ? ", fluid target " + Foam::name(target) : std::string())
         << ", pressure gradient = " << gradP() << endl;
 
     writeProps(gradP());

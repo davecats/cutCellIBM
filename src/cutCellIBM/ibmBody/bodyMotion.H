@@ -19,6 +19,7 @@ Description
     motion { type oscillating;  amplitude (1 0 0); frequency 0.05; phase 0; }
     motion { type prescribed;   displacement table (...); velocity table (...); }
     motion { type external; }   // state set from code, see setState()
+    motion { type free; density 2; ... }    // driven by the flow, see freeMotion
     \endverbatim
     Any type accepts "angularVelocity (0 0 w)" (rad/s, about the body centre)
     and "centreOfRotation (x y z)", the initial position of the point the
@@ -107,7 +108,14 @@ public:
     //- Initial centre of rotation
     const point& centreOfRotation() const { return centreOfRotation_; }
 
-    //- Rotation angle about omega/|omega| at time t
+    //- True if the body turns (the geometry is rotated by angle() about
+    //  axis())
+    virtual bool rotates() const { return mag(omega_) > 0; }
+
+    //- Unit axis the rotation angle is measured about (omega/|omega|)
+    virtual vector axis() const { return omega_/max(mag(omega_), VSMALL); }
+
+    //- Rotation angle about axis() at time t
     virtual scalar angle(const scalar t) const { return mag(omega_)*t; }
 
     //- Set the state from outside (external motion only)

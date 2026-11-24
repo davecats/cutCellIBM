@@ -142,10 +142,9 @@ void Foam::ibmBody::moveTo(const scalar t)
     t_ = t;
     displacement_ = motion_->displacement(t);
     velocity_ = motion_->velocity(t);
-    const vector& omega = motion_->omega();
-    if (mag(omega) > 0)
+    if (motion_->rotates())
     {
-        axis_ = omega/mag(omega);
+        axis_ = motion_->axis();
         angle_ = motion_->angle(t);
     }
     else
@@ -195,15 +194,16 @@ void Foam::ibmBody::levelSetChange
 {
     const vector& omega = motion_->omega();
     const vector disp(displacement_ + tau*velocity_);
-    const scalar angle = angle_ + tau*mag(omega);
-    const vector axis(mag(omega) > 0 ? omega/mag(omega) : vector::zero);
+    const bool rot = motion_->rotates();
+    const vector axis(rot ? motion_->axis() : vector::zero);
+    const scalar angle = angle_ + tau*(omega & axis);
 
     pointField bodyPts;
     toBodyFrame(pts, Zero, 0, Zero, bodyPts);
     scalarField phi0(pts.size());
     levelSet(bodyPts, phi0);
 
-    toBodyFrame(pts, disp, (mag(omega) > 0 ? angle : 0), axis, bodyPts);
+    toBodyFrame(pts, disp, (rot ? angle : 0), axis, bodyPts);
     dphi.setSize(pts.size());
     levelSet(bodyPts, dphi);
 

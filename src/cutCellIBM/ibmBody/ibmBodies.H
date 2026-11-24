@@ -51,6 +51,7 @@ public:
     sphereBody(const word&, const fvMesh&, const dictionary&);
     virtual void levelSet(const pointField&, scalarField&) const;
     virtual point centre() const { return centre_; }
+    virtual bool massProperties(scalar& volume, scalar& inertia) const;
 };
 
 
