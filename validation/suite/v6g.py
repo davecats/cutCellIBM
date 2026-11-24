@@ -65,6 +65,7 @@ SETTLE = 2e-3                  # V, Omega: the two halves of the window agree to
 TOL = {"V": 0.005, "Om": 0.005, "fRe": 0.01, "beta": 0.02}
 NOUTER = 3                     # PIMPLE outer correctors = coupling iterations (implicit)
 NP_GATE = 4
+NP_CASE = 32                   # ~13k cells per rank: the geometry is rebuilt NOUTER times a step
 
 
 # ----------------------------------------------------------------------------------- common
@@ -96,17 +97,21 @@ def window(t, q, frac=AVG):
     return q.mean(axis=0), (b - a), q.std(axis=0)
 
 
-def pimple_solution(pref, nouter):
+def pimple_solution(pref, nouter, tight=True):
+    """tight (the gate): U to 1e-12 in every outer corrector; else (the cases) relTol 0.01 in the
+    non-final correctors and 1e-9 in the final one (U to 1e-12 costs 100-400 PBiCGStab iterations
+    per component and corrector on the d/h 32 pipe)"""
+    tu, ru, tp = (1e-12, 0, 1e-10) if tight else (1e-9, 0.01, 1e-9)
     return """
 solvers { p { solver PCG; preconditioner { preconditioner linkedGroup; base { preconditioner GAMG;
                 smoother DICGaussSeidel; tolerance 0; relTol 0.01; } }
-              tolerance 1e-10; relTol 0.01; }
+              tolerance %g; relTol 0.01; }
           pFinal { $p; relTol 0; }
-          U { solver PBiCGStab; preconditioner { preconditioner linkedGroup; base DILU; } tolerance 1e-12; relTol 0; }
-          UFinal { $U; } }
+          U { solver PBiCGStab; preconditioner { preconditioner linkedGroup; base DILU; } tolerance %g; relTol %g; }
+          UFinal { $U; relTol 0; } }
 PIMPLE { momentumPredictor yes; nOuterCorrectors %d; nCorrectors 2; nNonOrthogonalCorrectors 0;
          consistent yes; ddtCorr yes; pRefPoint (%r %r %r); pRefValue 0; }
-""" % ((nouter,) + tuple(pref))
+""" % ((tp, tu, ru, nouter) + tuple(pref))
 
 
 def run_parallel(d, app, np_):
@@ -295,14 +300,14 @@ momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar 
                "dimensions [0 2 -2 0 0 0 0];\ninternalField uniform 0;\nboundaryField { %s }\n" % bp)
     (d / "system" / "fvSchemes").write_text(
         (mig.CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default Euler;"))
-    write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", pimple_solution((-0.4*L, -0.21, 0.013), NOUTER))
+    write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", pimple_solution((-0.4*L, -0.21, 0.013), NOUTER, tight=False))
     dt = 0.4*hf/(2*mig.J)*dtfac                # Courant 0.4 on the centre-line velocity
     dt = float("%.3g" % dt)
     T = T or (3.0 if Re <= 8 else 15.0)
     n = int(round(T/dt))                       # writeInterval counts time steps
     geometry.control_dict(d, "ibmPimpleFoam", endTime=T, deltaT=dt, writeInterval=max(1, n//4))
     cells = common.last_match((d / "log.checkMesh").read_text(), r"cells:\s+(\d+)", cast=int)
-    run_parallel(d, "ibmPimpleFoam", mig.ranks(cells))
+    run_parallel(d, "ibmPimpleFoam", NP_CASE)
     log = (d / "log.ibmPimpleFoam").read_text()
     h = free_lines(log)
     g = gradients(log)
@@ -344,7 +349,7 @@ def run(ctx, res):
     jobs = [(Re, er, "implicit", 1.0) for Re, er in POINTS]
     jobs += [(POINTS[0][0], POINTS[0][1], c, rho) for c, rho in VARIANTS if (c, rho) != ("implicit", 1.0)]
     jobs += [(POINTS[0][0], POINTS[0][1], "implicit", 1.0, None, 0.5)]   # time-step error (G1: ~dt^2)
-    cases = common.pmap(lambda j: free_case(ctx, *j), jobs, max(1, ctx.jobs//16))
+    cases = common.pmap(lambda j: free_case(ctx, *j), jobs, max(1, ctx.jobs//NP_CASE))
     res.data["gate_static"] = st
     res.data["gate"] = gates
     res.data["gate_dt_scan"] = scan
