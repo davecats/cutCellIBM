@@ -211,6 +211,51 @@ momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar 
     return r
 
 
+def gate_prescribed(ctx, Om, dt=5e-4, T=0.1):
+    """diagnostic: the sphere of the gate box translating at U = 1 along x and turning at Om about z
+    (prescribed, moving geometry), zero total flux, Stokes: the transverse force vanishes exactly
+    (linearity, the symmetry of the box), so any F_y is an error of the moving discretisation"""
+    d = ctx.root / ("g1_prescribed_Om%g_dt%g" % (Om, dt))
+    f = d / "result.json"
+    if f.exists():
+        return json.loads(f.read_text())
+    d.mkdir(parents=True, exist_ok=True)
+    src = ctx.root / "g1_static"
+    if not (d / "constant" / "polyMesh").exists():
+        shutil.copytree(src / "constant" / "polyMesh", d / "constant" / "polyMesh")
+        shutil.copytree(src / "system", d / "system")
+        shutil.copy(src / "log.checkMesh", d / "log.checkMesh")
+    s = {"type": "sphere", "centre": (0, 0, 0), "radius": 0.5, "wallType": "noSlip",
+         "motion": {"type": "translating", "velocity": (1.0, 0, 0), "angularVelocity": (0, 0, Om)}}
+    geometry.ibm_properties(d, {"sphere": s}, periodicLengths=(G_L, G_L, 0))
+    for x in ("transportProperties", "turbulenceProperties"):
+        (d / "constant" / x).write_text((mig.CYL / "constant" / x).read_text())
+    common.set_keys(d / "constant" / "transportProperties", nu=1.0/G_RE)
+    write_dict(d / "constant" / "fvOptions", "dictionary", "fvOptions", """
+momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar (0 0 0); flowDir (1 0 0);
+                 relaxation 1.0; includeMovingBodies yes; }
+""")
+    bc = ("left { type cyclic; } right { type cyclic; } front { type cyclic; } back { type cyclic; } "
+          "sym { type symmetryPlane; } top { type symmetryPlane; }")
+    for name, cls, dims, val in (("U", "volVectorField", "[0 1 -1 0 0 0 0]", "uniform (0 0 0)"),
+                                 ("p", "volScalarField", "[0 2 -2 0 0 0 0]", "uniform 0")):
+        write_dict(d / "0" / name, cls, name, "dimensions %s;\ninternalField %s;\nboundaryField { %s }\n"
+                   % (dims, val, bc))
+    (d / "system" / "fvSchemes").write_text(
+        (mig.CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default Euler;"))
+    write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution",
+               pimple_solution((0.45*G_L, 0.45*G_L, 0.2*G_L), NOUTER))
+    geometry.control_dict(d, "ibmPimpleFoam", endTime=T, deltaT=dt, writeInterval=int(round(T/dt)))
+    run_parallel(d, "ibmPimpleFoam", NP_GATE)
+    log = (d / "log.ibmPimpleFoam").read_text()
+    m = re.findall(r"IBM force on sphere: pressure \(([^)]*)\) viscous \(([^)]*)\)", log)
+    a = np.array([[float(x) for x in (p + " " + v).split()] for p, v in m])[len(m)//2:]
+    r = {"Om": Om, "dt": dt, "Fp": a[:, :3].mean(axis=0).tolist(), "Fv": a[:, 3:].mean(axis=0).tolist(),
+         "Fy_abs": float(np.abs(a[:, 1] + a[:, 4]).mean())}
+    f.write_text(json.dumps(r))
+    return r
+
+
 # ------------------------------------------------------------------------------------ cases
 
 def mesh_full(d, hf, e, L=3.0, h0=None):
@@ -256,12 +301,13 @@ def poiseuille(d):
     return "nonuniform List<vector>\n%d\n(\n%s\n)" % (len(u), "\n".join("(%.12g 0 0)" % x for x in u))
 
 
-def free_case(ctx, Re, er, coupling, rho, T=None, dtfac=1.0):
+def free_case(ctx, Re, er, coupling, rho, T=None, dtfac=1.0, np_=None):
     hf, h0 = v6.mesh_of(D, DH)
     es = float(ref.eps_star(D))
     e = er*es
-    name = "rigid_d%g_e%.4f_Re%g_h%d_%s_rho%g%s" % (D, e, Re, round(1/hf), coupling, rho,
-                                                   "_dtx%g" % dtfac if dtfac != 1.0 else "")
+    name = "rigid_d%g_e%.4f_Re%g_h%d_%s_rho%g%s%s" % (D, e, Re, round(1/hf), coupling, rho,
+                                                     "_dtx%g" % dtfac if dtfac != 1.0 else "",
+                                                     "_T%g" % T if T else "")
     d = ctx.root / name
     f = d / "result.json"
     if f.exists():
@@ -307,7 +353,7 @@ momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar 
     n = int(round(T/dt))                       # writeInterval counts time steps
     geometry.control_dict(d, "ibmPimpleFoam", endTime=T, deltaT=dt, writeInterval=max(1, n//4))
     cells = common.last_match((d / "log.checkMesh").read_text(), r"cells:\s+(\d+)", cast=int)
-    run_parallel(d, "ibmPimpleFoam", NP_CASE)
+    run_parallel(d, "ibmPimpleFoam", np_ or NP_CASE)
     log = (d / "log.ibmPimpleFoam").read_text()
     h = free_lines(log)
     g = gradients(log)
@@ -326,6 +372,59 @@ momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar 
          "beta": float((G/pipe["G"] - 1)/aG), "settled": bool(abs(dV) <= SETTLE*abs(V) and
                                                                abs(dOm) <= SETTLE*max(abs(Om), 1e-3)),
          "Fx_res": float(np.abs(h["F"][-n:, 0]).mean()*2/VB), "Mz_res": float(np.abs(h["M"][-n:, 2]).mean()*2/VB)}
+    f.write_text(json.dumps(r))
+    return r
+
+
+def frame_case(ctx, Re, er, T=None):
+    """diagnostic: the V6 configuration (sphere still, turning at the V6 Omega; pipe sliding at -V6;
+    Ubar (J - V) Vf0/Vf) run transiently with ibmPimpleFoam on the V6G mesh and time step: the
+    lift of V6 with the solver and mesh of V6G but a static geometry"""
+    hf, h0 = v6.mesh_of(D, DH)
+    e = er*float(ref.eps_star(D))
+    p6 = v6_point(Re, er)
+    V, Om = p6["V"], p6["Om"]
+    name = "frame_d%g_e%.4f_Re%g_h%d" % (D, e, Re, round(1/hf))
+    d = ctx.root / name
+    f = d / "result.json"
+    if f.exists():
+        return json.loads(f.read_text())
+    pipe = empty_pipe(ctx, Re, hf, e, None if abs(h0 - 2*hf) < 1e-12 else h0)
+    d.mkdir(parents=True, exist_ok=True)
+    src = ctx.root / ("pipe_e%.4f_Re%g" % (e, Re))
+    if not (d / "constant" / "polyMesh").exists():
+        shutil.copytree(src / "constant" / "polyMesh", d / "constant" / "polyMesh")
+        shutil.copytree(src / "system", d / "system")
+        shutil.copy(src / "log.checkMesh", d / "log.checkMesh")
+    L = 3.0
+    mig.setup(d, Re, hf, D, e, "rigid", V, Om, L)          # V6 bodies and fvOptions (Ubar J - V)
+    Vf = mig.geometry_only(d)
+    ub = float((mig.J - V)*pipe["Vf0"]/Vf)
+    (d / "constant" / "fvOptions").write_text(re.sub(r"Ubar \([^)]*\)", "Ubar (%r 0 0)" % ub,
+                                                    (d / "constant" / "fvOptions").read_text()))
+    C, _ = read_field(str(d / "0" / "C"))
+    r2 = C[:, 1]**2 + C[:, 2]**2
+    u = np.where(r2 < mig.RP**2, 2*mig.J*(1 - 4*r2), 0.0) - V
+    bU = "left { type cyclic; } right { type cyclic; } sym { type symmetryPlane; } outer { type noSlip; }"
+    write_dict(d / "0" / "U", "volVectorField", "U", "dimensions [0 1 -1 0 0 0 0];\ninternalField "
+               "nonuniform List<vector>\n%d\n(\n%s\n);\nboundaryField { %s }\n"
+               % (len(u), "\n".join("(%.12g 0 0)" % x for x in u), bU))
+    (d / "system" / "fvSchemes").write_text(
+        (mig.CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default Euler;"))
+    write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", pimple_solution((-0.4*L, -0.21, 0.013), NOUTER, tight=False))
+    dt = float("%.3g" % (0.4*hf/(2*mig.J)))
+    T = T or 1.5
+    n = int(round(T/dt))
+    geometry.control_dict(d, "ibmPimpleFoam", endTime=T, deltaT=dt, writeInterval=max(1, n//4))
+    run_parallel(d, "ibmPimpleFoam", 16)
+    log = (d / "log.ibmPimpleFoam").read_text()
+    m = re.findall(r"IBM force on sphere: pressure \(([^)]*)\) viscous \(([^)]*)\)", log)
+    a = np.array([[float(x) for x in (p + " " + v).split()] for p, v in m])
+    a = a[len(a)//2:]
+    VB = np.pi*D**3/6
+    r = {"name": name, "V": V, "Om": Om, "steps": len(m), "Fp": a[:, :3].mean(axis=0).tolist(),
+         "Fv": a[:, 3:].mean(axis=0).tolist(), "fRe": float(2*(a[:, 1] + a[:, 4]).mean()/VB),
+         "fRe_v6": p6["fRe"]}
     f.write_text(json.dumps(r))
     return r
 
