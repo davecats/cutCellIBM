@@ -30,6 +30,7 @@ NU = 1/3e6
 DZ = 0.01
 NP = 8
 END = 120000                    # SIMPLE cap; runs past 40000 continue from their latest time
+END_MESH = {"h33": 240000}      # h+ 33 band: immersed C_L still converging geometrically at 120000 (user, 2026-11-24)
 STAT = (0.1, 1e-4)              # stationary: C_L, C_D within 1e-4 relative over the last 10 % of the iterations
 GRIDS = common.RUNS / "tmr_grids" / "bump"   # bumpgrids-grids.zip of the TMR, the p2dfmt files
 GRID705 = "bump_1levelsdown_705x321.p2dfmt"
@@ -249,7 +250,7 @@ application %s;
 writeControl timeStep; writeInterval %d; purgeWrite 0; writeFormat ascii; writePrecision 12;
 timeFormat general; timePrecision 6; runTimeModifiable false;
 %s""" % ("ibmSimpleFoam" if ibm else "simpleFoam", 'libs ("libcutCellIBMTurbulence.so");\n' if ibm else "",
-         END, END, fo))
+         END_MESH.get(mesh, END), END_MESH.get(mesh, END), fo))
     write_dict(d / "system" / "decomposeParDict", "dictionary", "decomposeParDict",
                "numberOfSubdomains %d;\nmethod scotch;\n%s" % (NP, common.LINK_CONSTRAINT if ibm else ""))
     common.sh("plot3dToFoam -2D %r -noBlank grid.p2dfmt" % DZ, d, "log.plot3dToFoam")
@@ -453,8 +454,8 @@ def report(res, rows):
     the body-fitted wall-resolved 705 run REPORT; off-default options REPORT"""
     by = {r["name"]: r for r in rows}
     bad = [r["name"] for r in rows if not (r["converged"] or r.get("stationary"))]
-    res.le("runs neither converged (residualControl, %d iterations) nor stationary (C_L, C_D within %g over the "
-           "last %d %%) or failed" % (END, STAT[1], 100*STAT[0]), len(bad), 0,
+    res.le("runs neither converged (residualControl, %s iterations) nor stationary (C_L, C_D within %g over the "
+           "last %d %%) or failed" % ("%d, h33 %d" % (END, END_MESH["h33"]), STAT[1], 100*STAT[0]), len(bad), 0,
            ", ".join("%s (%.1e)" % (r["name"], r.get("stat_dev", float("nan"))) for r in rows
                      if r["name"] in bad) or "-")
     wr = by.get("bf_wr")
