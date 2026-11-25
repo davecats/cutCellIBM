@@ -256,6 +256,63 @@ momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar 
     return r
 
 
+def gate_galilean(ctx, Re, Om, dt, frame, T=2.0, np_=4, tag=""):
+    """diagnostic: the sphere of the gate box at Re = U D/nu with inertia, turning at Om about z,
+    either translating at U = 1 through fluid at rest (frame "lab", moving geometry) or held still
+    in fluid moving at -1 (frame "body", static geometry, invariant rotation), both started
+    impulsively and without a mean-flow source (the fluid exchanges momentum with the sphere
+    only; ibmMeanVelocityForce is unstable in this wall-less box at Re 10, growing ~2x per step
+    in either frame). The two are Galilean equivalent at every instant, so the difference of the
+    force histories is the error of the moving-geometry discretisation alone (lift by the spin)"""
+    d = ctx.root / ("g1_galilean_%s_Re%g_Om%g_dt%g_T%g%s" % (frame, Re, Om, dt, T, tag))
+    f = d / "result.json"
+    if f.exists():
+        return json.loads(f.read_text())
+    gate_static(ctx)
+    d.mkdir(parents=True, exist_ok=True)
+    src = ctx.root / "g1_static"
+    if not (d / "constant" / "polyMesh").exists():
+        shutil.copytree(src / "constant" / "polyMesh", d / "constant" / "polyMesh")
+        shutil.copytree(src / "system", d / "system")
+        shutil.copy(src / "log.checkMesh", d / "log.checkMesh")
+    s = {"type": "sphere", "centre": (0, 0, 0), "radius": 0.5, "wallType": "noSlip"}
+    if frame == "lab":
+        s["motion"] = {"type": "translating", "velocity": (1.0, 0, 0), "angularVelocity": (0, 0, Om)}
+        u0 = 0.0
+    else:
+        s["motion"] = {"type": "none", "angularVelocity": (0, 0, Om), "invariant": True}
+        u0 = -1.0
+    geometry.ibm_properties(d, {"sphere": s}, periodicLengths=(G_L, G_L, 0))
+    for x in ("transportProperties", "turbulenceProperties"):
+        (d / "constant" / x).write_text((mig.CYL / "constant" / x).read_text())
+    common.set_keys(d / "constant" / "transportProperties", nu=1.0/Re)
+    bc = ("left { type cyclic; } right { type cyclic; } front { type cyclic; } back { type cyclic; } "
+          "sym { type symmetryPlane; } top { type symmetryPlane; }")
+    for name, cls, dims, val in (("U", "volVectorField", "[0 1 -1 0 0 0 0]", "uniform (%r 0 0)" % u0),
+                                 ("p", "volScalarField", "[0 2 -2 0 0 0 0]", "uniform 0")):
+        write_dict(d / "0" / name, cls, name, "dimensions %s;\ninternalField %s;\nboundaryField { %s }\n"
+                   % (dims, val, bc))
+    (d / "system" / "fvSchemes").write_text(
+        (mig.CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default Euler;"))
+    write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution",
+               pimple_solution((0.45*G_L, 0.45*G_L, 0.2*G_L), NOUTER))
+    n = int(round(T/dt))
+    geometry.control_dict(d, "ibmPimpleFoam", endTime=T, deltaT=dt, writeInterval=n)
+    run_parallel(d, "ibmPimpleFoam", np_)
+    log = (d / "log.ibmPimpleFoam").read_text()
+    t = [float(x) for x in re.findall(r"^Time = (\S+)", log, re.M)]
+    m = re.findall(r"IBM force on sphere: pressure \(([^)]*)\) viscous \(([^)]*)\)", log)
+    a = np.array([[float(x) for x in (p + " " + v).split()] for p, v in m])
+    t = np.array(t[:len(a)])
+    np.save(d / "forces.npy", np.column_stack([t, a]))
+    w = t > T/2
+    F = 2*(a[:, :3] + a[:, 3:])                    # both halves of the box (symmetry plane z = 0)
+    r = {"frame": frame, "Re": Re, "Om": Om, "dt": dt, "T": T, "steps": len(a),
+         "F": F[w].mean(axis=0).tolist(), "Fsd": F[w].std(axis=0).tolist()}
+    f.write_text(json.dumps(r))
+    return r
+
+
 # ------------------------------------------------------------------------------------ cases
 
 def mesh_full(d, hf, e, L=3.0, h0=None):
@@ -302,6 +359,8 @@ def poiseuille(d):
 
 
 def free_case(ctx, Re, er, coupling, rho, T=None, dtfac=1.0, np_=None):
+    """the free sphere in the still pipe; coupling "prescribed" (diagnostic): the sphere translating
+    and turning at the V6 values V, Omega instead (moving geometry without the coupling)"""
     hf, h0 = v6.mesh_of(D, DH)
     es = float(ref.eps_star(D))
     e = er*es
@@ -328,6 +387,9 @@ def free_case(ctx, Re, er, coupling, rho, T=None, dtfac=1.0, np_=None):
          "motion": {"type": "free", "density": rho, "translation": (1, 0, 0), "rotation": (0, 0, 1),
                     "velocity": (V0, 0, 0), "angularVelocity": (0, 0, Om0), "coupling": coupling,
                     "addedMass": 0.5, "volume": np.pi*D**3/12}}
+    if coupling == "prescribed":
+        p6 = v6_point(Re, er)
+        s["motion"] = {"type": "translating", "velocity": (p6["V"], 0, 0), "angularVelocity": (0, 0, p6["Om"])}
     geometry.ibm_properties(d, {"pipe": pipe_b, "sphere": s}, periodicLengths=(L, 0, 0))
     for x in ("transportProperties", "turbulenceProperties"):
         (d / "constant" / x).write_text((mig.CYL / "constant" / x).read_text())
@@ -355,6 +417,18 @@ momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar 
     cells = common.last_match((d / "log.checkMesh").read_text(), r"cells:\s+(\d+)", cast=int)
     run_parallel(d, "ibmPimpleFoam", np_ or NP_CASE)
     log = (d / "log.ibmPimpleFoam").read_text()
+    if coupling == "prescribed":
+        m = re.findall(r"IBM force on sphere: pressure \(([^)]*)\) viscous \(([^)]*)\)", log)
+        a = np.array([[float(x) for x in (p + " " + v).split()] for p, v in m])
+        t = np.array([float(x) for x in re.findall(r"^Time = (\S+)", log, re.M)][:len(a)])
+        np.save(d / "forces.npy", np.column_stack([t, a]))
+        VB = np.pi*D**3/6
+        Fy, dFy, sFy = window(t, a[:, 1] + a[:, 4])
+        r = {"name": name, "Re": Re, "epsr": er, "e": e, "T": T, "dt": dt, "steps": len(a),
+             "fRe": float(2*Fy/VB), "dfRe": float(2*dFy/VB), "sfRe": float(2*sFy/VB),
+             "fRe_v6": v6_point(Re, er)["fRe"]}
+        f.write_text(json.dumps(r))
+        return r
     h = free_lines(log)
     g = gradients(log)
     n = min(len(g), len(h["t"]))
