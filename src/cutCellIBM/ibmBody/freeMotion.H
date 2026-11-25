@@ -22,11 +22,18 @@ Description
         M = M_p + M_v                         (about the current centre)
 
     Translation and rotation are restricted to the directions of
-    "translation" and "rotation" (components 0 or 1 in the global axes);
-    at most one rotational direction may be free, so that the rotation is
-    about a fixed axis and its angle is a scalar. The body is moved with
-    d^{n+1} = d^n + dt U^{n+1} (implicit Euler for the position), which is
-    the displacement the wall flux U.Sw of cutCellGeometry assumes.
+    "translation" and "rotation" (components 0 or 1 in the global axes;
+    (1 1 1) and (1 1 1): unconstrained, six degrees of freedom). The
+    components of the angular velocity about the fixed axes stay zero. The
+    body is moved with d^{n+1} = d^n + dt U^{n+1} and turned with
+    q^{n+1} = q(omega^{n+1} dt) q^n (implicit Euler for the position and the
+    orientation quaternion q), which is the motion the wall flux U.Sw of
+    cutCellGeometry assumes. The rotation is the implicit Euler step of the
+    angular momentum in the global frame, I^{n+1} omega^{n+1} = I^n omega^n
+    + dt M (I = density R J R^T with the orientation R and the inertia
+    tensor J of the body at rest; the gyroscopic term is in the change of I),
+    restricted to the free axes. The reference point of the body (its centre,
+    or centreOfRotation) must be its centre of mass.
 
     Coupling (the velocity at the new time):
     - explicit: from the force of the previous time step,
@@ -52,16 +59,19 @@ Description
       |m_a - M|/(m + m_a) per corrector (M the true -dt dF/dU), < 1 for any
       m_a >= M, so the iteration converges for any rho_s, also rho_s/rho < 1
       and down to zero (a bubble). The rotation uses the same scheme with
-      the inertia (bound addedMass*inertia). The corrector of the first
-      outer iteration is the predictor, from the loads at the old time
-      level.
+      the inertia tensor (an added inertia per free global axis, bound
+      addedMass times the diagonal of the global inertia per unit density).
+      The corrector of the first outer iteration is the predictor, from the
+      loads at the old time level.
 
-    Mass properties: "volume" and "inertia" (per unit density: the volume
-    and int r_perp^2 dV about the free rotation axis through the centre) of
-    the part of the body inside the domain; for a sphere the defaults are
-    4/3 pi R^3 and 2/5 R^2 volume. With a symmetry plane through the body
-    give the values of the part in the domain (half a sphere: volume
-    2/3 pi R^3; the inertia default follows the volume).
+    Mass properties (per unit density) of the part of the body inside the
+    domain: "volume", and either "inertia" (a scalar, isotropic: int r_perp^2
+    dV about any axis through the centre, e.g. about the one free axis) or
+    "inertiaTensor" (int (|r|^2 1 - r r) dV in the frame of the body at
+    rest). Defaults from the body where it gives them (sphere: 4/3 pi R^3,
+    2/5 R^2 volume; box). With a symmetry plane through the body give the
+    values of the part in the domain (half a sphere: volume 2/3 pi R^3; the
+    inertia default follows the volume).
 
     Usage (a body of constant/ibmProperties):
     \verbatim
@@ -77,14 +87,17 @@ Description
         addedMass       0.5;        // lower bound of m_a/volume (implicit;
                                     // default 0.5)
         volume          0.0335;     // optional (default: from the body)
-        inertia         0.00134;    // optional (default: from the body)
+        inertia         0.00134;    // optional (default: from the body), or
+        // inertiaTensor (Ixx Ixy Ixz Iyy Iyz Izz);    // body frame at rest
         gravity         (0 0 0);    // optional
         externalForce   (0 0 0);    // optional, per unit fluid density
         meanPressureGradient yes;   // optional (default yes)
     }
     \endverbatim
-    The state (displacement, velocity, angle, angular velocity) is written
-    to <time>/uniform/ibmFreeBodies and read on restart.
+    The state (displacement, velocity, orientation quaternion, angular
+    velocity) is written to <time>/uniform/ibmFreeBodies and read on restart
+    (a state with "angle" instead of "orientation", from a body with one
+    free axis, is read as a rotation about that axis).
 
 \*---------------------------------------------------------------------------*/
 
@@ -114,7 +127,10 @@ private:
     couplingType coupling_;
     scalar addedMass_;
     scalar volume_;
-    scalar inertia_;
+    //- Inertia tensor per unit density, body frame at rest (given or from
+    //  the body)
+    symmTensor inertia_;
+    bool hasInertia_;
     vector gravity_;
     vector externalForce_;
     bool meanPressureGradient_;
@@ -122,25 +138,26 @@ private:
     // State at the new time level (current iterate) and at the old one
     vector displacement_;
     vector velocity_;
-    scalar theta_;           // rotation angle about axis()
+    quaternion orientation_;
     vector displacement0_;
     vector velocity0_;
     vector omega0_;
-    scalar theta0_;
+    quaternion orientation0_;
 
     //- Change of the velocities in the last correction, relative to the
     //  largest velocity scale (for the report)
     scalar residual_;
 
     // Implicit coupling: effective added mass per translational direction
-    // and added inertia (secant estimates), and the previous iterate
+    // and added inertia per rotational direction (secant estimates), and
+    // the previous iterate
     vector ma_;
-    scalar Ia_;
+    vector Ia_;
     bool hasPrevious_;
     vector Uprev_;
     vector Fprev_;
-    scalar Oprev_;
-    scalar Mprev_;
+    vector Oprev_;
+    vector Mprev_;
 
 public:
 
@@ -152,8 +169,10 @@ public:
     virtual vector velocity(const scalar t) const;
 
     virtual bool rotates() const { return cmptMax(rotationMask_) > 0; }
-    virtual vector axis() const;
-    virtual scalar angle(const scalar t) const { return theta_; }
+    virtual quaternion orientation(const scalar t) const
+    {
+        return orientation_;
+    }
 
     // Access
 
@@ -163,14 +182,17 @@ public:
         bool implicit() const { return coupling_ == IMPLICIT; }
         bool meanPressureGradient() const { return meanPressureGradient_; }
         scalar volume() const { return volume_; }
-        scalar inertia() const { return inertia_; }
+        const symmTensor& inertia() const { return inertia_; }
+        //- Inertia tensor of the body per unit fluid density (density
+        //  included) in the global frame at orientation q
+        tensor globalInertia(const quaternion& q) const;
         scalar mass() const { return density_*volume_; }
         scalar residual() const { return residual_; }
 
         //- Effective added mass per direction and added inertia in use
         //  (implicit coupling)
         const vector& effectiveAddedMass() const { return ma_; }
-        scalar effectiveAddedInertia() const { return Ia_; }
+        const vector& effectiveAddedInertia() const { return Ia_; }
 
         //- Body force on the body per unit fluid density (gravity and the
         //  constant external force)
@@ -182,7 +204,11 @@ public:
     // Set-up
 
         //- Mass properties from the body if not given (volume <= 0: none)
-        void setMassProperties(const scalar volume, const scalar inertia);
+        void setMassProperties
+        (
+            const scalar volume,
+            const symmTensor& inertia
+        );
 
         //- State from a restart dictionary
         void readState(const dictionary& dict);

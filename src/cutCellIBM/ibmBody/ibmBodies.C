@@ -67,10 +67,14 @@ Foam::sphereBody::sphereBody
 {}
 
 
-bool Foam::sphereBody::massProperties(scalar& volume, scalar& inertia) const
+bool Foam::sphereBody::massProperties
+(
+    scalar& volume,
+    symmTensor& inertia
+) const
 {
     volume = 4.0/3.0*constant::mathematical::pi*pow3(radius_);
-    inertia = 0.4*sqr(radius_)*volume;
+    inertia = 0.4*sqr(radius_)*volume*symmTensor::I;
     return true;
 }
 
@@ -101,6 +105,24 @@ Foam::boxBody::boxBody
     min_(dict.get<point>("min")),
     max_(dict.get<point>("max"))
 {}
+
+
+bool Foam::boxBody::massProperties
+(
+    scalar& volume,
+    symmTensor& inertia
+) const
+{
+    const vector L(max_ - min_);
+    volume = L.x()*L.y()*L.z();
+    inertia = symmTensor
+    (
+        volume/12*(sqr(L.y()) + sqr(L.z())), 0, 0,
+        volume/12*(sqr(L.x()) + sqr(L.z())), 0,
+        volume/12*(sqr(L.x()) + sqr(L.y()))
+    );
+    return true;
+}
 
 
 void Foam::boxBody::levelSet

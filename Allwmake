@@ -8,5 +8,6 @@ wmake libso src/cutCellIBMAMR
 wmake applications/utilities/ibmSetGeometry
 wmake applications/utilities/ibmOrderTest
 wmake applications/utilities/ibmTruncationTC
+wmake applications/utilities/ibmFreeMotionTest
 wmake applications/solvers/ibmSimpleFoam
 wmake applications/solvers/ibmPimpleFoam

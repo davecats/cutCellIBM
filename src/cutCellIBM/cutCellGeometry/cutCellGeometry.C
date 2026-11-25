@@ -15,6 +15,7 @@
 #include "coupledPolyPatch.H"
 #include "processorPolyPatch.H"
 #include "cyclicPolyPatch.H"
+#include "clockTime.H"
 
 namespace Foam
 {
@@ -183,6 +184,16 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     invarianceTolerance_(getOrDefault<scalar>("invarianceTolerance", 1e-6)),
     periodicLengths_(getOrDefault<vector>("periodicLengths", Zero)),
     cellLevelSet_(),
+    cacheStatic_(getOrDefault<bool>("cacheStaticGeometry", true)),
+    staticCacheValid_(false),
+    staticPointPhi_(),
+    staticFacePhi_(),
+    staticCellPhi_(),
+    staticEdgeCross_(),
+    staticAlpha_(),
+    staticCentroid_(),
+    staticBodyPhi_(),
+    cellRadius_(),
     UbPtr_(nullptr),
     massSourcePtr_(nullptr),
     thetaOldPtr_(nullptr),
@@ -370,6 +381,10 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
 
 void Foam::cutCellGeometry::calcGeometry()
 {
+    // Wall-clock times of the stages (reported for moving geometry)
+    clockTime clock;
+    FixedList<scalar, 8> times(Zero);
+
     // Fluid fractions: union of all bodies. Level-set bodies are combined
     // exactly through the minimum of their level sets; alpha-field bodies
     // and the level-set group are combined through the minimum of their
@@ -450,8 +465,9 @@ void Foam::cutCellGeometry::calcGeometry()
         calcFromLevelSet(a, t, xw, body, centroidOffset, phi, ec);
         merge(a, t, xw, body);
         mergeCut(phi, ec);
-        unionLevelSet(mesh_.cellCentres(), cellLevelSet_);
+        cellCentreLevelSet(cellLevelSet_);
     }
+    times[0] = clock.timeIncrement();
 
     forAll(bodies_, bodyi)
     {
@@ -642,17 +658,36 @@ void Foam::cutCellGeometry::calcGeometry()
             SubField<scalar>(theta, fvp.size(), fvp.start());
     }
 
+    times[1] = clock.timeIncrement();
     calcDerived();
+    times[2] = clock.timeIncrement();
     calcLinks();
+    times[3] = clock.timeIncrement();
     if (secondOrder_)
     {
         calcValueOffset();
+        times[4] = clock.timeIncrement();
         calcCentroidGeometry();
+        times[5] = clock.timeIncrement();
         calcWallPieces();
+        times[6] = clock.timeIncrement();
     }
     if (zeroShear_)
     {
         calcZeroShear();
+        times[7] = clock.timeIncrement();
+    }
+    if (moving_)
+    {
+        for (scalar& x : times)
+        {
+            reduce(x, maxOp<scalar>());
+        }
+        Info<< "    geometry times [s, max over ranks]: level set "
+            << times[0] << ", post " << times[1] << ", derived " << times[2]
+            << ", links " << times[3] << ", value offset " << times[4]
+            << ", centroids " << times[5] << ", wall pieces " << times[6]
+            << ", zero shear " << times[7] << endl;
     }
     wallSamplesDone_ = false;
     lsqDone_ = false;
@@ -1115,6 +1150,231 @@ void Foam::cutCellGeometry::unionLevelSet
 }
 
 
+bool Foam::cutCellGeometry::inGroup
+(
+    const label bodyi,
+    const bodyGroup group
+) const
+{
+    const ibmBody& b = bodies_[bodyi];
+    if (!b.hasLevelSet()) return false;
+    switch (group)
+    {
+        case STATICBODIES: return !b.moving();
+        case MOVINGBODIES: return b.moving();
+        default: return true;
+    }
+}
+
+
+void Foam::cutCellGeometry::unionLevelSet
+(
+    const pointField& pts,
+    scalarField& phi,
+    const bodyGroup group
+) const
+{
+    phi.setSize(pts.size());
+    phi = GREAT;
+    scalarField phib;
+    forAll(bodies_, bodyi)
+    {
+        if (inGroup(bodyi, group))
+        {
+            bodies_[bodyi].evaluate(pts, phib);
+            phi = min(phi, phib);
+        }
+    }
+}
+
+
+bool Foam::cutCellGeometry::staticCacheActive() const
+{
+    if (!cacheStatic_ || !moving_) return false;
+    bool hasStatic = false, hasMoving = false;
+    forAll(bodies_, bodyi)
+    {
+        if (inGroup(bodyi, STATICBODIES)) hasStatic = true;
+        if (inGroup(bodyi, MOVINGBODIES)) hasMoving = true;
+    }
+    return hasStatic && hasMoving;
+}
+
+
+Foam::label Foam::cutCellGeometry::cellSide
+(
+    const label celli,
+    const scalarField& pointPhi,
+    const scalarField& facePhi,
+    const scalarField& cellPhi
+) const
+{
+    const faceList& faces = mesh_.faces();
+    label nPos = 0, nNeg = 0;
+    (cellPhi[celli] > 0 ? nPos : nNeg)++;
+    for (const label facei : mesh_.cells()[celli])
+    {
+        (facePhi[facei] > 0 ? nPos : nNeg)++;
+        const face& f = faces[facei];
+        forAll(f, i)
+        {
+            (pointPhi[f[i]] > 0 ? nPos : nNeg)++;
+        }
+    }
+    if (nPos > 0 && nNeg > 0) return 0;
+    return (nPos > 0) ? 1 : -1;
+}
+
+
+void Foam::cutCellGeometry::bisectEdges
+(
+    const scalarField& pointPhi,
+    const labelUList& cutEdges,
+    const bodyGroup group,
+    pointField& edgeCross
+) const
+{
+    // All edges are bisected together so that the level set is evaluated
+    // in batches (matters for STL surfaces)
+    const pointField& points = mesh_.points();
+    const edgeList& edges = mesh_.edges();
+
+    pointField A(cutEdges.size()), B(cutEdges.size());
+    boolList fluidA(cutEdges.size());
+    forAll(cutEdges, i)
+    {
+        const edge& e = edges[cutEdges[i]];
+        label a = e[0], b = e[1];
+        if (lessPoint(points[b], points[a])) Swap(a, b);
+        A[i] = points[a];
+        B[i] = points[b];
+        fluidA[i] = pointPhi[a] > 0;
+    }
+
+    scalarField lo(cutEdges.size(), 0.0), hi(cutEdges.size(), 1.0);
+    pointField mid(cutEdges.size());
+    scalarField phiMid;
+    for (label it = 0; it < nBisect_; ++it)
+    {
+        forAll(mid, i)
+        {
+            mid[i] = A[i] + 0.5*(lo[i] + hi[i])*(B[i] - A[i]);
+        }
+        unionLevelSet(mid, phiMid, group);
+        forAll(mid, i)
+        {
+            if ((phiMid[i] > 0) == fluidA[i])
+            {
+                lo[i] = 0.5*(lo[i] + hi[i]);
+            }
+            else
+            {
+                hi[i] = 0.5*(lo[i] + hi[i]);
+            }
+        }
+    }
+
+    forAll(cutEdges, i)
+    {
+        edgeCross[cutEdges[i]] = A[i] + 0.5*(lo[i] + hi[i])*(B[i] - A[i]);
+    }
+}
+
+
+void Foam::cutCellGeometry::buildStaticCache() const
+{
+    const pointField& points = mesh_.points();
+    const edgeList& edges = mesh_.edges();
+    const cellList& cells = mesh_.cells();
+
+    unionLevelSet(points, staticPointPhi_, STATICBODIES);
+    unionLevelSet(mesh_.faceCentres(), staticFacePhi_, STATICBODIES);
+    unionLevelSet(mesh_.cellCentres(), staticCellPhi_, STATICBODIES);
+
+    DynamicList<label> cutEdges(edges.size()/8);
+    forAll(edges, edgei)
+    {
+        const edge& e = edges[edgei];
+        if ((staticPointPhi_[e[0]] > 0) != (staticPointPhi_[e[1]] > 0))
+        {
+            cutEdges.append(edgei);
+        }
+    }
+    staticEdgeCross_.setSize(edges.size());
+    staticEdgeCross_ = point::max;
+    bisectEdges(staticPointPhi_, cutEdges, STATICBODIES, staticEdgeCross_);
+
+    staticAlpha_.setSize(cells.size());
+    staticAlpha_ = -1;
+    staticCentroid_ = mesh_.cellCentres();
+    label nCut = 0;
+    forAll(cells, celli)
+    {
+        if
+        (
+            cellSide(celli, staticPointPhi_, staticFacePhi_, staticCellPhi_)
+         == 0
+        )
+        {
+            staticAlpha_[celli] =
+                sampleCellFraction(celli, staticCentroid_[celli], STATICBODIES);
+            ++nCut;
+        }
+    }
+
+    staticBodyPhi_.setSize(bodies_.size());
+    forAll(bodies_, bodyi)
+    {
+        staticBodyPhi_[bodyi].clear();
+        if (inGroup(bodyi, STATICBODIES))
+        {
+            bodies_[bodyi].evaluate(mesh_.cellCentres(), staticBodyPhi_[bodyi]);
+        }
+    }
+
+    // Circumradius of every cell about its centre: of its bounding box,
+    // which holds its points, face centres and sub-samples
+    cellRadius_.setSize(cells.size());
+    forAll(cells, celli)
+    {
+        const boundBox bb
+        (
+            cells[celli].points(mesh_.faces(), points),
+            false
+        );
+        const point& C = mesh_.cellCentres()[celli];
+        const tmp<pointField> tcorners(bb.points());
+        scalar r2 = 0;
+        for (const point& p : tcorners())
+        {
+            r2 = max(r2, magSqr(p - C));
+        }
+        cellRadius_[celli] = Foam::sqrt(r2);
+    }
+
+    staticCacheValid_ = true;
+    Info<< "    static bodies cached: "
+        << returnReduce(nCut, sumOp<label>()) << " sub-sampled cells, "
+        << returnReduce(cutEdges.size(), sumOp<label>()) << " cut edges"
+        << endl;
+}
+
+
+void Foam::cutCellGeometry::cellCentreLevelSet(scalarField& phi) const
+{
+    if (staticCacheActive() && staticCacheValid_)
+    {
+        scalarField phiM;
+        unionLevelSet(mesh_.cellCentres(), phiM, MOVINGBODIES);
+        phi = min(staticCellPhi_, phiM);
+    }
+    else
+    {
+        unionLevelSet(mesh_.cellCentres(), phi);
+    }
+}
+
+
 void Foam::cutCellGeometry::wallDistance
 (
     const pointField& pts,
@@ -1366,7 +1626,8 @@ bool Foam::cutCellGeometry::sampleInterpolatedCentroid
 Foam::scalar Foam::cutCellGeometry::sampleCellFraction
 (
     const label celli,
-    point& centroid
+    point& centroid,
+    const bodyGroup group
 ) const
 {
     const pointField cellPts
@@ -1426,7 +1687,7 @@ Foam::scalar Foam::cutCellGeometry::sampleCellFraction
     }
 
     scalarField phi;
-    unionLevelSet(pointField(samples), phi);
+    unionLevelSet(pointField(samples), phi, group);
 
     label nFluid = 0;
     vector sum(Zero);
@@ -1459,69 +1720,67 @@ void Foam::cutCellGeometry::calcFromLevelSet
 {
     const pointField& points = mesh_.points();
     const edgeList& edges = mesh_.edges();
-    const faceList& faces = mesh_.faces();
     const cellList& cells = mesh_.cells();
+
+    // Static-body cache: the static part once, the moving bodies here
+    const bool useCache = staticCacheActive();
+    if (useCache && !staticCacheValid_)
+    {
+        buildStaticCache();
+    }
 
     // Level set at the mesh points, face centres and cell centres
     scalarField facePhi, cellPhi;
-    unionLevelSet(points, pointPhi);
-    unionLevelSet(mesh_.faceCentres(), facePhi);
-    unionLevelSet(mesh_.cellCentres(), cellPhi);
+    scalarField movingPointPhi, movingCellPhi;
+    if (useCache)
+    {
+        scalarField movingFacePhi;
+        unionLevelSet(points, movingPointPhi, MOVINGBODIES);
+        unionLevelSet(mesh_.faceCentres(), movingFacePhi, MOVINGBODIES);
+        unionLevelSet(mesh_.cellCentres(), movingCellPhi, MOVINGBODIES);
+        pointPhi = min(staticPointPhi_, movingPointPhi);
+        facePhi = min(staticFacePhi_, movingFacePhi);
+        cellPhi = min(staticCellPhi_, movingCellPhi);
+    }
+    else
+    {
+        unionLevelSet(points, pointPhi);
+        unionLevelSet(mesh_.faceCentres(), facePhi);
+        unionLevelSet(mesh_.cellCentres(), cellPhi);
+    }
 
     // Crossing point on every cut edge, by bisection of the exact level set.
-    // All cut edges are bisected together so that the level set is evaluated
-    // in batches (matters for STL surfaces).
+    // With the cache, an edge the moving bodies cannot reach (their level
+    // set above the edge length at an end; distances, so positive along the
+    // whole edge) is cut by the static bodies alone, at their crossing.
+    // A small relative margin covers the round-off of the body transform.
+    static const scalar REACH = 1 + 1e-6;
+    edgeCross.setSize(edges.size());
+    edgeCross = point::max;
     DynamicList<label> cutEdges(edges.size()/8);
+    label nCutEdges = 0, nReused = 0;
     forAll(edges, edgei)
     {
         const edge& e = edges[edgei];
-        if ((pointPhi[e[0]] > 0) != (pointPhi[e[1]] > 0))
+        if ((pointPhi[e[0]] > 0) == (pointPhi[e[1]] > 0)) continue;
+        ++nCutEdges;
+        if (useCache)
         {
-            cutEdges.append(edgei);
-        }
-    }
-
-    pointField A(cutEdges.size()), B(cutEdges.size());
-    boolList fluidA(cutEdges.size());
-    forAll(cutEdges, i)
-    {
-        const edge& e = edges[cutEdges[i]];
-        label a = e[0], b = e[1];
-        if (lessPoint(points[b], points[a])) Swap(a, b);
-        A[i] = points[a];
-        B[i] = points[b];
-        fluidA[i] = pointPhi[a] > 0;
-    }
-
-    scalarField lo(cutEdges.size(), 0.0), hi(cutEdges.size(), 1.0);
-    pointField mid(cutEdges.size());
-    scalarField phiMid;
-    for (label it = 0; it < nBisect_; ++it)
-    {
-        forAll(mid, i)
-        {
-            mid[i] = A[i] + 0.5*(lo[i] + hi[i])*(B[i] - A[i]);
-        }
-        unionLevelSet(mid, phiMid);
-        forAll(mid, i)
-        {
-            if ((phiMid[i] > 0) == fluidA[i])
+            const scalar L = REACH*e.mag(points);
+            if
+            (
+                (movingPointPhi[e[0]] > L || movingPointPhi[e[1]] > L)
+             && staticEdgeCross_[edgei] != point::max
+            )
             {
-                lo[i] = 0.5*(lo[i] + hi[i]);
-            }
-            else
-            {
-                hi[i] = 0.5*(lo[i] + hi[i]);
+                edgeCross[edgei] = staticEdgeCross_[edgei];
+                ++nReused;
+                continue;
             }
         }
+        cutEdges.append(edgei);
     }
-
-    edgeCross.setSize(edges.size());
-    edgeCross = point::max;
-    forAll(cutEdges, i)
-    {
-        edgeCross[cutEdges[i]] = A[i] + 0.5*(lo[i] + hi[i])*(B[i] - A[i]);
-    }
+    bisectEdges(pointPhi, cutEdges, ALLBODIES, edgeCross);
 
     // Face fractions
     faceFractions(pointPhi, edgeCross, theta, wetCentre);
@@ -1541,27 +1800,34 @@ void Foam::cutCellGeometry::calcFromLevelSet
     }
     const vectorField& faceAreas = mesh_.faceAreas();
 
-    label nCandidates = 0, nMissed = 0;
+    label nCandidates = 0, nMissed = 0, nCached = 0;
     forAll(cells, celli)
     {
         const cell& c = cells[celli];
-        label nPos = 0, nNeg = 0;
-        (cellPhi[celli] > 0 ? nPos : nNeg)++;
-        for (const label facei : c)
-        {
-            (facePhi[facei] > 0 ? nPos : nNeg)++;
-            const face& f = faces[facei];
-            forAll(f, i)
-            {
-                (pointPhi[f[i]] > 0 ? nPos : nNeg)++;
-            }
-        }
+        const label side = cellSide(celli, pointPhi, facePhi, cellPhi);
 
-        if (nPos > 0 && nNeg > 0)
+        if (side == 0)
         {
             point xc;
-            alpha[celli] = sampleCellFraction(celli, xc);
             ++nCandidates;
+            // With the cache, a cell the moving bodies cannot reach (their
+            // level set at its centre above its circumradius) has the
+            // fraction and centroid of the static bodies
+            if
+            (
+                useCache
+             && movingCellPhi[celli] > REACH*cellRadius_[celli]
+             && staticAlpha_[celli] >= 0
+            )
+            {
+                alpha[celli] = staticAlpha_[celli];
+                xc = staticCentroid_[celli];
+                ++nCached;
+            }
+            else
+            {
+                alpha[celli] = sampleCellFraction(celli, xc);
+            }
 
             // A cell with a wet face holds fluid (the face fractions are
             // exact up to the bisection), also when its fluid is smaller than
@@ -1594,7 +1860,7 @@ void Foam::cutCellGeometry::calcFromLevelSet
         }
         else
         {
-            alpha[celli] = (nPos > 0) ? 1.0 : 0.0;
+            alpha[celli] = (side > 0) ? 1.0 : 0.0;
         }
     }
 
@@ -1602,7 +1868,11 @@ void Foam::cutCellGeometry::calcFromLevelSet
     List<scalarField> bodyPhi(bodies_.size());
     forAll(bodies_, bodyi)
     {
-        if (bodies_[bodyi].hasLevelSet())
+        if (useCache && inGroup(bodyi, STATICBODIES))
+        {
+            bodyPhi[bodyi] = staticBodyPhi_[bodyi];
+        }
+        else if (bodies_[bodyi].hasLevelSet())
         {
             bodies_[bodyi].evaluate(mesh_.cellCentres(), bodyPhi[bodyi]);
         }
@@ -1632,9 +1902,17 @@ void Foam::cutCellGeometry::calcFromLevelSet
 
     reduce(nCandidates, sumOp<label>());
     reduce(nMissed, sumOp<label>());
-    Info<< "    level-set bodies: " << returnReduce(cutEdges.size(), sumOp<label>())
+    reduce(nCutEdges, sumOp<label>());
+    Info<< "    level-set bodies: " << nCutEdges
         << " cut edges, " << nCandidates << " sub-sampled cells, " << nMissed
-        << " with fluid smaller than a sample" << endl;
+        << " with fluid smaller than a sample";
+    if (useCache)
+    {
+        Info<< " (static-body cache: " << returnReduce(nCached, sumOp<label>())
+            << " cells, " << returnReduce(nReused, sumOp<label>())
+            << " edges reused)";
+    }
+    Info<< endl;
 }
 
 

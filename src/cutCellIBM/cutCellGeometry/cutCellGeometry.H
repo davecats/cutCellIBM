@@ -316,6 +316,27 @@ class cutCellGeometry
         //- Union level set at the cell centres (pressure reference choice)
         scalarField cellLevelSet_;
 
+        //- Static-body cache ("cacheStaticGeometry", default true): with
+        //  moving and static level-set bodies, the level set of the static
+        //  ones at the mesh points, face and cell centres, the crossings of
+        //  the edges they cut and the sub-sampled fractions and centroids of
+        //  the cells they cut are computed once and reused wherever the
+        //  moving bodies cannot reach: an edge or a cell farther from every
+        //  moving body than its length or circumradius (the level sets are
+        //  distances, |grad phi| <= 1). There the signs of the union are
+        //  those of the static bodies, so the result is the one of the full
+        //  computation, bit for bit.
+        bool cacheStatic_;
+        mutable bool staticCacheValid_;
+        mutable scalarField staticPointPhi_;
+        mutable scalarField staticFacePhi_;
+        mutable scalarField staticCellPhi_;
+        mutable pointField staticEdgeCross_;
+        mutable scalarField staticAlpha_;
+        mutable pointField staticCentroid_;
+        mutable List<scalarField> staticBodyPhi_;
+        mutable scalarField cellRadius_;
+
         //- Body velocity at the cell centres
         autoPtr<volVectorField> UbPtr_;
 
@@ -477,6 +498,51 @@ class cutCellGeometry
         //- Minimum over the level sets of all level-set bodies
         void unionLevelSet(const pointField& pts, scalarField& phi) const;
 
+        //- Groups of level-set bodies
+        enum bodyGroup { ALLBODIES, STATICBODIES, MOVINGBODIES };
+
+        //- Minimum over the level sets of a group of level-set bodies
+        //  (GREAT if the group is empty)
+        void unionLevelSet
+        (
+            const pointField& pts,
+            scalarField& phi,
+            const bodyGroup group
+        ) const;
+
+        //- True if the level-set body belongs to the group
+        bool inGroup(const label bodyi, const bodyGroup group) const;
+
+        //- True if the static-body cache is in use: moving and static
+        //  level-set bodies, cacheStaticGeometry
+        bool staticCacheActive() const;
+
+        //- Fill the static-body cache
+        void buildStaticCache() const;
+
+        //- Union level set at the cell centres (from the cache if active)
+        void cellCentreLevelSet(scalarField& phi) const;
+
+        //- Side of a cell from the level set at its points, face centres and
+        //  centre: 1 all fluid, -1 all solid, 0 cut (a candidate)
+        label cellSide
+        (
+            const label celli,
+            const scalarField& pointPhi,
+            const scalarField& facePhi,
+            const scalarField& cellPhi
+        ) const;
+
+        //- Crossing point of the given cut edges by bisection of the level
+        //  set of a group of bodies, into edgeCross (sized nEdges)
+        void bisectEdges
+        (
+            const scalarField& pointPhi,
+            const labelUList& cutEdges,
+            const bodyGroup group,
+            pointField& edgeCross
+        ) const;
+
         //- Fluid fraction and centroid of the wet part of every face from
         //  the level set at the mesh points and the crossing point on every
         //  cut edge
@@ -513,7 +579,12 @@ class cutCellGeometry
 
         //- Fluid fraction of one cell by sub-sampling the level set, and the
         //  centroid of its fluid part
-        scalar sampleCellFraction(const label celli, point& centroid) const;
+        scalar sampleCellFraction
+        (
+            const label celli,
+            point& centroid,
+            const bodyGroup group = ALLBODIES
+        ) const;
 
         //- Fluid centroid of one cell of an alpha-field body: sub-samples of
         //  the trilinear interpolant of the point level set (its edge

@@ -53,6 +53,7 @@ Description
 #include "Enum.H"
 #include "autoPtr.H"
 #include "bodyMotion.H"
+#include "quaternion.H"
 
 namespace Foam
 {
@@ -103,8 +104,10 @@ protected:
     scalar t_;
     vector displacement_;
     vector velocity_;
-    scalar angle_;
-    vector axis_;
+    //- Rotation from the body at rest, about the reference point
+    quaternion orientation_;
+    //- The body is turned (orientation_ not the identity)
+    bool turned_;
 
 
 public:
@@ -158,10 +161,11 @@ public:
         //  positive in the fluid
         void evaluate(const pointField& pts, scalarField& phi) const;
 
-        //- Volume of the whole body and its moment of inertia per unit
-        //  density, int r_perp^2 dV, about an axis through centre() (for a
-        //  free motion); false if the body cannot give them
-        virtual bool massProperties(scalar& volume, scalar& inertia) const
+        //- Volume of the whole body and its inertia tensor per unit
+        //  density, int (|r|^2 1 - r r) dV with r = x - centre(), in the
+        //  frame of the body at rest (for a free motion); false if the body
+        //  cannot give them
+        virtual bool massProperties(scalar& volume, symmTensor& inertia) const
         {
             return false;
         }
@@ -217,6 +221,9 @@ public:
         //- Translational velocity of the body
         const vector& velocityOfCentre() const { return velocity_; }
 
+        //- Rotation from the body at rest to its current position
+        const quaternion& orientation() const { return orientation_; }
+
         //- Angular velocity about the current centre
         const vector& omega() const { return motion_->omega(); }
 
@@ -258,13 +265,13 @@ public:
 private:
 
         //- Points transformed into the body frame for a body displaced by
-        //  disp and turned by angle about axis through the reference point
+        //  disp and, if turned, rotated by q about the reference point
         void toBodyFrame
         (
             const pointField& pts,
             const vector& disp,
-            const scalar angle,
-            const vector& axis,
+            const bool turned,
+            const quaternion& q,
             pointField& out
         ) const;
 };

@@ -49,6 +49,7 @@ Description
 #include "runTimeSelectionTables.H"
 #include "autoPtr.H"
 #include "Function1.H"
+#include "quaternion.H"
 
 namespace Foam
 {
@@ -117,6 +118,14 @@ public:
 
     //- Rotation angle about axis() at time t
     virtual scalar angle(const scalar t) const { return mag(omega_)*t; }
+
+    //- Orientation at time t: the rotation from the body at rest to the
+    //  body at t, about the reference point (identity if the body does not
+    //  turn). Default: angle(t) about axis(); a free body integrates it.
+    virtual quaternion orientation(const scalar t) const
+    {
+        return rotates() ? quaternion(axis(), angle(t)) : quaternion::I;
+    }
 
     //- Set the state from outside (external motion only)
     virtual void setState(const vector& displacement, const vector& velocity);

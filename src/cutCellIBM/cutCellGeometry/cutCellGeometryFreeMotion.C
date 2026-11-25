@@ -84,11 +84,12 @@ void Foam::cutCellGeometry::initFreeBodies()
         if (!fm) continue;
 
         const ibmBody& b = bodies_[bodyi];
-        scalar V = -1, I = -1;
+        scalar V = -1;
+        symmTensor I(Zero);
         if (!b.massProperties(V, I))
         {
             V = -1;
-            I = -1;
+            I = Zero;
         }
         fm->setMassProperties(V, I);
 
@@ -176,6 +177,7 @@ void Foam::cutCellGeometry::reportFreeBodies
             << " displacement " << fm->displacement(t)
             << " velocity " << fm->velocity(t)
             << " angularVelocity " << fm->omega()
+            << " orientation " << fm->orientation(t)
             << " force " << F[bodyi]
             << " moment " << M[bodyi]
             << " change " << fm->residual();

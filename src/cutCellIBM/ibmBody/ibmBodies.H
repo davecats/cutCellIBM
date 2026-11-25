@@ -51,7 +51,7 @@ public:
     sphereBody(const word&, const fvMesh&, const dictionary&);
     virtual void levelSet(const pointField&, scalarField&) const;
     virtual point centre() const { return centre_; }
-    virtual bool massProperties(scalar& volume, scalar& inertia) const;
+    virtual bool massProperties(scalar& volume, symmTensor& inertia) const;
 };
 
 
@@ -63,6 +63,7 @@ public:
     TypeName("box");
     boxBody(const word&, const fvMesh&, const dictionary&);
     virtual void levelSet(const pointField&, scalarField&) const;
+    virtual bool massProperties(scalar& volume, symmTensor& inertia) const;
     virtual point centre() const { return 0.5*(min_ + max_); }
 };
 

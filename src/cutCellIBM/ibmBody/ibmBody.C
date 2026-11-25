@@ -48,8 +48,8 @@ Foam::ibmBody::ibmBody
     t_(0),
     displacement_(Zero),
     velocity_(Zero),
-    angle_(0),
-    axis_(Zero)
+    orientation_(quaternion::I),
+    turned_(false)
 {
     if (moving())
     {
@@ -144,13 +144,13 @@ void Foam::ibmBody::moveTo(const scalar t)
     velocity_ = motion_->velocity(t);
     if (motion_->rotates())
     {
-        axis_ = motion_->axis();
-        angle_ = motion_->angle(t);
+        orientation_ = motion_->orientation(t);
+        turned_ = (orientation_ != quaternion::I);
     }
     else
     {
-        axis_ = Zero;
-        angle_ = 0;
+        orientation_ = quaternion::I;
+        turned_ = false;
     }
 }
 
@@ -163,7 +163,7 @@ bool Foam::ibmBody::needsTransform() const
     }
     return
         mag(displacement_) > 0
-     || angle_ != 0
+     || turned_
      || cmptMax(periodicLengths_) > 0;
 }
 
@@ -176,11 +176,11 @@ void Foam::ibmBody::toBodyFrame
 {
     if (invariant())
     {
-        toBodyFrame(pts, Zero, 0, Zero, out);
+        toBodyFrame(pts, Zero, false, quaternion::I, out);
     }
     else
     {
-        toBodyFrame(pts, displacement_, angle_, axis_, out);
+        toBodyFrame(pts, displacement_, turned_, orientation_, out);
     }
 }
 
@@ -192,18 +192,23 @@ void Foam::ibmBody::levelSetChange
     scalarField& dphi
 ) const
 {
+    // The current state advanced by the rigid motion over tau: translated
+    // by tau u, turned by tau |omega| about omega
     const vector& omega = motion_->omega();
     const vector disp(displacement_ + tau*velocity_);
     const bool rot = motion_->rotates();
-    const vector axis(rot ? motion_->axis() : vector::zero);
-    const scalar angle = angle_ + tau*(omega & axis);
+    quaternion q(orientation_);
+    if (rot && mag(omega) > 0)
+    {
+        q = quaternion(omega/mag(omega), tau*mag(omega))*orientation_;
+    }
 
     pointField bodyPts;
-    toBodyFrame(pts, Zero, 0, Zero, bodyPts);
+    toBodyFrame(pts, Zero, false, quaternion::I, bodyPts);
     scalarField phi0(pts.size());
     levelSet(bodyPts, phi0);
 
-    toBodyFrame(pts, disp, (rot ? angle : 0), axis, bodyPts);
+    toBodyFrame(pts, disp, rot, q, bodyPts);
     dphi.setSize(pts.size());
     levelSet(bodyPts, dphi);
 
@@ -219,8 +224,8 @@ void Foam::ibmBody::toBodyFrame
 (
     const pointField& pts,
     const vector& disp,
-    const scalar angle,
-    const vector& axis,
+    const bool turned,
+    const quaternion& q,
     pointField& out
 ) const
 {
@@ -248,14 +253,14 @@ void Foam::ibmBody::toBodyFrame
         out -= disp;
     }
 
-    // Undo the rotation about the initial centre
-    if (angle != 0)
+    // Undo the rotation about the initial centre (for a rotation angle(t)
+    // about axis() the same arithmetic as quaternion(axis, -angle).transform)
+    if (turned)
     {
-        const quaternion q(axis, -angle);
         const point c0(referencePoint());
         forAll(out, i)
         {
-            out[i] = c0 + q.transform(out[i] - c0);
+            out[i] = c0 + q.invTransform(out[i] - c0);
         }
     }
 }

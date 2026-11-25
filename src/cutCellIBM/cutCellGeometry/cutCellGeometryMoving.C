@@ -12,6 +12,7 @@
 #include "Time.H"
 #include "boundBox.H"
 #include "OStringStream.H"
+#include "clockTime.H"
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
@@ -70,7 +71,10 @@ void Foam::cutCellGeometry::update(const bool newStep)
     // geometric conservation law exact.
     calcGeometry();
     checkInvariance(0);
+    clockTime clock;
     calcMovingTerms();
+    const scalar tMoving = returnReduce(clock.timeIncrement(), maxOp<scalar>());
+    Info<< "    moving terms " << tMoving << " s" << endl;
 
     Info<< "    cells: "
         << returnReduce(solidCells_.count(), sumOp<label>()) << " solid, "
@@ -97,6 +101,9 @@ void Foam::cutCellGeometry::updateMesh()
 
     Info<< "Cut-cell immersed boundary: rebuilding the geometry on the "
         << "changed mesh" << endl;
+
+    // The static-body cache belongs to the old mesh
+    staticCacheValid_ = false;
 
     // The registered fields have been mapped to the new mesh (and are about
     // to be overwritten); the plain lists are resized here

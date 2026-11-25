@@ -52,7 +52,8 @@ Foam::freeMotion::freeMotion(const dictionary& dict)
     ),
     addedMass_(dict.getOrDefault<scalar>("addedMass", 0.5)),
     volume_(dict.getOrDefault<scalar>("volume", -1)),
-    inertia_(dict.getOrDefault<scalar>("inertia", -1)),
+    inertia_(Zero),
+    hasInertia_(dict.found("inertia") || dict.found("inertiaTensor")),
     gravity_(dict.getOrDefault<vector>("gravity", Zero)),
     externalForce_(dict.getOrDefault<vector>("externalForce", Zero)),
     meanPressureGradient_
@@ -61,20 +62,34 @@ Foam::freeMotion::freeMotion(const dictionary& dict)
     ),
     displacement_(Zero),
     velocity_(dict.getOrDefault<vector>("velocity", Zero)),
-    theta_(0),
+    orientation_(quaternion::I),
     displacement0_(Zero),
     velocity0_(velocity_),
     omega0_(Zero),
-    theta0_(0),
+    orientation0_(quaternion::I),
     residual_(0),
     ma_(Zero),
-    Ia_(0),
+    Ia_(Zero),
     hasPrevious_(false),
     Uprev_(Zero),
     Fprev_(Zero),
-    Oprev_(0),
-    Mprev_(0)
+    Oprev_(Zero),
+    Mprev_(Zero)
 {
+    if (dict.found("inertia") && dict.found("inertiaTensor"))
+    {
+        FatalIOErrorInFunction(dict)
+            << "give either inertia (isotropic) or inertiaTensor"
+            << exit(FatalIOError);
+    }
+    if (dict.found("inertia"))
+    {
+        inertia_ = dict.get<scalar>("inertia")*symmTensor::I;
+    }
+    else if (dict.found("inertiaTensor"))
+    {
+        inertia_ = dict.get<symmTensor>("inertiaTensor");
+    }
     if (invariant_)
     {
         FatalIOErrorInFunction(dict)
@@ -87,12 +102,6 @@ Foam::freeMotion::freeMotion(const dictionary& dict)
             << "density and addedMass must not be negative"
             << exit(FatalIOError);
     }
-    if (cmptSum(rotationMask_) > 1)
-    {
-        FatalIOErrorInFunction(dict)
-            << "rotation " << rotationMask_ << ": at most one free rotation "
-            << "axis (rotation about a fixed axis)" << exit(FatalIOError);
-    }
     if (coupling_ == EXPLICIT && density_ == 0)
     {
         FatalIOErrorInFunction(dict)
@@ -104,7 +113,7 @@ Foam::freeMotion::freeMotion(const dictionary& dict)
         FatalIOErrorInFunction(dict)
             << "a massless body needs addedMass > 0" << exit(FatalIOError);
     }
-    // The initial angular velocity about the free axis only
+    // The initial angular velocity about the free axes only
     omega_ = cmptMultiply(omega_, rotationMask_);
     omega0_ = omega_;
 }
@@ -122,25 +131,26 @@ Foam::vector Foam::freeMotion::velocity(const scalar) const
 }
 
 
-Foam::vector Foam::freeMotion::axis() const
+Foam::tensor Foam::freeMotion::globalInertia(const quaternion& q) const
 {
-    return rotationMask_;
+    const tensor R(q.R());
+    return density_*(R & tensor(inertia_) & R.T());
 }
 
 
 void Foam::freeMotion::setMassProperties
 (
     const scalar volume,
-    const scalar inertia
+    const symmTensor& inertia
 )
 {
     if (volume_ <= 0)
     {
         volume_ = volume;
     }
-    if (inertia_ < 0 && volume > 0)
+    if (!hasInertia_ && volume > 0)
     {
-        // the body's radius of gyration with the volume in use
+        // the body's radii of gyration with the volume in use
         inertia_ = inertia/volume*volume_;
     }
     if (volume_ <= 0)
@@ -149,15 +159,19 @@ void Foam::freeMotion::setMassProperties
             << "the body gives no volume: set volume (and inertia if it "
             << "rotates) in the motion dictionary" << exit(FatalIOError);
     }
-    if (rotates() && inertia_ <= 0)
+    if (rotates())
     {
-        FatalIOErrorInFunction(dict_)
-            << "the body gives no moment of inertia: set inertia in the "
-            << "motion dictionary" << exit(FatalIOError);
-    }
-    if (inertia_ < 0)
-    {
-        inertia_ = 0;
+        // Positive about every free axis, at any orientation: positive
+        // definite
+        const vector ev(eigenValues(inertia_));
+        if (cmptMin(ev) <= 0)
+        {
+            FatalIOErrorInFunction(dict_)
+                << "the body gives no moment of inertia, or one that is not "
+                << "positive definite (" << inertia_ << "): set inertia or "
+                << "inertiaTensor in the motion dictionary"
+                << exit(FatalIOError);
+        }
     }
 }
 
@@ -166,11 +180,27 @@ void Foam::freeMotion::readState(const dictionary& dict)
 {
     displacement_ = dict.get<vector>("displacement");
     velocity_ = dict.get<vector>("velocity");
-    theta_ = dict.get<scalar>("angle");
     omega_ = dict.get<vector>("angularVelocity");
+    if (dict.found("orientation"))
+    {
+        orientation_ = dict.get<quaternion>("orientation");
+    }
+    else
+    {
+        // A state of the single-axis implementation
+        const scalar angle = dict.get<scalar>("angle");
+        if (cmptSum(rotationMask_) != 1 && angle != 0)
+        {
+            FatalIOErrorInFunction(dict)
+                << "a state with an angle needs exactly one free rotation "
+                << "axis" << exit(FatalIOError);
+        }
+        orientation_ =
+            (angle != 0) ? quaternion(rotationMask_, angle) : quaternion::I;
+    }
     displacement0_ = displacement_;
     velocity0_ = velocity_;
-    theta0_ = theta_;
+    orientation0_ = orientation_;
     omega0_ = omega_;
 }
 
@@ -180,7 +210,7 @@ Foam::dictionary Foam::freeMotion::state() const
     dictionary d;
     d.add("displacement", displacement_);
     d.add("velocity", velocity_);
-    d.add("angle", theta_);
+    d.add("orientation", orientation_);
     d.add("angularVelocity", omega_);
     return d;
 }
@@ -196,17 +226,20 @@ void Foam::freeMotion::advance
     const scalar m = mass();
     const vector Uk(velocity_);
     const vector Ok(omega_);
-    const vector e(rotates() ? axis() : vector::zero);
-    const scalar I = density_*inertia_;
-    const scalar Mk = (M & e);
-    const scalar wk = (Ok & e);
+
+    // Inertia of the body in the global frame at the old orientation and at
+    // the current iterate of the new one, and the unscaled one (fluid
+    // density) for the bound of the added inertia
+    const tensor I0(globalInertia(orientation0_));
+    const tensor I1(globalInertia(orientation_));
+    const tensor R1(orientation_.R());
+    const tensor J1(R1 & tensor(inertia_) & R1.T());
 
     if (implicit())
     {
         // Bounds of the effective added mass: the given coefficient, and a
         // cap against a secant from two nearly equal iterates
         const scalar maMin = addedMass_*volume_;
-        const scalar IaMin = addedMass_*inertia_;
         // Secant estimate of -dt dF/dU. The estimate in use decays by the
         // factor DECAY per update and is raised at once by a larger secant:
         // the loads of an iterate carry the noise of an unconverged flow and
@@ -219,7 +252,7 @@ void Foam::freeMotion::advance
         static const scalar DECAY = 0.8;
         static const scalar SECANT = 1e-4;
         static const scalar CAP = 1e3;
-        const scalar k2 = max(inertia_, 0)/volume_;
+        const scalar k2 = tr(inertia_)/3/volume_;
         const scalar Uscale = max(mag(Uk), Foam::sqrt(k2)*mag(Ok));
         forAll(translationMask_, i)
         {
@@ -233,21 +266,25 @@ void Foam::freeMotion::advance
             }
             ma_[i] = ma;
         }
-        if (rotates())
+        // The same per free rotational direction (global axes), with the
+        // diagonal of the inertia
+        forAll(rotationMask_, i)
         {
-            scalar Ia = max(DECAY*Ia_, IaMin);
-            const scalar dw = wk - Oprev_;
-            if (hasPrevious_ && mag(dw) > SECANT*max(mag(wk), VSMALL))
+            if (rotationMask_[i] == 0) continue;
+            const scalar IaMin = addedMass_*J1(i, i);
+            scalar Ia = max(DECAY*Ia_[i], IaMin);
+            const scalar dw = Ok[i] - Oprev_[i];
+            if (hasPrevious_ && mag(dw) > SECANT*max(mag(Ok), VSMALL))
             {
-                const scalar est = -dt*(Mk - Mprev_)/dw;
-                Ia = max(Ia, min(est, CAP*(I + IaMin)));
+                const scalar est = -dt*(M[i] - Mprev_[i])/dw;
+                Ia = max(Ia, min(est, CAP*(I1(i, i) + IaMin)));
             }
-            Ia_ = Ia;
+            Ia_[i] = Ia;
         }
         Uprev_ = Uk;
         Fprev_ = F;
-        Oprev_ = wk;
-        Mprev_ = Mk;
+        Oprev_ = Ok;
+        Mprev_ = M;
         hasPrevious_ = true;
     }
 
@@ -263,17 +300,84 @@ void Foam::freeMotion::advance
     }
     displacement_ = displacement0_ + dt*velocity_;
 
-    // Rotation about the free axis, the same scheme with I and I_a
+    // Rotation about the free axes, the same scheme for the angular
+    // momentum: (I^{n+1} + I_a) omega^{k+1} = I^n omega^n + I_a omega^k + dt M
+    // with the components about the fixed axes zero (the system restricted
+    // to the free ones). I^{n+1} = I(q^{n+1}) depends on the new orientation
+    // q^{n+1} = q(omega^{n+1} dt) q^n: the two are iterated to consistency
+    // (one pass for an isotropic body), so that I^n omega^n of the next step
+    // is the angular momentum and a torque-free body conserves it (the
+    // gyroscopic term is the change of I with the orientation)
     if (rotates())
     {
-        const scalar Ia = implicit() ? Ia_ : 0;
-        const scalar w = (I*(omega0_ & e) + Ia*wk + dt*Mk)/(I + Ia);
-        omega_ = w*e;
-        theta_ = theta0_ + dt*w;
+        const vector Ia(implicit() ? Ia_ : vector::zero);
+        vector b((I0 & omega0_) + dt*M);
+        for (direction i = 0; i < 3; ++i)
+        {
+            b[i] = (rotationMask_[i] > 0) ? b[i] + Ia[i]*Ok[i] : 0;
+        }
+
+        static const label NITER = 100;
+        static const scalar TOL = 1e-13;
+        quaternion q(orientation_);
+        vector w(Ok);
+        scalar change = GREAT;
+        // Every pass solves with the inertia at the orientation of the
+        // previous one; converged when the angular velocity repeats
+        for (label iter = 0; iter < NITER && change > 0; ++iter)
+        {
+            tensor A(globalInertia(q));
+            label nFree = 0;
+            direction iFree = 0;
+            for (direction i = 0; i < 3; ++i)
+            {
+                A(i, i) += Ia[i];
+                if (rotationMask_[i] > 0)
+                {
+                    ++nFree;
+                    iFree = i;
+                    continue;
+                }
+                for (direction j = 0; j < 3; ++j)
+                {
+                    A(i, j) = (i == j ? 1 : 0);
+                    A(j, i) = (i == j ? 1 : 0);
+                }
+            }
+            vector wNew(Zero);
+            if (nFree == 1)
+            {
+                // One free axis: a scalar equation
+                wNew[iFree] = b[iFree]/A(iFree, iFree);
+            }
+            else
+            {
+                wNew = inv(A) & b;
+            }
+            const scalar dw = mag(wNew - w);
+            w = wNew;
+            const scalar mw = mag(w);
+            q =
+                (mw > 0)
+              ? normalised(quaternion(w/mw, dt*mw)*orientation0_)
+              : orientation0_;
+            // (the first pass solved with the orientation of the iterate,
+            // not the one of this omega)
+            change = (iter > 0 && dw <= TOL*max(mw, VSMALL)) ? 0 : max(dw, SMALL);
+        }
+        if (change > 0)
+        {
+            WarningInFunction
+                << "angular velocity and orientation not consistent after "
+                << NITER << " iterations (change " << change << ")" << endl;
+        }
+        omega_ = w;
+        orientation_ = q;
     }
 
     // Change of the iterate against the velocity scale of the body
-    const scalar k = (volume_ > 0 ? Foam::sqrt(max(inertia_, 0)/volume_) : 0);
+    const scalar k =
+        (volume_ > 0 ? Foam::sqrt(max(tr(inertia_)/3, 0)/volume_) : 0);
     const scalar dU = max(mag(velocity_ - Uk), k*mag(omega_ - Ok));
     const scalar Uref = max(max(mag(velocity_), k*mag(omega_)), VSMALL);
     residual_ = dU/Uref;
@@ -290,7 +394,7 @@ void Foam::freeMotion::predict
     displacement0_ = displacement_;
     velocity0_ = velocity_;
     omega0_ = omega_;
-    theta0_ = theta_;
+    orientation0_ = orientation_;
     // the secant pairs belong to one time step; the added mass is kept
     hasPrevious_ = false;
     advance(dt, F, M);
