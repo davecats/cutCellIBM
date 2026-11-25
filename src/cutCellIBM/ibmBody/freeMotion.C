@@ -273,8 +273,15 @@ void Foam::freeMotion::advance
             if (rotationMask_[i] == 0) continue;
             const scalar IaMin = addedMass_*J1(i, i);
             scalar Ia = max(DECAY*Ia_[i], IaMin);
+            // noise threshold on the velocity scale of the body, as for the
+            // translation (changes of the wall velocity k dw below SECANT
+            // Uscale); |omega| alone is tiny when the body starts to turn
             const scalar dw = Ok[i] - Oprev_[i];
-            if (hasPrevious_ && mag(dw) > SECANT*max(mag(Ok), VSMALL))
+            if
+            (
+                hasPrevious_
+             && Foam::sqrt(k2)*mag(dw) > SECANT*max(Uscale, VSMALL)
+            )
             {
                 const scalar est = -dt*(M[i] - Mprev_[i])/dw;
                 Ia = max(Ia, min(est, CAP*(I1(i, i) + IaMin)));

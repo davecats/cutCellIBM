@@ -177,7 +177,6 @@ void Foam::cutCellGeometry::reportFreeBodies
             << " displacement " << fm->displacement(t)
             << " velocity " << fm->velocity(t)
             << " angularVelocity " << fm->omega()
-            << " orientation " << fm->orientation(t)
             << " force " << F[bodyi]
             << " moment " << M[bodyi]
             << " change " << fm->residual();
@@ -185,6 +184,10 @@ void Foam::cutCellGeometry::reportFreeBodies
         {
             Info<< " addedMass " << fm->effectiveAddedMass()
                 << " addedInertia " << fm->effectiveAddedInertia();
+        }
+        if (fm->rotates())
+        {
+            Info<< " orientation " << fm->orientation(t);
         }
         Info<< endl;
     }

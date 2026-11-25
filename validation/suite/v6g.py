@@ -320,6 +320,149 @@ def gate_galilean(ctx, Re, Om, dt, frame, T=2.0, np_=4, tag=""):
 
 # ------------------------------------------------------------------------------------ cases
 
+# ------------------------------------------------- six degrees of freedom, several bodies
+
+C_L, C_H0, C_LEVELS, C_RHO = 4.0, 0.25, 2, 1000.0   # cube side, background cell, levels (h 1/16), rho_s/rho
+C_T, C_DT = 0.3, 0.005
+
+
+def cube_case(ctx, name, bodies, walls=False, np_=8):
+    """a cube of side C_L, periodic in x and z, and in y unless walls (then no-slip walls at y = -+C_L/2
+    moving at -+1 along x: simple shear 2/C_L), refined C_LEVELS times in one box around all bodies
+    (symmetric about the planes through the origin if the bodies are); laminar, Re 0.01 (nu 1/G_RE);
+    bodies: name -> ibm body dict. Runs C_T and returns the free-body histories per body."""
+    d = ctx.root / name
+    f = d / "history.npz"
+    if f.exists():
+        z = np.load(f)
+        return {k: {q: z["%s_%s" % (k, q)] for q in ("t", "U", "Om", "F", "M")} for k in bodies}
+    d.mkdir(parents=True, exist_ok=True)
+    R = max(b["radius"] for b in bodies.values())
+    c = np.array([b["centre"] for b in bodies.values()], float)
+    if not (d / "constant" / "polyMesh" / "owner").exists():
+        cyc = lambda a, b: {a: ("cyclic", [a[0] + "min"], "neighbourPatch %s;" % b),
+                            b: ("cyclic", [a[0] + "max"], "neighbourPatch %s;" % a)}
+        patches = {}
+        patches.update({"xlo": ("cyclic", ["xmin"], "neighbourPatch xhi;"),
+                        "xhi": ("cyclic", ["xmax"], "neighbourPatch xlo;")})
+        patches.update({"zlo": ("cyclic", ["zmin"], "neighbourPatch zhi;"),
+                        "zhi": ("cyclic", ["zmax"], "neighbourPatch zlo;")})
+        if walls:
+            patches.update({"ylo": ("wall", ["ymin"]), "yhi": ("wall", ["ymax"])})
+        else:
+            patches.update({"ylo": ("cyclic", ["ymin"], "neighbourPatch yhi;"),
+                            "yhi": ("cyclic", ["ymax"], "neighbourPatch ylo;")})
+        boxes = []
+        for k in range(1, C_LEVELS + 1):
+            m = R + 8*C_H0/2**k
+            boxes.append((tuple(np.minimum(c.min(axis=0) - m, -m)), tuple(np.maximum(c.max(axis=0) + m, m))))
+        meshes.refined(d, (-C_L/2,)*3, (C_L/2,)*3, C_H0, boxes, patches, two_d=False)
+        common.sh("checkMesh", d, "log.checkMesh")
+    geometry.ibm_properties(d, bodies, periodicLengths=(C_L, 0 if walls else C_L, C_L))
+    for x in ("transportProperties", "turbulenceProperties"):
+        (d / "constant" / x).write_text((mig.CYL / "constant" / x).read_text())
+    common.set_keys(d / "constant" / "transportProperties", nu=1.0/G_RE)
+    fvo = d / "constant" / "fvOptions"
+    if fvo.exists():
+        fvo.unlink()
+    cy = "type cyclic;"
+    bU = "xlo { %s } xhi { %s } zlo { %s } zhi { %s } " % ((cy,)*4)
+    bp = bU
+    if walls:
+        bU += "ylo { type fixedValue; value uniform (-1 0 0); } yhi { type fixedValue; value uniform (1 0 0); }"
+        bp += "ylo { type zeroGradient; } yhi { type zeroGradient; }"
+    else:
+        bU += "ylo { %s } yhi { %s }" % (cy, cy)
+        bp += "ylo { %s } yhi { %s }" % (cy, cy)
+    (d / "0").mkdir(exist_ok=True)
+    U0 = "uniform (0 0 0)"
+    if walls:
+        common.sh("postProcess -func writeCellCentres -time 0", d, "log.writeCellCentres")
+        C, _ = read_field(str(d / "0" / "C"))
+        U0 = "nonuniform List<vector>\n%d\n(\n%s\n)" % (len(C), "\n".join("(%.12g 0 0)" % (2*y/C_L)
+                                                                        for y in C[:, 1]))
+    write_dict(d / "0" / "U", "volVectorField", "U",
+               "dimensions [0 1 -1 0 0 0 0];\ninternalField %s;\nboundaryField { %s }\n" % (U0, bU))
+    write_dict(d / "0" / "p", "volScalarField", "p",
+               "dimensions [0 2 -2 0 0 0 0];\ninternalField uniform 0;\nboundaryField { %s }\n" % bp)
+    (d / "system" / "fvSchemes").write_text(
+        (mig.CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default Euler;"))
+    write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution",
+               pimple_solution((0.45*C_L, 0.45*C_L, 0.45*C_L), NOUTER))
+    geometry.control_dict(d, "ibmPimpleFoam", endTime=C_T, deltaT=C_DT, writeInterval=int(round(C_T/C_DT)))
+    run_parallel(d, "ibmPimpleFoam", np_)
+    log = (d / "log.ibmPimpleFoam").read_text()
+    out, z = {}, {}
+    for k in bodies:
+        h = free_lines(log, k)
+        out[k] = {q: h[q] for q in ("t", "U", "Om", "F", "M")}
+        z.update({"%s_%s" % (k, q): h[q] for q in ("t", "U", "Om", "F", "M")})
+    np.savez(f, **z)
+    return out
+
+
+def free_sphere(centre, U0=(0, 0, 0), Om0=(0, 0, 0), trans=(1, 1, 1), rot=(1, 1, 1), R=0.5, rho=C_RHO):
+    return {"type": "sphere", "centre": tuple(centre), "radius": R, "wallType": "noSlip",
+            "motion": {"type": "free", "density": rho, "translation": tuple(trans), "rotation": tuple(rot),
+                       "velocity": tuple(U0), "angularVelocity": tuple(Om0), "coupling": "implicit",
+                       "addedMass": 0.5, "meanPressureGradient": False}}
+
+
+def gate_sixdof(ctx):
+    """a heavy sphere (rho_s/rho 1000) at the centre of the periodic cube, free in all six directions,
+    released with a velocity or a spin along x or along (1 1 1)/sqrt 3: by the cubic symmetry of the cell
+    the decay along the diagonal is that along x (to O(Re)), the other components stay zero and
+    translation and rotation do not couple (the sphere sits at a centre of inversion)"""
+    e = np.ones(3)/np.sqrt(3)
+    runs = {"U_x": ((1, 0, 0), (0, 0, 0)), "U_diag": (tuple(e), (0, 0, 0)),
+            "Om_x": ((0, 0, 0), (1, 0, 0)), "Om_diag": ((0, 0, 0), tuple(e))}
+    h = {k: cube_case(ctx, "c6_%s" % k, {"sphere": free_sphere((0, 0, 0), U0, Om0)})["sphere"]
+         for k, (U0, Om0) in runs.items()}
+    r = {}
+    for q, other in (("U", "Om"), ("Om", "U")):
+        ax, dg = h["%s_x" % q], h["%s_diag" % q]
+        a0 = np.abs(ax[q][:, 0]).max()
+        r["%s_x_decay" % q] = float(ax[q][-1, 0]/a0)
+        # along the diagonal: the magnitude of the x run, the direction kept
+        par = dg[q] @ e
+        perp = np.linalg.norm(dg[q] - np.outer(par, e), axis=1)
+        r["%s_diag_vs_x" % q] = float(np.abs(par - ax[q][:, 0]).max()/a0)
+        r["%s_diag_perp" % q] = float(perp.max()/a0)
+        r["%s_x_cross" % q] = float(np.abs(ax[q][:, 1:]).max()/a0)
+        r["%s_coupling" % q] = float(max(np.abs(ax[other]).max(), np.abs(dg[other]).max())
+                                     /(a0*(1 if q == "U" else 0.5)))
+    return r
+
+
+def gate_pair(ctx):
+    """two heavy spheres at y = -+0.75 in the periodic cube released with U = (1 0 0): mirror images
+    about y = 0 (U_x, U_z, Om_y equal; U_y, Om_x, Om_z opposite); several free bodies at once"""
+    b = {"a": free_sphere((0, -0.75, 0), (1, 0, 0)), "b": free_sphere((0, 0.75, 0), (1, 0, 0))}
+    h = cube_case(ctx, "c6_pair", b)
+    a, bb = h["a"], h["b"]
+    sU, sO = np.array([1, -1, 1]), np.array([-1, 1, -1])
+    scale = np.abs(a["U"][:, 0]).max()
+    return {"Ux_end": float(a["U"][-1, 0]), "Uy_end": float(a["U"][-1, 1]), "Omz_end": float(a["Om"][-1, 2]),
+            "mirror_U": float(np.abs(a["U"] - sU*bb["U"]).max()/scale),
+            "mirror_Om": float(np.abs(a["Om"] - sO*bb["Om"]).max()/scale)}
+
+
+def gate_shear(ctx):
+    """a sphere (rho_s/rho 10: spun up within a few steps) at the centre of the wall-bounded shear (walls at
+    y = -+2 moving at -+1, rate 0.5),
+    free to turn only: about z alone and about all three axes; the torque-free rotation -0.25 (Stokes,
+    unbounded) up to the confinement; the two must agree and the free x, y spin stay zero"""
+    out = {}
+    for tag, rot in (("z", (0, 0, 1)), ("xyz", (1, 1, 1))):
+        h = cube_case(ctx, "c6_shear_%s" % tag, {"sphere": free_sphere((0, 0, 0), trans=(0, 0, 0), rot=rot, rho=10.0)},
+                      walls=True)["sphere"]
+        out[tag] = h
+    z, x = out["z"], out["xyz"]
+    return {"Omz_end_z": float(z["Om"][-1, 2]), "Omz_end_xyz": float(x["Om"][-1, 2]),
+            "Omz_stokes": -0.25, "xyz_vs_z": float(np.abs(x["Om"][:, 2] - z["Om"][:, 2]).max()/0.25),
+            "xyz_xy": float(np.abs(x["Om"][:, :2]).max()/0.25)}
+
+
 def mesh_full(d, hf, e, L=3.0, h0=None):
     """mig.mesh with the refinement box over the whole length (the sphere travels)"""
     h0 = h0 or 2*hf
