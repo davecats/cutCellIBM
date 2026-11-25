@@ -57,13 +57,20 @@ void Foam::cutCellGeometry::update(const bool newStep)
     if (!thetaOldPtr_)
     {
         thetaOldPtr_.reset(new surfaceScalarField("ibmThetaOld", theta_));
-        solidOld_ = solidCells_;
     }
     else if (newStep)
     {
         thetaOldPtr_() = theta_;
-        solidOld_ = solidCells_;
     }
+
+    // The solid cells of the geometry being replaced, at every update: a
+    // corrected state within the step (implicit coupling) fills only the
+    // cells the last coupling iterate had solid. Measured from the start of
+    // the step instead, every corrector overwrote the solved pressure of all
+    // cells uncovered during the step, and the outer iteration of a free
+    // body never converged (p residual ~0.9 at each corrector, V6G 2026-11-25).
+    // At the start of a step both are the same set.
+    solidOld_ = solidCells_;
 
     // Geometry at the new time level. The old geometry is never needed: the
     // fluid volume the cells had at the start of the step is recovered from

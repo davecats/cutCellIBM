@@ -346,7 +346,8 @@ class cutCellGeometry
         //- Face fractions of the previous geometry (for ddtCorr)
         autoPtr<surfaceScalarField> thetaOldPtr_;
 
-        //- Solid cells of the previous geometry (cells just uncovered)
+        //- Solid cells of the geometry before the last update (cells just
+        //  uncovered; within a step: of the last coupling iterate)
         bitSet solidOld_;
 
         //- Diagnostics of the last update: smallest old fluid fraction and
