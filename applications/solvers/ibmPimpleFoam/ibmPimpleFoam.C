@@ -23,7 +23,13 @@ Description
     corrected at the start of every further PIMPLE outer corrector from the
     loads of the flow just solved, the geometry rebuilt each time
     (update(false)); nOuterCorrectors sets the number of coupling
-    iterations.
+    iterations. With couplingTolerance (PIMPLE dictionary, default 0: never)
+    the body state is kept for the rest of the step once its change between
+    correctors (relative to its velocity scale) is below it: the remaining
+    outer correctors converge the flow without rebuilding the geometry. The
+    outer loop of a viscous step contracts slowly (~0.9 per corrector at
+    nu dt/h^2 ~ 4), the coupling iterate much faster, and the rebuild is the
+    largest part of a corrector.
 
     The transient Rhie-Chow correction (ddtCorr) is available in its Euler
     form, theta- and alpha-consistent; the flux of a coupled face is made
@@ -152,17 +158,32 @@ int main(int argc, char *argv[])
             ibm.update();
         }
 
+        // Coupling iterations of this step: until the change of the body
+        // state is below couplingTolerance
+        const scalar couplingTol =
+            pimple.dict().getOrDefault<scalar>("couplingTolerance", 0);
+        bool coupling = true;
+
         // --- Pressure-velocity PIMPLE corrector loop
         while (pimple.loop())
         {
             // Implicit coupling: correct the free bodies from the flow of
             // the previous outer corrector and rebuild the geometry within
             // the step (the old geometry of the step is kept)
-            if (ibm.implicitFreeBodies() && !pimple.firstIter())
+            if (ibm.implicitFreeBodies() && !pimple.firstIter() && coupling)
             {
                 const scalar change = freeBodies("correct");
                 Info<< "Free bodies: change of the coupling iterate "
                     << change << endl;
+                if (change < couplingTol)
+                {
+                    // The geometry follows this last correction; the state
+                    // is kept for the rest of the step
+                    coupling = false;
+                    Info<< "Free bodies: coupling converged (tolerance "
+                        << couplingTol << "), state kept for the rest of "
+                        << "the step" << endl;
+                }
                 ibm.update(false);
                 phi = ibm.flux(U);
                 pRefCell = ibm.pressureRefCell(pRefCellUser);
