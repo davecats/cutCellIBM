@@ -21,8 +21,13 @@ travels): Re 2 at eps/eps* = 0.4 and 0.9, Re 128 at 0.4; neutrally buoyant (rho_
 implicit); at Re 2, 0.4 also rho_s/rho = 0.5 implicit and 2 explicit (the settled state must not
 depend on the density or the coupling). The flow starts as Poiseuille flow, the sphere with the
 velocity and half the vorticity of the undisturbed flow at its centre. Averages over the last
-AVG of the run; settled if the averages of its two halves agree to SETTLE (V, Omega) and the
-force balance holds.
+AVG of the run; settled if the averages of its two halves agree to SETTLE (V, Omega, G) and the
+force balance holds. A run ends once settled (segments from T_MIN to T_MAX, user 2026-11-25).
+Production settings (production(), user 2026-11-25): half the V6 step at Re 2 (nu dt/h^2 ~ 4, where
+the segregated outer loop contracts only ~0.9 per corrector), the V6 step at Re 128; outer
+correctors until the p residual is below PTOL; the free body kept for the rest of a step once its
+change is below CTOL (no geometry rebuild in the remaining correctors); Final solvers in the last
+outer corrector only.
 
 Units rho = J = d_h = 1 (V6). Forces and volumes of the half domain (z >= 0) are doubled.
 Tolerances (provisional, to be decided): gate U_t within 1 %; V and Omega within 0.5 %, f/Re within
@@ -61,7 +66,19 @@ D, DH = 0.4, 32
 POINTS = [(2.0, 0.4), (2.0, 0.9), (128.0, 0.4)]
 VARIANTS = [("implicit", 1.0), ("implicit", 0.5), ("explicit", 2.0)]   # at the first point
 AVG = 1/3                      # averaging window: the last third of the run
-SETTLE = 2e-3                  # V, Omega: the two halves of the window agree to this (relative)
+SETTLE = 2e-3                  # V, Omega, G: the two halves of the window agree to this (relative)
+# End of a free run (user, 2026-11-25): in segments from T_MIN, extended by T_MIN/2 up to T_MAX,
+# until settled (SETTLE over the window of the run so far); the sphere settles within ~0.1 at Re 2
+T_MIN = {"low": 0.5, "high": 3.0}     # Re <= 8 / Re 128
+T_MAX = {"low": 3.0, "high": 15.0}
+# Production settings (user, 2026-11-25): half the V6 step at Re <= 8 (nu dt/h^2 ~ 4: the outer
+# loop), the V6 step at Re 128 (nu dt/h^2 ~ 0.06); outer correctors until the p residual is below
+# PTOL; the body kept once its change is below CTOL; Final solvers in the last corrector only
+PTOL, CTOL = 1e-4, 1e-6
+
+
+def production(Re):
+    return {"dtfac": 0.5 if Re <= 8 else 1.0, "ptol": PTOL, "ctol": CTOL, "final_last": True}
 TOL = {"V": 0.005, "Om": 0.005, "fRe": 0.01, "beta": 0.02}
 NOUTER = 3                     # PIMPLE outer correctors = coupling iterations (implicit)
 NOUTER_CAP = 60                # cap of the outer correctors with p residual control (ptol)
@@ -88,6 +105,20 @@ def gradients(log):
     return g
 
 
+def settled(log):
+    """V, Omega and the driving gradient G over the averaging window: the means of its halves agree
+    to SETTLE"""
+    h = free_lines(log)
+    g = gradients(log)
+    n = min(len(g), len(h["t"]))
+    t = h["t"][-n:]
+    V, dV, _ = window(t, h["U"][-n:, 0])
+    Om, dOm, _ = window(t, h["Om"][-n:, 2])
+    G, dG, _ = window(t, g[-n:])
+    return bool(abs(dV) <= SETTLE*abs(V) and abs(dOm) <= SETTLE*max(abs(Om), 1e-3)
+                and abs(dG) <= SETTLE*abs(G))
+
+
 def window(t, q, frac=AVG):
     """mean over the last frac of the run, and the relative difference of the means of its halves"""
     t0 = t[-1] - frac*(t[-1] - t[0])
@@ -98,13 +129,18 @@ def window(t, q, frac=AVG):
     return q.mean(axis=0), (b - a), q.std(axis=0)
 
 
-def pimple_solution(pref, nouter, tight=True, ptol=None):
+def pimple_solution(pref, nouter, tight=True, ptol=None, ctol=None, final_last=False):
     """ptol: outer-loop residual control on p (PIMPLE residualControl, the initial residual of the
     latest p solve below ptol, then the final corrector; nouter the cap). The U residual is not used:
     OpenFOAM takes the largest component, the small cross-flow one in these cases.
     tight (the gate): U to 1e-12 in every outer corrector; else (the cases) relTol 0.01 in the
     non-final correctors and 1e-9 in the final one (U to 1e-12 costs 100-400 PBiCGStab iterations
-    per component and corrector on the d/h 32 pipe)"""
+    per component and corrector on the d/h 32 pipe).
+    ctol: couplingTolerance, the free bodies kept for the rest of a step once their change between
+    correctors is below it (no geometry rebuild in the remaining correctors).
+    final_last: finalOnLastPimpleIterOnly, the Final solvers (relTol 0) only in the last outer
+    corrector (else in the last pressure corrector of every outer corrector, ~150-200 PCG
+    iterations to 1e-9 each)"""
     tu, ru, tp = (1e-12, 0, 1e-10) if tight else (1e-9, 0.01, 1e-9)
     return """
 solvers { p { solver PCG; preconditioner { preconditioner linkedGroup; base { preconditioner GAMG;
@@ -114,9 +150,11 @@ solvers { p { solver PCG; preconditioner { preconditioner linkedGroup; base { pr
           U { solver PBiCGStab; preconditioner { preconditioner linkedGroup; base DILU; } tolerance %g; relTol %g; }
           UFinal { $U; relTol 0; } }
 PIMPLE { momentumPredictor yes; nOuterCorrectors %d; nCorrectors 2; nNonOrthogonalCorrectors 0;
-         consistent yes; ddtCorr yes; pRefPoint (%r %r %r); pRefValue 0;%s }
+         consistent yes; ddtCorr yes; pRefPoint (%r %r %r); pRefValue 0;%s%s%s }
 """ % ((tp, tu, ru, nouter) + tuple(pref) +
-       (" residualControl { p { tolerance %g; relTol 0; } }" % ptol if ptol else "",))
+       (" residualControl { p { tolerance %g; relTol 0; } }" % ptol if ptol else "",
+        " couplingTolerance %g;" % ctol if ctol else "",
+        " finalOnLastPimpleIterOnly yes;" if final_last else ""))
 
 
 def run_parallel(d, app, np_):
@@ -506,20 +544,26 @@ def poiseuille(d):
     return "nonuniform List<vector>\n%d\n(\n%s\n)" % (len(u), "\n".join("(%.12g 0 0)" % x for x in u))
 
 
-def free_case(ctx, Re, er, coupling, rho, T=None, dtfac=1.0, np_=None, ptol=None):
+def free_case(ctx, Re, er, coupling, rho, T=None, dtfac=1.0, np_=None, ptol=None, ctol=None,
+              final_last=False):
     """the free sphere in the still pipe; coupling "prescribed" (diagnostic): the sphere translating
     and turning at the V6 values V, Omega instead (moving geometry without the coupling).
     ptol: outer correctors until the p residual is below ptol (cap NOUTER_CAP), else NOUTER: at Re 2
     the step is viscous-dominated (nu dt/h^2 ~ 8) and the outer loop contracts only ~0.93 per
     corrector (stock pimpleFoam alike), 3 correctors leave f/Re wrong by a factor 2 in the lab frame.
     The alternative, noted for later (user, 2026-11-25): an accelerated outer iteration
-    (Aitken/Anderson) or a coupled p-U solve (not in OpenFOAM v2412/v2506; foam-extend pUCoupledFoam)"""
+    (Aitken/Anderson) or a coupled p-U solve (not in OpenFOAM v2412/v2506; foam-extend pUCoupledFoam).
+    T: a fixed end time; None (free coupling): until settled, in segments (T_MIN, T_MAX), each a
+    restart from the last (written) time, log.ibmPimpleFoam, log.ibmPimpleFoam.1, ..."""
     hf, h0 = v6.mesh_of(D, DH)
     es = float(ref.eps_star(D))
     e = er*es
     name = "rigid_d%g_e%.4f_Re%g_h%d_%s_rho%g%s%s" % (D, e, Re, round(1/hf), coupling, rho,
                                                      "_dtx%g" % dtfac if dtfac != 1.0 else "",
-                                                     "_T%g" % T if T else "") + ("_ptol%g" % ptol if ptol else "")
+                                                     "_T%g" % T if T else ("_settle" if coupling != "prescribed"
+                                                                           else "")) \
+        + ("_ptol%g" % ptol if ptol else "") \
+        + ("_ctol%g" % ctol if ctol else "") + ("_fl" if final_last else "")
     d = ctx.root / name
     f = d / "result.json"
     if f.exists():
@@ -562,15 +606,39 @@ momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar 
     (d / "system" / "fvSchemes").write_text(
         (mig.CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default Euler;"))
     write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", pimple_solution((-0.4*L, -0.21, 0.013),
-               NOUTER_CAP if ptol else NOUTER, tight=False, ptol=ptol))
+               NOUTER_CAP if ptol else NOUTER, tight=False, ptol=ptol, ctol=ctol,
+               final_last=final_last))
     dt = 0.4*hf/(2*mig.J)*dtfac                # Courant 0.4 on the centre-line velocity
     dt = float("%.3g" % dt)
-    T = T or (3.0 if Re <= 8 else 15.0)
-    n = int(round(T/dt))                       # writeInterval counts time steps
-    geometry.control_dict(d, "ibmPimpleFoam", endTime=T, deltaT=dt, writeInterval=max(1, n//4))
+    regime = "low" if Re <= 8 else "high"
+    adaptive = T is None and coupling != "prescribed"
     cells = common.last_match((d / "log.checkMesh").read_text(), r"cells:\s+(\d+)", cast=int)
-    run_parallel(d, "ibmPimpleFoam", np_ or NP_CASE)
-    log = (d / "log.ibmPimpleFoam").read_text()
+    if not adaptive:
+        T = T or T_MAX[regime]
+        n = int(round(T/dt))                       # writeInterval counts time steps
+        geometry.control_dict(d, "ibmPimpleFoam", endTime=T, deltaT=dt, writeInterval=max(1, n//4))
+        run_parallel(d, "ibmPimpleFoam", np_ or NP_CASE)
+        log = (d / "log.ibmPimpleFoam").read_text()
+    else:
+        # segments of dT (written at their ends, the restart points) from T_MIN = 2 dT
+        dT = T_MIN[regime]/2
+        nseg = int(round(dT/dt))
+        Tk, k, logs = T_MIN[regime], 0, []
+        while True:
+            name_k = "log.ibmPimpleFoam" + (".%d" % k if k else "")
+            geometry.control_dict(d, "ibmPimpleFoam", endTime=float("%.10g" % Tk), deltaT=dt,
+                                  writeInterval=nseg)
+            if k == 0:
+                run_parallel(d, "ibmPimpleFoam", np_ or NP_CASE)
+            else:
+                common.set_keys(d / "system" / "controlDict", startFrom="latestTime")
+                common.sh("ibmPimpleFoam", d, name_k, np_=np_ or NP_CASE)
+            logs.append((d / name_k).read_text())
+            if Tk >= T_MAX[regime] - 1e-9 or settled("".join(logs)):
+                break
+            Tk, k = min(Tk + dT, T_MAX[regime]), k + 1
+        T = Tk
+        log = "".join(logs)
     if coupling == "prescribed":
         m = re.findall(r"IBM force on sphere: pressure \(([^)]*)\) viscous \(([^)]*)\)", log)
         a = np.array([[float(x) for x in (p + " " + v).split()] for p, v in m])
@@ -598,8 +666,7 @@ momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar 
          "steps": len(h["t"]), "cells": cells, "nouter": log.count("PIMPLE: iteration")/max(len(h["t"]), 1),
          "V": float(V), "dV": float(dV), "sV": float(sV), "Om": float(Om), "dOm": float(dOm), "sOm": float(sOm),
          "fRe": float(2*Fy/VB), "sfRe": float(2*sFy/VB), "G": float(G), "G0": pipe["G"],
-         "beta": float((G/pipe["G"] - 1)/aG), "settled": bool(abs(dV) <= SETTLE*abs(V) and
-                                                               abs(dOm) <= SETTLE*max(abs(Om), 1e-3)),
+         "beta": float((G/pipe["G"] - 1)/aG), "settled": settled(log), "adaptive": adaptive,
          "Fx_res": float(np.abs(h["F"][-n:, 0]).mean()*2/VB), "Mz_res": float(np.abs(h["M"][-n:, 2]).mean()*2/VB)}
     f.write_text(json.dumps(r))
     return r
@@ -674,10 +741,12 @@ def run(ctx, res):
     gates = common.pmap(lambda j: gate_free(ctx, *j, st, GATE_DT), GATE_RUNS, max(1, ctx.jobs//NP_GATE))
     scan = common.pmap(lambda dt: gate_free(ctx, "implicit", 1.0, st, dt), GATE_DT_SCAN,
                        max(1, ctx.jobs//NP_GATE))
-    jobs = [(Re, er, "implicit", 1.0) for Re, er in POINTS]
-    jobs += [(POINTS[0][0], POINTS[0][1], c, rho) for c, rho in VARIANTS if (c, rho) != ("implicit", 1.0)]
-    jobs += [(POINTS[0][0], POINTS[0][1], "implicit", 1.0, None, 0.5)]   # time-step error (G1: ~dt^2)
-    cases = common.pmap(lambda j: free_case(ctx, *j), jobs, max(1, ctx.jobs//NP_CASE))
+    Re0, er0 = POINTS[0]
+    jobs = [((Re, er, "implicit", 1.0), production(Re)) for Re, er in POINTS]
+    jobs += [((Re0, er0, c, rho), production(Re0)) for c, rho in VARIANTS if (c, rho) != ("implicit", 1.0)]
+    # time-step error (G1: ~dt^2): half the production step at the first point
+    jobs += [((Re0, er0, "implicit", 1.0), dict(production(Re0), dtfac=production(Re0)["dtfac"]/2))]
+    cases = common.pmap(lambda j: free_case(ctx, *j[0], **j[1]), jobs, max(1, ctx.jobs//NP_CASE))
     res.data["gate_static"] = st
     res.data["gate"] = gates
     res.data["gate_dt_scan"] = scan
@@ -693,7 +762,7 @@ def run(ctx, res):
     for c in cases:
         p = v6_point(c["Re"], c["epsr"])
         tag = "Re %g eps/eps* %g %s rho_s/rho %g dt %g" % (c["Re"], c["epsr"], c["coupling"], c["rho"], c["dt"])
-        res.le("%s: settled (V, Omega over the halves of the last third)" % tag,
+        res.le("%s: settled (V, Omega over the halves of the last third, end time %g)" % (tag, c["T"]),
                max(abs(c["dV"])/abs(c["V"]), abs(c["dOm"])/max(abs(c["Om"]), 1e-3)), SETTLE)
         if p is None:
             res.report("%s: no V6 point on this mesh" % tag, c["V"], None)
