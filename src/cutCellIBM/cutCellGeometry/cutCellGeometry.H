@@ -327,6 +327,18 @@ class cutCellGeometry
         //  those of the static bodies, so the result is the one of the full
         //  computation, bit for bit.
         bool cacheStatic_;
+
+        //- Hierarchical sub-sampling ("hierarchicalSampling", default true):
+        //  when every body of the sampled group has a distance level set,
+        //  boxes of sub-samples farther from the wall than their
+        //  half-diagonal are classified from their centre value alone; only
+        //  boxes the wall may cross are split, down to single samples. The
+        //  samples, their signs and the order of the sums are those of the
+        //  full sub-sampling, so the result is the same bit for bit; the
+        //  cost scales with the samples near the wall (n^2) instead of all
+        //  of them (n^3, 32768 per cut cell at nSubSamples 32)
+        bool hierSampling_;
+
         mutable bool staticCacheValid_;
         mutable scalarField staticPointPhi_;
         mutable scalarField staticFacePhi_;
@@ -576,6 +588,22 @@ class cutCellGeometry
             pointField& wetCentre,
             scalarField& pointPhi,
             pointField& edgeCross
+        ) const;
+
+        //- True if every level-set body of the group has a distance level
+        //  set (hierarchical sub-sampling)
+        bool distanceGroup(const bodyGroup group) const;
+
+        //- Signs of the level set of the group at the sub-samples of a box
+        //  (index ranges in nDir, sample coordinates by sampleCoord), +1
+        //  fluid, -1 solid, by hierarchical classification
+        void classifySamples
+        (
+            const label celli,
+            const boundBox& bb,
+            const Vector<label>& nDir,
+            const bodyGroup group,
+            List<signed char>& side
         ) const;
 
         //- Fluid fraction of one cell by sub-sampling the level set, and the

@@ -185,6 +185,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
     periodicLengths_(getOrDefault<vector>("periodicLengths", Zero)),
     cellLevelSet_(),
     cacheStatic_(getOrDefault<bool>("cacheStaticGeometry", true)),
+    hierSampling_(getOrDefault<bool>("hierarchicalSampling", true)),
     staticCacheValid_(false),
     staticPointPhi_(),
     staticFacePhi_(),
@@ -231,6 +232,7 @@ Foam::cutCellGeometry::cutCellGeometry(const fvMesh& mesh)
         << "    mergeAlpha " << mergeAlpha_
         << ", alphaMin " << alphaMin_
         << ", nSubSamples " << nSubSamples_
+        << (hierSampling_ ? " (hierarchical)" : "")
         << ", nBisect " << nBisect_
         << (secondOrder_ ? ", second-order wall treatment" : "")
         << (ibmConvection_ ? ", convective face values from the value points" : "")
@@ -1623,6 +1625,201 @@ bool Foam::cutCellGeometry::sampleInterpolatedCentroid
 }
 
 
+bool Foam::cutCellGeometry::distanceGroup(const bodyGroup group) const
+{
+    forAll(bodies_, bodyi)
+    {
+        if (inGroup(bodyi, group) && !bodies_[bodyi].distanceLevelSet())
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+namespace
+{
+    // Coordinate d of the sub-sample with index i: the arithmetic of the
+    // full sub-sampling, so the hierarchical one evaluates the same points
+    inline Foam::scalar sampleCoord
+    (
+        const Foam::boundBox& bb,
+        const Foam::Vector<Foam::label>& nDir,
+        const Foam::Vector<Foam::label>& solD,
+        const Foam::point& C,
+        const Foam::direction d,
+        const Foam::label i
+    )
+    {
+        return
+            (solD[d] < 0)
+          ? C[d]
+          : bb.min()[d] + (i + 0.5)/nDir[d]*bb.span()[d];
+    }
+
+    struct sampleBox
+    {
+        Foam::label lo[3];
+        Foam::label hi[3];   // exclusive
+    };
+}
+
+
+void Foam::cutCellGeometry::classifySamples
+(
+    const label celli,
+    const boundBox& bb,
+    const Vector<label>& nDir,
+    const bodyGroup group,
+    List<signed char>& side
+) const
+{
+    // Margin on the half-diagonal for the round-off of the body transform
+    static const scalar REACH = 1 + 1e-6;
+
+    const Vector<label>& solD = mesh_.solutionD();
+    const point& C = mesh_.cellCentres()[celli];
+    const label ny = nDir.y(), nz = nDir.z();
+    side.setSize(nDir.x()*ny*nz);
+    side = 0;
+
+    auto fill = [&](const sampleBox& b, const signed char s)
+    {
+        for (label i = b.lo[0]; i < b.hi[0]; ++i)
+        {
+            for (label j = b.lo[1]; j < b.hi[1]; ++j)
+            {
+                for (label k = b.lo[2]; k < b.hi[2]; ++k)
+                {
+                    side[(i*ny + j)*nz + k] = s;
+                }
+            }
+        }
+    };
+
+    DynamicList<sampleBox> boxes(1), next, multi;
+    {
+        sampleBox all;
+        for (direction d = 0; d < 3; ++d)
+        {
+            all.lo[d] = 0;
+            all.hi[d] = nDir[d];
+        }
+        boxes.append(all);
+    }
+    DynamicList<point> centres;
+    DynamicList<scalar> radii;
+    DynamicList<label> leafIdx;
+    DynamicList<point> leafPts;
+    scalarField phi;
+
+    while (boxes.size())
+    {
+        centres.clear();
+        radii.clear();
+        multi.clear();
+        next.clear();
+        for (const sampleBox& b : boxes)
+        {
+            if
+            (
+                b.hi[0] - b.lo[0] == 1
+             && b.hi[1] - b.lo[1] == 1
+             && b.hi[2] - b.lo[2] == 1
+            )
+            {
+                point p;
+                for (direction d = 0; d < 3; ++d)
+                {
+                    p[d] = sampleCoord(bb, nDir, solD, C, d, b.lo[d]);
+                }
+                leafIdx.append((b.lo[0]*ny + b.lo[1])*nz + b.lo[2]);
+                leafPts.append(p);
+                continue;
+            }
+            point c;
+            vector half;
+            for (direction d = 0; d < 3; ++d)
+            {
+                const scalar a = sampleCoord(bb, nDir, solD, C, d, b.lo[d]);
+                const scalar z = sampleCoord(bb, nDir, solD, C, d, b.hi[d] - 1);
+                c[d] = 0.5*(a + z);
+                half[d] = 0.5*(z - a);
+            }
+            multi.append(b);
+            centres.append(c);
+            radii.append(mag(half));
+        }
+        if (centres.size())
+        {
+            unionLevelSet(pointField(centres), phi, group);
+        }
+        forAll(multi, bi)
+        {
+            const sampleBox& b = multi[bi];
+            const scalar r = REACH*radii[bi];
+            if (phi[bi] > r)
+            {
+                fill(b, 1);
+            }
+            else if (phi[bi] < -r)
+            {
+                fill(b, -1);
+            }
+            else
+            {
+                // Split every direction with more than one sample in two
+                label m[3][3];
+                label nParts[3];
+                for (direction d = 0; d < 3; ++d)
+                {
+                    if (b.hi[d] - b.lo[d] > 1)
+                    {
+                        m[d][0] = b.lo[d];
+                        m[d][1] = (b.lo[d] + b.hi[d])/2;
+                        m[d][2] = b.hi[d];
+                        nParts[d] = 2;
+                    }
+                    else
+                    {
+                        m[d][0] = b.lo[d];
+                        m[d][1] = b.hi[d];
+                        nParts[d] = 1;
+                    }
+                }
+                for (label pi = 0; pi < nParts[0]; ++pi)
+                {
+                    for (label pj = 0; pj < nParts[1]; ++pj)
+                    {
+                        for (label pk = 0; pk < nParts[2]; ++pk)
+                        {
+                            sampleBox s;
+                            s.lo[0] = m[0][pi]; s.hi[0] = m[0][pi + 1];
+                            s.lo[1] = m[1][pj]; s.hi[1] = m[1][pj + 1];
+                            s.lo[2] = m[2][pk]; s.hi[2] = m[2][pk + 1];
+                            next.append(s);
+                        }
+                    }
+                }
+            }
+        }
+        boxes.transfer(next);
+    }
+
+    // The single samples, evaluated at the coordinates of the full
+    // sub-sampling: the same values, the same signs
+    if (leafPts.size())
+    {
+        unionLevelSet(pointField(leafPts), phi, group);
+        forAll(leafIdx, i)
+        {
+            side[leafIdx[i]] = (phi[i] > 0) ? 1 : -1;
+        }
+    }
+}
+
+
 Foam::scalar Foam::cutCellGeometry::sampleCellFraction
 (
     const label celli,
@@ -1655,6 +1852,59 @@ Foam::scalar Foam::cutCellGeometry::sampleCellFraction
         if (solD[d] < 0) nDir[d] = 1;   // empty direction: one sample
     }
 
+    centroid = C;
+
+    if (hierSampling_ && distanceGroup(group))
+    {
+        // The signs of all sub-samples by hierarchical classification, then
+        // the sums of the full sub-sampling in its order
+        List<signed char> side;
+        classifySamples(celli, bb, nDir, group, side);
+        label nIn = 0, nFluid = 0;
+        vector sum(Zero);
+        for (label i = 0; i < nDir.x(); ++i)
+        {
+            for (label j = 0; j < nDir.y(); ++j)
+            {
+                for (label k = 0; k < nDir.z(); ++k)
+                {
+                    point p
+                    (
+                        bb.min().x() + (i + 0.5)/nDir.x()*bb.span().x(),
+                        bb.min().y() + (j + 0.5)/nDir.y()*bb.span().y(),
+                        bb.min().z() + (k + 0.5)/nDir.z()*bb.span().z()
+                    );
+                    for (direction d = 0; d < 3; ++d)
+                    {
+                        if (solD[d] < 0) p[d] = C[d];
+                    }
+                    if
+                    (
+                        aligned
+                     || mesh_.pointInCell(p, celli, polyMesh::FACE_PLANES)
+                    )
+                    {
+                        ++nIn;
+                        if (side[(i*nDir.y() + j)*nDir.z() + k] > 0)
+                        {
+                            ++nFluid;
+                            sum += p;
+                        }
+                    }
+                }
+            }
+        }
+        if (nIn == 0)
+        {
+            return 1.0;
+        }
+        if (nFluid > 0)
+        {
+            centroid = sum/nFluid;
+        }
+        return scalar(nFluid)/nIn;
+    }
+
     DynamicList<point> samples(nDir.x()*nDir.y()*nDir.z());
     for (label i = 0; i < nDir.x(); ++i)
     {
@@ -1680,7 +1930,6 @@ Foam::scalar Foam::cutCellGeometry::sampleCellFraction
         }
     }
 
-    centroid = C;
     if (samples.empty())
     {
         return 1.0;
@@ -1722,6 +1971,10 @@ void Foam::cutCellGeometry::calcFromLevelSet
     const edgeList& edges = mesh_.edges();
     const cellList& cells = mesh_.cells();
 
+    // Wall-clock times of the sub-stages (reported for moving geometry)
+    clockTime clock;
+    FixedList<scalar, 5> times(Zero);
+
     // Static-body cache: the static part once, the moving bodies here
     const bool useCache = staticCacheActive();
     if (useCache && !staticCacheValid_)
@@ -1748,6 +2001,8 @@ void Foam::cutCellGeometry::calcFromLevelSet
         unionLevelSet(mesh_.faceCentres(), facePhi);
         unionLevelSet(mesh_.cellCentres(), cellPhi);
     }
+
+    times[0] = clock.timeIncrement();
 
     // Crossing point on every cut edge, by bisection of the exact level set.
     // With the cache, an edge the moving bodies cannot reach (their level
@@ -1781,9 +2036,11 @@ void Foam::cutCellGeometry::calcFromLevelSet
         cutEdges.append(edgei);
     }
     bisectEdges(pointPhi, cutEdges, ALLBODIES, edgeCross);
+    times[1] = clock.timeIncrement();
 
     // Face fractions
     faceFractions(pointPhi, edgeCross, theta, wetCentre);
+    times[2] = clock.timeIncrement();
 
     // Cell fractions. A cell is a candidate for cutting if its vertices, face
     // centres or centre do not all lie on the same side; otherwise it is
@@ -1864,6 +2121,8 @@ void Foam::cutCellGeometry::calcFromLevelSet
         }
     }
 
+    times[3] = clock.timeIncrement();
+
     // Owning body of every cut or solid cell: the body closest to its centre
     List<scalarField> bodyPhi(bodies_.size());
     forAll(bodies_, bodyi)
@@ -1900,6 +2159,8 @@ void Foam::cutCellGeometry::calcFromLevelSet
         }
     }
 
+    times[4] = clock.timeIncrement();
+
     reduce(nCandidates, sumOp<label>());
     reduce(nMissed, sumOp<label>());
     reduce(nCutEdges, sumOp<label>());
@@ -1913,6 +2174,23 @@ void Foam::cutCellGeometry::calcFromLevelSet
             << " edges reused)";
     }
     Info<< endl;
+
+    if (moving_)
+    {
+        // Max and mean over the ranks: their ratio is the load imbalance
+        // (the cut cells of a moving body sit on a few ranks)
+        static const char* names[5] =
+            {"level set at points", "edges", "faces", "cells", "owners"};
+        Info<< "    level-set stage [s, max/mean over ranks]:";
+        for (label k = 0; k < 5; ++k)
+        {
+            const scalar tMax = returnReduce(times[k], maxOp<scalar>());
+            const scalar tMean =
+                returnReduce(times[k], sumOp<scalar>())/Pstream::nProcs();
+            Info<< (k ? ", " : " ") << names[k] << ' ' << tMax << '/' << tMean;
+        }
+        Info<< endl;
+    }
 }
 
 

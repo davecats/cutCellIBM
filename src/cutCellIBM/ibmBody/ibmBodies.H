@@ -39,6 +39,7 @@ public:
     cylinderBody(const word&, const fvMesh&, const dictionary&);
     virtual void levelSet(const pointField&, scalarField&) const;
     virtual point centre() const { return centre_; }
+    virtual bool distanceLevelSet() const { return true; }
 };
 
 
@@ -52,6 +53,7 @@ public:
     virtual void levelSet(const pointField&, scalarField&) const;
     virtual point centre() const { return centre_; }
     virtual bool massProperties(scalar& volume, symmTensor& inertia) const;
+    virtual bool distanceLevelSet() const { return true; }
 };
 
 
@@ -65,6 +67,7 @@ public:
     virtual void levelSet(const pointField&, scalarField&) const;
     virtual bool massProperties(scalar& volume, symmTensor& inertia) const;
     virtual point centre() const { return 0.5*(min_ + max_); }
+    virtual bool distanceLevelSet() const { return true; }
 };
 
 
@@ -77,6 +80,7 @@ public:
     planeBody(const word&, const fvMesh&, const dictionary&);
     virtual void levelSet(const pointField&, scalarField&) const;
     virtual point centre() const { return point_; }
+    virtual bool distanceLevelSet() const { return true; }
 };
 
 

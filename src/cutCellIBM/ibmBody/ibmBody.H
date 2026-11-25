@@ -153,6 +153,16 @@ public:
         //  wall (zero-shear free slip); false for a polyhedral surface
         virtual bool smoothLevelSet() const { return hasLevelSet(); }
 
+        //- True if the level set is a distance, |phi(x) - phi(y)| <= |x - y|
+        //  (Lipschitz 1): a box of sub-samples whose centre value exceeds
+        //  its half-diagonal then lies wholly on one side and is classified
+        //  without evaluating its samples (sampleCellFraction). In a
+        //  periodic direction the minimum image about the body centre keeps
+        //  this wherever the body does not reach half a period from its
+        //  centre. False by default (a surface whose inside/outside test is
+        //  not consistent with its nearest distance)
+        virtual bool distanceLevelSet() const { return false; }
+
         //- Level set (before inversion): positive in the fluid, negative in
         //  the body. Implemented by level-set bodies.
         virtual void levelSet(const pointField& pts, scalarField& phi) const;
