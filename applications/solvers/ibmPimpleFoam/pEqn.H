@@ -1,6 +1,8 @@
 // A and H of the merged control volumes for linked small cut cells
 tmp<volScalarField> tA(UEqn.A());
 tmp<volVectorField> tH(UEqn.H());
+// Gradient increments of ibmMeanVelocityForce in this corrector
+fv::ibmMeanVelocityForce::addCorrectorSources(fvOptions, tH.ref());
 ibm.mergeA(UEqn, tA.ref());
 ibm.mergeH(UEqn, tH.ref());
 volScalarField rAU(1.0/tA);

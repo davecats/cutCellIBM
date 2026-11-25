@@ -22,6 +22,7 @@ Description
 #include "simpleControl.H"
 #include "fvOptions.H"
 #include "cutCellGeometry.H"
+#include "ibmMeanVelocityForce.H"
 #include "ibmScalarTransportList.H"
 
 int main(int argc, char *argv[])

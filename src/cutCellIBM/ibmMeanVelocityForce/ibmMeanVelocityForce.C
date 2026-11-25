@@ -256,7 +256,8 @@ void Foam::fv::ibmMeanVelocityForce::correct(volVectorField& U)
     const scalar magUbarAve = this->magUbarAve(U);
 
     // Accumulate: correct() is called after the momentum predictor and
-    // after every pressure corrector, and each increment must be kept
+    // after every pressure corrector, and each increment is kept (the
+    // pressure corrector carries it in H, addCorrectorSource)
     const scalar target = targetUbar();
     const scalar dGradPnew = relaxation_*(target - magUbarAve)/rAUave;
     dGradP_ += dGradPnew;
@@ -274,6 +275,43 @@ void Foam::fv::ibmMeanVelocityForce::correct(volVectorField& U)
         << ", pressure gradient = " << gradP() << endl;
 
     writeProps(gradP());
+}
+
+
+void Foam::fv::ibmMeanVelocityForce::addCorrectorSource
+(
+    volVectorField& H
+) const
+{
+    if (dGradP_ == 0)
+    {
+        return;
+    }
+    const volScalarField& a = alpha();
+    vectorField& HI = H.primitiveFieldRef();
+    forAll(cells_, i)
+    {
+        const label celli = cells_[i];
+        HI[celli] += flowDir_*dGradP_*a[celli];
+    }
+}
+
+
+void Foam::fv::ibmMeanVelocityForce::addCorrectorSources
+(
+    optionList& options,
+    volVectorField& H
+)
+{
+    forAll(options, i)
+    {
+        ibmMeanVelocityForce* f =
+            dynamic_cast<ibmMeanVelocityForce*>(&options[i]);
+        if (f && f->isActive())
+        {
+            f->addCorrectorSource(H);
+        }
+    }
 }
 
 

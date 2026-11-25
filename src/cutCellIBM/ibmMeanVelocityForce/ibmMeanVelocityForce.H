@@ -55,6 +55,7 @@ Description
 #define ibmMeanVelocityForce_H
 
 #include "cellSetOption.H"
+#include "fvOptionList.H"
 
 namespace Foam
 {
@@ -124,6 +125,28 @@ public:
         scalar gradP() const { return gradP0_ + dGradP_; }
 
         virtual void correct(volVectorField& U);
+
+        //- Add the gradient increments of the current outer corrector to H
+        //  (the explicit part of the momentum equation, per unit volume) as
+        //  the source alpha flowDir dGradP. correct() applies them to U as
+        //  the response s = alpha dGradP/(A - H1); they enter the momentum
+        //  source only at the next assembly (constrain). With them in H the
+        //  pressure corrector keeps the shift exactly, HbyA(U + s) =
+        //  HbyA(U) + s, and the increments of all correctors add up to the
+        //  force the flow takes. Without them only the fraction H1/A of a
+        //  shift survives a pressure corrector: nearly all of it in viscous
+        //  flow (nu dt/h^2 >> 1), almost nothing in transient flow, where
+        //  the summed increments overshoot (~ the number of correctors) and
+        //  the outer iteration diverges (V6G Re 128, 2026-11-25)
+        void addCorrectorSource(volVectorField& H) const;
+
+        //- addCorrectorSource of every active ibmMeanVelocityForce of a list
+        //  (the pressure correctors of ibmPimpleFoam and ibmSimpleFoam)
+        static void addCorrectorSources
+        (
+            optionList& options,
+            volVectorField& H
+        );
 
         virtual void addSup(fvMatrix<vector>& eqn, const label fieldi);
 
