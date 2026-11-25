@@ -64,6 +64,7 @@ AVG = 1/3                      # averaging window: the last third of the run
 SETTLE = 2e-3                  # V, Omega: the two halves of the window agree to this (relative)
 TOL = {"V": 0.005, "Om": 0.005, "fRe": 0.01, "beta": 0.02}
 NOUTER = 3                     # PIMPLE outer correctors = coupling iterations (implicit)
+NOUTER_CAP = 60                # cap of the outer correctors with p residual control (ptol)
 NP_GATE = 4
 NP_CASE = 32                   # ~13k cells per rank: the geometry is rebuilt NOUTER times a step
 
@@ -97,8 +98,11 @@ def window(t, q, frac=AVG):
     return q.mean(axis=0), (b - a), q.std(axis=0)
 
 
-def pimple_solution(pref, nouter, tight=True):
-    """tight (the gate): U to 1e-12 in every outer corrector; else (the cases) relTol 0.01 in the
+def pimple_solution(pref, nouter, tight=True, ptol=None):
+    """ptol: outer-loop residual control on p (PIMPLE residualControl, the initial residual of the
+    latest p solve below ptol, then the final corrector; nouter the cap). The U residual is not used:
+    OpenFOAM takes the largest component, the small cross-flow one in these cases.
+    tight (the gate): U to 1e-12 in every outer corrector; else (the cases) relTol 0.01 in the
     non-final correctors and 1e-9 in the final one (U to 1e-12 costs 100-400 PBiCGStab iterations
     per component and corrector on the d/h 32 pipe)"""
     tu, ru, tp = (1e-12, 0, 1e-10) if tight else (1e-9, 0.01, 1e-9)
@@ -110,8 +114,9 @@ solvers { p { solver PCG; preconditioner { preconditioner linkedGroup; base { pr
           U { solver PBiCGStab; preconditioner { preconditioner linkedGroup; base DILU; } tolerance %g; relTol %g; }
           UFinal { $U; relTol 0; } }
 PIMPLE { momentumPredictor yes; nOuterCorrectors %d; nCorrectors 2; nNonOrthogonalCorrectors 0;
-         consistent yes; ddtCorr yes; pRefPoint (%r %r %r); pRefValue 0; }
-""" % ((tp, tu, ru, nouter) + tuple(pref))
+         consistent yes; ddtCorr yes; pRefPoint (%r %r %r); pRefValue 0;%s }
+""" % ((tp, tu, ru, nouter) + tuple(pref) +
+       (" residualControl { p { tolerance %g; relTol 0; } }" % ptol if ptol else "",))
 
 
 def run_parallel(d, app, np_):
@@ -358,15 +363,20 @@ def poiseuille(d):
     return "nonuniform List<vector>\n%d\n(\n%s\n)" % (len(u), "\n".join("(%.12g 0 0)" % x for x in u))
 
 
-def free_case(ctx, Re, er, coupling, rho, T=None, dtfac=1.0, np_=None):
+def free_case(ctx, Re, er, coupling, rho, T=None, dtfac=1.0, np_=None, ptol=None):
     """the free sphere in the still pipe; coupling "prescribed" (diagnostic): the sphere translating
-    and turning at the V6 values V, Omega instead (moving geometry without the coupling)"""
+    and turning at the V6 values V, Omega instead (moving geometry without the coupling).
+    ptol: outer correctors until the p residual is below ptol (cap NOUTER_CAP), else NOUTER: at Re 2
+    the step is viscous-dominated (nu dt/h^2 ~ 8) and the outer loop contracts only ~0.93 per
+    corrector (stock pimpleFoam alike), 3 correctors leave f/Re wrong by a factor 2 in the lab frame.
+    The alternative, noted for later (user, 2026-11-25): an accelerated outer iteration
+    (Aitken/Anderson) or a coupled p-U solve (not in OpenFOAM v2412/v2506; foam-extend pUCoupledFoam)"""
     hf, h0 = v6.mesh_of(D, DH)
     es = float(ref.eps_star(D))
     e = er*es
     name = "rigid_d%g_e%.4f_Re%g_h%d_%s_rho%g%s%s" % (D, e, Re, round(1/hf), coupling, rho,
                                                      "_dtx%g" % dtfac if dtfac != 1.0 else "",
-                                                     "_T%g" % T if T else "")
+                                                     "_T%g" % T if T else "") + ("_ptol%g" % ptol if ptol else "")
     d = ctx.root / name
     f = d / "result.json"
     if f.exists():
@@ -408,7 +418,8 @@ momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar 
                "dimensions [0 2 -2 0 0 0 0];\ninternalField uniform 0;\nboundaryField { %s }\n" % bp)
     (d / "system" / "fvSchemes").write_text(
         (mig.CYL / "system" / "fvSchemes").read_text().replace("default steadyState;", "default Euler;"))
-    write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", pimple_solution((-0.4*L, -0.21, 0.013), NOUTER, tight=False))
+    write_dict(d / "system" / "fvSolution", "dictionary", "fvSolution", pimple_solution((-0.4*L, -0.21, 0.013),
+               NOUTER_CAP if ptol else NOUTER, tight=False, ptol=ptol))
     dt = 0.4*hf/(2*mig.J)*dtfac                # Courant 0.4 on the centre-line velocity
     dt = float("%.3g" % dt)
     T = T or (3.0 if Re <= 8 else 15.0)
@@ -425,6 +436,7 @@ momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar 
         VB = np.pi*D**3/6
         Fy, dFy, sFy = window(t, a[:, 1] + a[:, 4])
         r = {"name": name, "Re": Re, "epsr": er, "e": e, "T": T, "dt": dt, "steps": len(a),
+             "nouter": log.count("PIMPLE: iteration")/max(len(a), 1),
              "fRe": float(2*Fy/VB), "dfRe": float(2*dFy/VB), "sfRe": float(2*sFy/VB),
              "fRe_v6": v6_point(Re, er)["fRe"]}
         f.write_text(json.dumps(r))
@@ -440,7 +452,7 @@ momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar 
     G, dG, sG = window(t, g[-n:])
     aG = VB/(L*np.pi/4)
     r = {"name": name, "Re": Re, "epsr": er, "e": e, "coupling": coupling, "rho": rho, "T": T, "dt": dt,
-         "steps": len(h["t"]), "cells": cells,
+         "steps": len(h["t"]), "cells": cells, "nouter": log.count("PIMPLE: iteration")/max(len(h["t"]), 1),
          "V": float(V), "dV": float(dV), "sV": float(sV), "Om": float(Om), "dOm": float(dOm), "sOm": float(sOm),
          "fRe": float(2*Fy/VB), "sfRe": float(2*sFy/VB), "G": float(G), "G0": pipe["G"],
          "beta": float((G/pipe["G"] - 1)/aG), "settled": bool(abs(dV) <= SETTLE*abs(V) and
