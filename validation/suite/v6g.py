@@ -29,9 +29,20 @@ correctors until the p residual is below PTOL; the free body kept for the rest o
 change is below CTOL (no geometry rebuild in the remaining correctors); Final solvers in the last
 outer corrector only.
 
+Time-step error (user, 2026-11-25): the lab-frame error is first order in dt (implicit Euler; at Re
+128 the rotation of the sphere is braked, Omega -7.8 % at the V6 step, -4.2 % at half of it, while
+the static frame on the same mesh and step keeps the V6 balance). Each point is therefore run again
+at half the production step, from the settled production run (init), and judged on the Richardson
+estimate 2 X(dt/2) - X(dt); at Re 128 Omega and beta are REPORT (to be revisited with a
+second-order, BDF2, moving IBM). The variants are judged against the implicit rho_s/rho 1 run.
+Reference (user, 2026-11-25): the V6 balance (steady sphere frame, V and Omega to zero F_x and T_z,
+mig.Point) recomputed on the V6G mesh (balance_point): the V6 mesh is refined only around the sphere
+and its values differ from the same-mesh ones (static frame: f/Re -0.010 at Re 2 eps/eps* 0.4); the
+V6 values are listed in the notes.
+
 Units rho = J = d_h = 1 (V6). Forces and volumes of the half domain (z >= 0) are doubled.
 Tolerances (provisional, to be decided): gate U_t within 1 %; V and Omega within 0.5 %, f/Re within
-0.01 absolute and beta within 2 % of V6 at the same point and mesh.
+0.01 absolute and beta within 2 % of the sphere-frame balance at the same point and mesh.
 """
 import json
 import math
@@ -66,20 +77,31 @@ D, DH = 0.4, 32
 POINTS = [(2.0, 0.4), (2.0, 0.9), (128.0, 0.4)]
 VARIANTS = [("implicit", 1.0), ("implicit", 0.5), ("explicit", 2.0)]   # at the first point
 AVG = 1/3                      # averaging window: the last third of the run
-SETTLE = 2e-3                  # V, Omega, G: the two halves of the window agree to this (relative)
+SETTLE = 5e-4                  # V, Omega, G: the two halves of the window agree to this (relative):
+                               # TOL/10, the Richardson estimate doubles what is left (2e-3 ended Re
+                               # 128 at T 4.5 with Omega still falling 1e-3 more, 2026-11-25)
 # End of a free run (user, 2026-11-25): in segments from T_MIN, extended by T_MIN/2 up to T_MAX,
 # until settled (SETTLE over the window of the run so far); the sphere settles within ~0.1 at Re 2
 T_MIN = {"low": 0.5, "high": 3.0}     # Re <= 8 / Re 128
 T_MAX = {"low": 3.0, "high": 15.0}
 # Production settings (user, 2026-11-25): half the V6 step at Re <= 8 (nu dt/h^2 ~ 4: the outer
 # loop), the V6 step at Re 128 (nu dt/h^2 ~ 0.06); outer correctors until the p residual is below
-# PTOL; the body kept once its change is below CTOL; Final solvers in the last corrector only
-PTOL, CTOL = 1e-4, 1e-6
+# PTOL; the body kept once its change is below CTOL; Final solvers in the last corrector only.
+# PTOL 1e-5 (user, 2026-11-25): at 1e-4 f/Re at Re 2 carried an outer-loop error of ~0.0024 (two
+# half-step runs 0.2892 / 0.2868, 5-6 / 3 outer correctors); at 1e-5 they agree to 1e-4
+PTOL, CTOL = 1e-5, 1e-6
 
 
 def production(Re):
     return {"dtfac": 0.5 if Re <= 8 else 1.0, "ptol": PTOL, "ctol": CTOL, "final_last": True}
 TOL = {"V": 0.005, "Om": 0.005, "fRe": 0.01, "beta": 0.02}
+# Judged on the Richardson estimate 2 X(dt/2) - X(dt) (user, 2026-11-25): the lab-frame error is first
+# order in dt (implicit Euler; the disturbance crosses the mesh at ~V: numerical diffusion ~V^2 dt/2,
+# ~40 % of nu at Re 128, ~0.3 % at Re 2). At Re 128 Omega and beta are REPORT (user, 2026-11-25):
+# Omega -7.8 / -4.2 / -0.65 % at dt, dt/2, extrapolated (the moving frame brakes the rotation, the
+# static frame does not: v6g_re128diag); beta is a whole-pipe quantity and the V6 mesh is refined only
+# near the sphere (the V6G one over the whole length). Revisit with a second-order (BDF2) moving IBM.
+REPORT_HIGH = ("Om", "beta")
 NOUTER = 3                     # PIMPLE outer correctors = coupling iterations (implicit)
 NOUTER_CAP = 60                # cap of the outer correctors with p residual control (ptol)
 NP_GATE = 4
@@ -545,7 +567,7 @@ def poiseuille(d):
 
 
 def free_case(ctx, Re, er, coupling, rho, T=None, dtfac=1.0, np_=None, ptol=None, ctol=None,
-              final_last=False):
+              final_last=False, init=None):
     """the free sphere in the still pipe; coupling "prescribed" (diagnostic): the sphere translating
     and turning at the V6 values V, Omega instead (moving geometry without the coupling).
     ptol: outer correctors until the p residual is below ptol (cap NOUTER_CAP), else NOUTER: at Re 2
@@ -554,7 +576,11 @@ def free_case(ctx, Re, er, coupling, rho, T=None, dtfac=1.0, np_=None, ptol=None
     The alternative, noted for later (user, 2026-11-25): an accelerated outer iteration
     (Aitken/Anderson) or a coupled p-U solve (not in OpenFOAM v2412/v2506; foam-extend pUCoupledFoam).
     T: a fixed end time; None (free coupling): until settled, in segments (T_MIN, T_MAX), each a
-    restart from the last (written) time, log.ibmPimpleFoam, log.ibmPimpleFoam.1, ..."""
+    restart from the last (written) time, log.ibmPimpleFoam, log.ibmPimpleFoam.1, ...
+    init: a settled free case (its result dict) to start from, at its last written time and on the
+    same decomposition (the half-step run of the Richardson pair): segments of T_MIN/2 from there,
+    written by run time (the time index of the source counts its own steps), at most T_MAX; the
+    averages over these segments only"""
     hf, h0 = v6.mesh_of(D, DH)
     es = float(ref.eps_star(D))
     e = er*es
@@ -563,7 +589,7 @@ def free_case(ctx, Re, er, coupling, rho, T=None, dtfac=1.0, np_=None, ptol=None
                                                      "_T%g" % T if T else ("_settle" if coupling != "prescribed"
                                                                            else "")) \
         + ("_ptol%g" % ptol if ptol else "") \
-        + ("_ctol%g" % ctol if ctol else "") + ("_fl" if final_last else "")
+        + ("_ctol%g" % ctol if ctol else "") + ("_fl" if final_last else "") + ("_init" if init else "")
     d = ctx.root / name
     f = d / "result.json"
     if f.exists():
@@ -623,20 +649,32 @@ momentumSource { type ibmMeanVelocityForce; selectionMode all; fields (U); Ubar 
         # segments of dT (written at their ends, the restart points) from T_MIN = 2 dT
         dT = T_MIN[regime]/2
         nseg = int(round(dT/dt))
-        Tk, k, logs = T_MIN[regime], 0, []
+        t0 = 0.0
+        if init:
+            s0 = ctx.root / init["name"]
+            t0 = max(float(x.name) for x in (s0 / "processor0").iterdir() if re.fullmatch(r"[0-9.e+-]+", x.name))
+            tn = "%.10g" % t0
+            for q in sorted(s0.glob("processor*")):
+                if not (d / q.name / tn).exists():
+                    shutil.copytree(q / "constant", d / q.name / "constant", dirs_exist_ok=True)
+                    shutil.copytree(q / tn, d / q.name / tn)
+        Tk, k, logs = t0 + (dT if init else T_MIN[regime]), 0, []
         while True:
             name_k = "log.ibmPimpleFoam" + (".%d" % k if k else "")
             geometry.control_dict(d, "ibmPimpleFoam", endTime=float("%.10g" % Tk), deltaT=dt,
                                   writeInterval=nseg)
-            if k == 0:
+            if init:
+                common.set_keys(d / "system" / "controlDict", writeControl="runTime",
+                                writeInterval="%.10g" % dT)
+            if k == 0 and not init:
                 run_parallel(d, "ibmPimpleFoam", np_ or NP_CASE)
             else:
                 common.set_keys(d / "system" / "controlDict", startFrom="latestTime")
                 common.sh("ibmPimpleFoam", d, name_k, np_=np_ or NP_CASE)
             logs.append((d / name_k).read_text())
-            if Tk >= T_MAX[regime] - 1e-9 or settled("".join(logs)):
+            if Tk >= t0 + T_MAX[regime] - 1e-9 or (Tk >= t0 + 2*dT - 1e-9 and settled("".join(logs))):
                 break
-            Tk, k = min(Tk + dT, T_MAX[regime]), k + 1
+            Tk, k = min(Tk + dT, t0 + T_MAX[regime]), k + 1
         T = Tk
         log = "".join(logs)
     if coupling == "prescribed":
@@ -725,6 +763,51 @@ def frame_case(ctx, Re, er, T=None):
     return r
 
 
+class FullPoint(mig.Point):
+    """mig.Point (the V6 balance: steady sphere frame, V and Omega by Newton/Broyden to zero F_x and
+    T_z) on the V6G mesh, refined over the whole length (user, 2026-11-25: the same-mesh reference
+    of the Galilean check; the V6 mesh is refined only around the sphere, and on the V6G mesh the
+    static frame differs from V6 by f/Re -0.010 at Re 2 eps/eps* 0.4 and beta +2.6 % at Re 128)"""
+
+    def __init__(self, ctx, Re, er):
+        hf, h0 = v6.mesh_of(D, DH)
+        super().__init__(ctx.root / "balance", "rigid", D, er*float(ref.eps_star(D)), Re, hf, h0=h0)
+        self.ctx = ctx
+        # judged by stationarity (G to 1e-10 over 200 iterations, mig.extract), as the empty pipe:
+        # on the mesh refined over the whole length the residual control may not be reached
+        self.end_time = 6000
+
+    def empty(self):
+        """the V6G empty pipe (empty_pipe, mesh_full), its mesh, system and result copied"""
+        d = self.root / (self.name + "_pipe")
+        f = d / "result.json"
+        if f.exists():
+            return json.loads(f.read_text())
+        r = empty_pipe(self.ctx, self.Re, self.hf, self.e, self.h0)
+        src = self.ctx.root / ("pipe_e%.4f_Re%g" % (self.e, self.Re))
+        d.mkdir(parents=True, exist_ok=True)
+        if not (d / "constant" / "polyMesh").exists():
+            shutil.copytree(src / "constant" / "polyMesh", d / "constant" / "polyMesh")
+            shutil.copytree(src / "system", d / "system")
+            shutil.copy(src / "log.checkMesh", d / "log.checkMesh")
+        f.write_text(json.dumps(r))
+        return r
+
+
+def balance_point(ctx, Re, er):
+    """the V6 balance at (Re, eps/eps*) on the V6G mesh, from the V6 V, Omega (v6.TOL, v6 steps)"""
+    f = ctx.root / "balance" / ("balance_Re%g_epsr%g.json" % (Re, er))
+    if f.exists():
+        return json.loads(f.read_text())
+    p6 = v6_point(Re, er)
+    P = FullPoint(ctx, Re, er)
+    r, _ = P.balance([p6["V"], p6["Om"]], v6.TOL, dx=[0.02, 0.05])
+    r.update(dh=DH, epsr=er)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps(r))
+    return r
+
+
 def v6_point(Re, er):
     """the V6 baseline point at this (Re, eps/eps*) on the d/h 32 mesh"""
     b = common.load_baseline("V6")
@@ -744,13 +827,18 @@ def run(ctx, res):
     Re0, er0 = POINTS[0]
     jobs = [((Re, er, "implicit", 1.0), production(Re)) for Re, er in POINTS]
     jobs += [((Re0, er0, c, rho), production(Re0)) for c, rho in VARIANTS if (c, rho) != ("implicit", 1.0)]
-    # time-step error (G1: ~dt^2): half the production step at the first point
-    jobs += [((Re0, er0, "implicit", 1.0), dict(production(Re0), dtfac=production(Re0)["dtfac"]/2))]
     cases = common.pmap(lambda j: free_case(ctx, *j[0], **j[1]), jobs, max(1, ctx.jobs//NP_CASE))
+    # the reference: the V6 balance (steady sphere frame) on the same mesh (user, 2026-11-25)
+    bal = common.pmap(lambda j: balance_point(ctx, *j), POINTS, max(1, ctx.jobs//8))
+    # the Richardson pair: half the production step from the settled production run of each point
+    half = common.pmap(lambda c: free_case(ctx, c["Re"], c["epsr"], "implicit", 1.0, init=c,
+                                           **dict(production(c["Re"]), dtfac=production(c["Re"])["dtfac"]/2)),
+                       cases[:len(POINTS)], max(1, ctx.jobs//NP_CASE))
     res.data["gate_static"] = st
     res.data["gate"] = gates
     res.data["gate_dt_scan"] = scan
     res.data["cases"] = cases
+    res.data["half"] = half
     res.data["metrics"] = {}
     for g in gates:
         res.rel("G1 free sphere, Stokes box, %s rho_s/rho %g: terminal velocity (static drag on the same mesh)"
@@ -759,15 +847,33 @@ def run(ctx, res):
     for g in scan:
         res.report("G1 implicit rho_s/rho 1, dt %g: terminal velocity" % g["dt"], g["Ut"], 1.0,
                    "deviation %+.3g %%" % (100*(g["Ut"] - 1)))
-    for c in cases:
-        p = v6_point(c["Re"], c["epsr"])
+    keys = ("V", "Om", "fRe", "beta")
+    for c in cases + half:
         tag = "Re %g eps/eps* %g %s rho_s/rho %g dt %g" % (c["Re"], c["epsr"], c["coupling"], c["rho"], c["dt"])
         res.le("%s: settled (V, Omega over the halves of the last third, end time %g)" % (tag, c["T"]),
                max(abs(c["dV"])/abs(c["V"]), abs(c["dOm"])/max(abs(c["Om"]), 1e-3)), SETTLE)
-        if p is None:
-            res.report("%s: no V6 point on this mesh" % tag, c["V"], None)
-            continue
-        res.rel("%s: V vs V6" % tag, c["V"], p["V"], TOL["V"], "std %.1e" % c["sV"])
-        res.rel("%s: Omega vs V6" % tag, c["Om"], p["Om"], TOL["Om"], "std %.1e" % c["sOm"])
-        res.absolute("%s: f/Re vs V6" % tag, c["fRe"], p["fRe"], TOL["fRe"], "std %.1e" % c["sfRe"])
-        res.rel("%s: beta vs V6" % tag, c["beta"], p["beta"], TOL["beta"], "G %.6g G0 %.6g" % (c["G"], c["G0"]))
+    res.data["balance"] = bal
+    for c, c2, p in zip(cases, half, bal):
+        p6 = v6_point(c["Re"], c["epsr"])
+        tag = "Re %g eps/eps* %g" % (c["Re"], c["epsr"])
+        x = {k: 2*c2[k] - c[k] for k in keys}
+        res.data["metrics"][tag] = {"richardson": x, "dt": c["dt"], "dt2": c2["dt"]}
+        res.le("%s: sphere-frame balance on the V6G mesh (|F_x|, |T_z| / V_B)" % tag,
+               max(abs(v) for v in p["residual"]), v6.TOL, "%d solves" % p["solves"])
+        for k, label in zip(keys, ("V", "Omega", "f/Re", "beta")):
+            note = "dt %.6g, dt/2 %.6g; V6 (its mesh) %.6g" % (c[k], c2[k], p6[k])
+            what = "%s: %s, lab frame (Richardson) vs sphere frame (same mesh)" % (tag, label)
+            if c["Re"] > 8 and k in REPORT_HIGH:
+                res.report(what + ": first-order lab-frame time error, REPORT", x[k], p[k], note)
+            elif k == "fRe":
+                res.absolute(what, x[k], p[k], TOL[k], note)
+            else:
+                res.rel(what, x[k], p[k], TOL[k], note)
+    # density and coupling independence: the variants against the implicit rho_s/rho 1 run (same step)
+    for c in cases[len(POINTS):]:
+        tag = "Re %g eps/eps* %g %s rho_s/rho %g" % (c["Re"], c["epsr"], c["coupling"], c["rho"])
+        for k, label in zip(keys, ("V", "Omega", "f/Re", "beta")):
+            if k == "fRe":
+                res.absolute("%s: %s vs implicit rho_s/rho 1" % (tag, label), c[k], cases[0][k], TOL[k])
+            else:
+                res.rel("%s: %s vs implicit rho_s/rho 1" % (tag, label), c[k], cases[0][k], TOL[k])

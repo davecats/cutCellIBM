@@ -64,10 +64,10 @@ def mesh(d, hf, dsph=None, e=0.0, L=3.0, refine=True, h0=None):
 
 
 def setup(d, Re, hf, dsph=None, e=0.0, interface="rigid", V=0.0, Om=0.0, L=3.0, ubar=None, sphere=True, h0=None,
-          **ibm):
+          end_time=20000, **ibm):
     """case d: the pipe sliding at -V (static if V = 0), the mesh refined around a sphere of
     diameter dsph at e (none: the plain pipe mesh); sphere False: the empty pipe on that mesh; ubar:
-    the imposed fluid-volume average (default J - V, the empty pipe)"""
+    the imposed fluid-volume average (default J - V, the empty pipe); end_time: the iteration cap"""
     d = Path(d)
     if not (d / "constant" / "polyMesh" / "owner").exists():
         mesh(d, hf, dsph, e, L, h0=h0)
@@ -108,7 +108,7 @@ SIMPLE { nNonOrthogonalCorrectors 0; consistent yes; pRefPoint (%r -0.21 0.013);
          residualControl { p 1e-9; U 1e-9; } }
 relaxationFactors { equations { U 0.9; } fields { p 1.0; } }
 """ % (-0.4*L,))
-    geometry.control_dict(d, "ibmSimpleFoam", endTime=20000, deltaT=1, writeInterval=20000)
+    geometry.control_dict(d, "ibmSimpleFoam", endTime=end_time, deltaT=1, writeInterval=end_time)
 
 
 def fluid_volume(d):
@@ -176,6 +176,7 @@ class Point:
         self.root, self.interface, self.dsph, self.e, self.Re, self.hf, self.L = Path(root), interface, dsph, e, Re, hf, L
         self.h0 = h0 if h0 and abs(h0 - 2*hf) > 1e-12 else None
         self.ibm = ibm
+        self.end_time = 20000        # iteration cap of a solve (setup)
         self.VB = np.pi*dsph**3/6
         self.name = "%s_d%g_e%.4f_Re%g_h%d%s%s" % (interface, dsph, e, Re, round(1/hf),
                                                   "_H%d" % round(1/self.h0) if self.h0 else "", tag)
@@ -217,7 +218,8 @@ class Point:
                 shutil.copytree(self.root / (self.name + "_pipe") / "constant" / "polyMesh", d / "constant" / "polyMesh")
                 shutil.copytree(self.root / (self.name + "_pipe") / "system", d / "system")
                 shutil.copy(self.root / (self.name + "_pipe") / "log.checkMesh", d / "log.checkMesh")
-            setup(d, self.Re, self.hf, self.dsph, self.e, self.interface, V, Om, self.L, h0=self.h0, **self.ibm)
+            setup(d, self.Re, self.hf, self.dsph, self.e, self.interface, V, Om, self.L, h0=self.h0,
+                  end_time=self.end_time, **self.ibm)
             Vf = geometry_only(d)
             ub = float((J - V)*ref["Vf0"]/Vf)
             (d / "constant" / "fvOptions").write_text(re.sub(r"Ubar \([^)]*\)", "Ubar (%r 0 0)" % ub,
